@@ -1,0 +1,13 @@
+
+======================================================================================
+                  Resource Usage on 2024-07-08 10:58:04:
+   Job Id:             119948929.gadi-pbs
+   Project:            kr68
+   Exit Status:        137 (Linux Signal 9 SIGKILL Kill, unblockable)
+   Service Units:      0.99
+   NCPUs Requested:    8                      NCPUs Used: 8               
+                                           CPU Time Used: 00:03:33        
+   Memory Requested:   10.0GB                Memory Used: 10.0GB          
+   Walltime requested: 01:00:00            Walltime Used: 00:03:42        
+   JobFS requested:    32.0GB                 JobFS used: 1.15GB          
+======================================================================================

@@ -1,0 +1,14 @@
+[1] "Elapsed time: 9.64437650044759"
+
+======================================================================================
+                  Resource Usage on 2024-07-08 11:12:55:
+   Job Id:             119949573.gadi-pbs
+   Project:            kr68
+   Exit Status:        0
+   Service Units:      5.29
+   NCPUs Requested:    8                      NCPUs Used: 8               
+                                           CPU Time Used: 00:09:45        
+   Memory Requested:   64.0GB                Memory Used: 24.05GB         
+   Walltime requested: 01:00:00            Walltime Used: 00:09:55        
+   JobFS requested:    32.0GB                 JobFS used: 0B              
+======================================================================================

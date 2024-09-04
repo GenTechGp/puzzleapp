@@ -1,0 +1,7 @@
+/home/913/ar5564/.bashrc: line 73: /g/data/te53/ontsv/ar5564/cnvnator/root/bin/thisroot.sh: No such file or directory
+ERROR: Directory '/g/data/xl04/apps/modules' not found
+ERROR: Directory '/g/data/te53/modules' not found
+Error in fread(pedigree_data, header = TRUE) : 
+  could not find function "fread"
+Calls: source -> withVisible -> eval -> eval
+Execution halted

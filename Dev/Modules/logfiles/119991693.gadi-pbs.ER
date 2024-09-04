@@ -1,0 +1,19 @@
+/home/913/ar5564/.bashrc: line 73: /g/data/te53/ontsv/ar5564/cnvnator/root/bin/thisroot.sh: No such file or directory
+ERROR: Directory '/g/data/xl04/apps/modules' not found
+ERROR: Directory '/g/data/te53/modules' not found
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:data.table':
+
+    between, first, last
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+There were 50 or more warnings (use warnings() to see the first 50)

@@ -1,0 +1,22 @@
+/home/913/ar5564/.bashrc: line 73: /g/data/te53/ontsv/ar5564/cnvnator/root/bin/thisroot.sh: No such file or directory
+ERROR: Directory '/g/data/xl04/apps/modules' not found
+ERROR: Directory '/g/data/te53/modules' not found
+
+Attaching package: 'dplyr'
+
+The following objects are masked from 'package:data.table':
+
+    between, first, last
+
+The following objects are masked from 'package:stats':
+
+    filter, lag
+
+The following objects are masked from 'package:base':
+
+    intersect, setdiff, setequal, union
+
+Warning message:
+In fread(vep_output, skip = "## VEP command-line:", header = TRUE,  :
+  Stopped early on line 267863. Expected 45 fields but found 44. Consider fill=TRUE and comment.char=. First discarded non-empty line: <<chr1_39888283_G_A	chr1:39888283	A	ENSG00000043514	ENST00000316891	Transcript	upstream_gene_variant	-	-	-	-	-	rs11207068	G	G/A	MODIFIER	4779	-1	-	SNV	TRIT1	HGNC	HGNC:20286	protein_coding	YES	NM_017646.6	-	-	1	ENSG00000043514	-	-	-	-	0.0080	0.04934	gnomADg_AMI	-	-	-	-	-	rs11207068	0.013785>>
+There were 50 or more warnings (use warnings() to see the first 50)
