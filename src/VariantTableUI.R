@@ -1,4 +1,4 @@
-tabUI <- function(id,tab_label,vars, preselected_vars = character(0),show_file_saving=FALSE) {
+tabUI <- function(id,tab_label, outdir, preselected_vars = character(0),show_file_saving=FALSE) {
   ns <- NS(id)
   tabPanel(tab_label,
            #use_busy_spinner(spin = "fading-circle", position = "top-right", color = "#0000FF",spin_id = ns("spin_table_rendering")),

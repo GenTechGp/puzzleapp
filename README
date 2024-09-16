@@ -1,0 +1,8 @@
+JigSeq PuzzleApp
+================
+
+Usage
+-----
+Run the app using a pre-generated RData file:
+
+	OUTDIR=<dir> ./run.R data.RData
