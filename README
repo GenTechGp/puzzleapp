@@ -3,6 +3,48 @@ JigSeq PuzzleApp
 
 Usage
 -----
-Run the app using a pre-generated RData file:
+Run the app using a pre-generated RData file. Optionally specify the port:
 
-	OUTDIR=<dir> ./run.R data.RData
+	OUTDIR=<dir> ./run.R <RData> [port]
+
+Connect using a browser at the printed local address.
+
+Dependencies
+------------
+R (https://www.r-project.org/).
+
+The following R dependencies are on the CRAN repository
+(https://cran.r-project.org/web/packages/).
+
+Install these by running the following in R:
+
+	install.packages("DT")
+	install.packages("data.table")
+	install.packages("dplyr")
+	install.packages("ggplot2")
+	install.packages("openxlsx")
+	install.packages("plotly")
+	install.packages("shiny")
+	install.packages("shinyBS")
+	install.packages("shinyWidgets")
+	install.packages("shinyalert")
+	install.packages("shinybusy")
+	install.packages("shinyjs")
+	install.packages("sortable")
+	install.packages("stringr")
+	install.packages("tidyr")
+
+The following dependencies are available on Bioconductor
+(https://www.bioconductor.org/install):
+
+	install.packages("BiocManager")
+	BiocManager::install("GenomicAlignments")
+	BiocManager::install("VariantAnnotation")
+	BiocManager::install("igvShiny")
+	BiocManager::install("liftOver")
+
+Session Info
+------------
+The app was developed using the following software versions:
+
+R: 4.3.1 and 4.3.2
