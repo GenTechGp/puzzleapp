@@ -1,6 +1,5 @@
 #!/usr/bin/env Rscript
-# load an RData file and run the app
-# optionally specify a localhost port
+# Load an RData file and run the app. Optionally specify a localhost port.
 # usage: ./run.R <RData> [port]
 
 library(shiny)

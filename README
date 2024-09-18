@@ -11,10 +11,10 @@ Connect using a browser at the printed local address.
 
 Dependencies
 ------------
-R (https://www.r-project.org/).
+R <https://www.r-project.org/>.
 
 The following R dependencies are on the CRAN repository
-(https://cran.r-project.org/web/packages/).
+<https://cran.r-project.org/web/packages/>.
 
 Install these by running the following in R:
 
@@ -35,7 +35,7 @@ Install these by running the following in R:
 	install.packages("tidyr")
 
 The following dependencies are available on Bioconductor
-(https://www.bioconductor.org/install):
+<https://www.bioconductor.org/install>:
 
 	install.packages("BiocManager")
 	BiocManager::install("GenomicAlignments")
