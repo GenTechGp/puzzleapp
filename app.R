@@ -82,7 +82,7 @@ server <- function(input, output, session) {
   })
   cat(paste("selectFiltersServer time:", format_time(select_filters_time), "\n"))
   tabServer(id=sprintf("%s-%s",sample,"tab2"), filtered_data=filtered_data, vars = c("PRIORITY","NOTES",names(processed_data),"HPO_ID","HPO_COUNT","PANEL_APP","INHERITANCE","Color"),preselected_vars = c("PRIORITY","NOTES",preselected_vars,"Color"))
-  igvServer(id=sprintf("%s-%s",sample,"tab3"), snps_vcf_file = sprintf("%s/%s",project_dir,snvs_vcf), svs_vcf_file = sprintf("%s/%s",project_dir,svs_vcf), bam_file = bam_files, assembly = "hg38", chain_file = chain_hg38_to_chm13, kinship = pedigree_data$kinship)
+  igvServer(id=sprintf("%s-%s",sample,"tab3"), snps_vcf_file = sprintf("%s/%s",project_dir,snvs_vcf), svs_vcf_file = sprintf("%s/%s",project_dir,svs_vcf), bam_file = bam_files, assembly = "hg38", kinship = pedigree_data$kinship)
   panel_app_output <- reactiveVal(as.data.frame(panel_app))
   tabServer(id=sprintf("%s-%s",sample,"tab4"), filtered_data=panel_app_output, vars = names(panel_app),preselected_vars = panel_app_vars)
   HPOtabServer(id=sprintf("%s-%s",sample,"tab5"), phenotype_data = phenotype_data)

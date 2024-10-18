@@ -56,7 +56,7 @@ snvs_vcf <- config$paths$snvs_vcf
 svs_vcf <- config$paths$svs_vcf
 rdata_output <- config$paths$rdata_output
 
-chain_hg38_to_chm13 <- config$dependencies$chain_hg38_to_chm13
+#chain_hg38_to_chm13 <- config$dependencies$chain_hg38_to_chm13
 panel_app <- config$dependencies$panel_app
 vep_consequences <- config$dependencies$vep_consequences
 phenotype_data <- config$dependencies$phenotype_data
@@ -68,7 +68,7 @@ phenotype_data <- config$dependencies$phenotype_data
 required_paths <- list(
   snvs_vcf = snvs_vcf,
   svs_vcf = svs_vcf,
-  chain_hg38_to_chm13 = chain_hg38_to_chm13,
+  #chain_hg38_to_chm13 = chain_hg38_to_chm13,
   panel_app = panel_app,
   vep_consequences = vep_consequences,
   phenotype_data = phenotype_data
@@ -289,4 +289,4 @@ phenotype_data <- fread(phenotype_data,header=TRUE)
 processed_data <- rbind(snv_data)
 
 save(sample, processed_data, pedigree_data, panel_app_genes,
-     vep_consequences, preselected_vars, panel_app, panel_app_vars, snvs_vcf, svs_vcf, bam_files, chain_hg38_to_chm13,phenotype_data, file = rdata_output)
+     vep_consequences, preselected_vars, panel_app, panel_app_vars, snvs_vcf, svs_vcf, bam_files, phenotype_data, file = rdata_output)
