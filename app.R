@@ -5,7 +5,6 @@ if (outdir == "")
 	outdir <- "."
 tracks_dir <- sprintf("%s/tracks",outdir)
 project_dir <- getwd()
-bam_files <- lapply(bam_files,function(x)sprintf("%s/%s",project_dir,x))
 
 # load Shiny Modules
 source(sprintf("%s/src/SelectFilterUI.R",project_dir))
@@ -77,12 +76,13 @@ ui <- fluidPage(
 #  processed_data[sample(nrow(processed_data), 100000), ]
 # Define server
 server <- function(input, output, session) {
+  filtered_data <- reactiveVal(NULL)
   select_filters_time <- system.time({
     filtered_data <- selectFiltersServer(id = sprintf("%s-%s", sample, "tab1"), dataset = processed_data, pedigree = pedigree_data, panel_app_genes = panel_app_genes, vep_consequences = vep_consequences, phenotype_data = phenotype_data)
   })
   cat(paste("selectFiltersServer time:", format_time(select_filters_time), "\n"))
   tabServer(id=sprintf("%s-%s",sample,"tab2"), filtered_data=filtered_data, vars = c("PRIORITY","NOTES",names(processed_data),"HPO_ID","HPO_COUNT","PANEL_APP","INHERITANCE","Color"),preselected_vars = c("PRIORITY","NOTES",preselected_vars,"Color"))
-  igvServer(id=sprintf("%s-%s",sample,"tab3"), snps_vcf_file = sprintf("%s/%s",project_dir,snvs_vcf), svs_vcf_file = sprintf("%s/%s",project_dir,svs_vcf), bam_file = bam_files, assembly = "hg38", kinship = pedigree_data$kinship)
+  igvServer(id=sprintf("%s-%s",sample,"tab3"), snps_vcf_file = snvs_vcf, svs_vcf_file = svs_vcf, bam_file = bam_files, assembly = "hg38", kinship = pedigree_data$kinship)
   panel_app_output <- reactiveVal(as.data.frame(panel_app))
   tabServer(id=sprintf("%s-%s",sample,"tab4"), filtered_data=panel_app_output, vars = names(panel_app),preselected_vars = panel_app_vars)
   HPOtabServer(id=sprintf("%s-%s",sample,"tab5"), phenotype_data = phenotype_data)
