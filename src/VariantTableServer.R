@@ -55,16 +55,15 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
     
     # Update table if sidebar input is changed (lacy)
     fileData <- reactive({
-      #print("fileData")
       if (!is.null(filtered_data())) {
         dataset <- filtered_data()
         #print(names(dataset))
         selected_vars <- input$selected_vars
         #print(selected_vars)
-        # Add PRIORITY column at the beginning and Color column at the end
+        # Add PRIORITY & NOTES columns at the beginning and Color column at the end
         # Add PRIORITY and Color columns if they don't exist
         if (!("PRIORITY" %in% names(dataset))) {
-          dataset <- data.frame(PRIORITY = 0, dataset)
+          dataset <- data.frame(PRIORITY = 0, NOTES="", dataset)
         }
         if (!("Color" %in% names(dataset))) {
           dataset$Color <-"#FFFFFF"
