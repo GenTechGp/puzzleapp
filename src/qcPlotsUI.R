@@ -26,10 +26,10 @@ qcPlotsUI <- function(id,tab_label,coverage_analysis,somalier_analysis,vaf_distr
                             bsCollapse(id = ns("collapse_somalier"), open = "Somalier analysis",
                                        bsCollapsePanel("Somalier analysis",
                                                        selectInput(ns("x_var"), "X-axis:",
-                                                                   choices = c("relatedness", "ibs0", "ibs2", "hom_concordance", 
+                                                                   choices = c("relatedness", "ibs0", "ibs2", "hom_concordance",
                                                                                "shared_hets","shared_hom_alts","hets_ab"), selected = "ibs0"),
                                                        selectInput(ns("y_var"), "Y-axis:",
-                                                                   choices = c("relatedness", "ibs0", "ibs2", "hom_concordance", 
+                                                                   choices = c("relatedness", "ibs0", "ibs2", "hom_concordance",
                                                                                "shared_hets","shared_hom_alts","hets_ab"), selected = "ibs2"),
                                                        style = "primary")
                             ),

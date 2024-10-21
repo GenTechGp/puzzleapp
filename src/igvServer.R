@@ -1,8 +1,8 @@
 igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_file,assembly,chain_file,kinship) {
   moduleServer(id, function(input, output, session) {
-    
+
     ns <- session$ns
-    
+
     parseRegions <- function(region_string) {
       regions <- strsplit(region_string, " ")[[1]]
       gr_list <- lapply(regions, function(region) {
@@ -17,62 +17,62 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
       })
       do.call(c, gr_list)
     }
-    
+
     # # Generate dynamic buttons based on kinship vector
     # output$dynamicButtons <- renderUI({
     #   buttons <- tagList()
     #   if ("proband" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons, 
-    #                               tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"), 
+    #     buttons <- tagAppendChild(buttons,
+    #                               tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"),
     #                                        style = "margin-bottom: 10px;"))
     #   }
     #   if ("mother" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons, 
-    #                               tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"), 
+    #     buttons <- tagAppendChild(buttons,
+    #                               tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"),
     #                                        style = "margin-bottom: 10px;"))
     #   }
     #   if ("father" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons, 
-    #                               tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"), 
+    #     buttons <- tagAppendChild(buttons,
+    #                               tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"),
     #                                        style = "margin-bottom: 10px;"))
     #   }
     #   buttons
     # })
-    
+
     output$dynamicButtons <- renderUI({
       buttons <- tagList()
       if ("proband" %in% kinship) {
-        buttons <- tagAppendChild(buttons, 
-                                  tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"), 
+        buttons <- tagAppendChild(buttons,
+                                  tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"),
                                            style = "margin-bottom: 10px;"))
       }
       if ("mother" %in% kinship) {
-        buttons <- tagAppendChild(buttons, 
-                                  tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"), 
+        buttons <- tagAppendChild(buttons,
+                                  tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"),
                                            style = "margin-bottom: 10px;"))
       }
       if ("father" %in% kinship) {
-        buttons <- tagAppendChild(buttons, 
-                                  tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"), 
+        buttons <- tagAppendChild(buttons,
+                                  tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"),
                                            style = "margin-bottom: 10px;"))
       }
       if ("brother" %in% kinship) {
-        buttons <- tagAppendChild(buttons, 
-                                  tags$div(actionButton(ns("addBrotherBAMTrackButton"), "Brother BAM"), 
+        buttons <- tagAppendChild(buttons,
+                                  tags$div(actionButton(ns("addBrotherBAMTrackButton"), "Brother BAM"),
                                            style = "margin-bottom: 10px;"))
       }
       if ("uncle" %in% kinship) {
-        buttons <- tagAppendChild(buttons, 
-                                  tags$div(actionButton(ns("addUncleBAMTrackButton"), "Uncle BAM"), 
+        buttons <- tagAppendChild(buttons,
+                                  tags$div(actionButton(ns("addUncleBAMTrackButton"), "Uncle BAM"),
                                            style = "margin-bottom: 10px;"))
       }
       buttons
     })
-    
-    
+
+
     current_region <- reactiveVal(NULL)
     # chr1:1000-2000 chr1:3000:4000
-    
+
     observeEvent(input$genome_coords_search, {
       region_of_interest <- input$genome_coords
       print(region_of_interest)
@@ -90,7 +90,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         })
       }
     })
-    
+
     observeEvent(input$addProbandBAMTrackButton, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -103,7 +103,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Proband BAM", data = bam, displayMode = "EXPANDED")
       }
     })
-    
+
     observeEvent(input$addMotherBAMTrackButton, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -116,7 +116,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Mother BAM", data = bam, displayMode = "EXPANDED")
       }
     })
-    
+
     observeEvent(input$addFatherBAMTrackButton, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -129,7 +129,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Father BAM", data = bam, displayMode = "EXPANDED")
       }
     })
-    
+
     # Observe the Brother BAM button click event
     observeEvent(input$addBrotherBAMTrackButton, {
       region_of_interest <- current_region()
@@ -143,7 +143,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Brother BAM", data = bam, displayMode = "EXPANDED")
       }
     })
-    
+
     # Observe the Uncle BAM button click event
     observeEvent(input$addUncleBAMTrackButton, {
       region_of_interest <- current_region()
@@ -157,7 +157,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Uncle BAM", data = bam, displayMode = "EXPANDED")
       }
     })
-    
+
     observeEvent(input$snvs_vcf, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -166,7 +166,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf)
       }
     })
-    
+
     observeEvent(input$svs_vcf, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -175,6 +175,6 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf)
       }
     })
-    
+
   })
 }

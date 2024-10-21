@@ -1,40 +1,40 @@
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    
+
     format_time <- function(time) {
       paste(round(time["elapsed"], 3), "seconds")
     }
-    
+
     initialise_widgets_time <- system.time({
-      
+
       show_spinner()
-      
+
       number_of_individuals <- reactiveVal(dim(pedigree)[1])
-      
+
       allele_counts <- rep("",dim(pedigree)[1])
       names(allele_counts) <- pedigree$sample_id
       allele_counts <- reactiveValues(values=allele_counts)
-      
+
       condition_status <- pedigree$status
       names(condition_status) <- pedigree$sample_id
       condition_status <- reactiveValues(values=condition_status)
-      
+
       green_genes <- reactiveVal()
       red_genes <- reactiveVal()
       amber_genes <- reactiveVal()
       unclassified_genes <- reactiveVal()
-      
+
       current_shortlisted_ids <- reactiveVal()
       current_blacklisted_ids <- reactiveVal()
       current_phenotype_terms <- reactiveVal()
-      
+
       filtered_table_output <- reactiveVal(dataset)
-      
+
       igv_coord_box <- reactiveVal(NULL)
-      
+
       initialisation <- reactiveVal(TRUE)
-      
+
       clinvar_options <- c("Pathogenic", "Likely pathogenic", "VUS","Conflicting","Benign","Likely benign","Not available")
       clinvar_options_display <- lapply(
         X = clinvar_options,
@@ -44,7 +44,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           )
         }
       )
-      
+
       consequence_options <- c("Stop gained","Start lost","Stop lost","Splice variant","Frameshift variant","Missense variant","In-frame variant","Synonymous variant","5'UTR variant","3'UTR variant","Intron variant","Other")
       consequence_options_display <- lapply(
         X = consequence_options,
@@ -54,15 +54,15 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           )
         }
       )
-      
-      
+
+
       observe({
         shinyjs::enable(ns("inheritance"))
         shinyjs::enable(ns("pathogenicity"))
-        
+
         shinyjs::enable(ns("apply_filter"))
       })
-      
+
       observe({
         #show_spinner()
         for (i in 1:number_of_individuals()) {
@@ -77,32 +77,32 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #hide_spinner()
       })
-      
+
       output$additional_rows <- renderUI({
-        
+
         additional_rows_list <- lapply(1:number_of_individuals(), function(i) {
-          
+
           sample_id <- pedigree$sample_id[i]
           kinship <- pedigree$kinship[i]
           status <- pedigree$status[i]
           sex <- pedigree$sex[i]
-          
+
           sample_id_labels <- rep("",number_of_individuals())
           kinship_labels <- rep("",number_of_individuals())
           status_labels <- rep("",number_of_individuals())
           sex_labels <- rep("",number_of_individuals())
           allele_count_labels <- rep("",number_of_individuals())
-          
+
           sample_id_labels[1] <- "Sample ID:"
           kinship_labels[1] <- "Kinship:"
           status_labels[1] <- "Status:"
           sex_labels[1] <- "Genotypic sex:"
           allele_count_labels[1] <- "Allele count:"
-          
+
           fluidRow(
             column(2,
                    selectInput(ns(paste0("kinship", i)), kinship_labels[i],
-                               choices = kinship, 
+                               choices = kinship,
                                selected = kinship)
             ),
             column(2,
@@ -129,10 +129,10 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         })
         do.call(tagList, additional_rows_list)
       })
-      
-      
+
+
       observe({
-        
+
         #show_spinner()
         sample_ids <- pedigree$sample_id
         i <- 1
@@ -159,7 +159,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #hide_spinner()
       })
-      
+
       output$clinvar <- renderUI({
         #print("clinvar_checkboxes")
         clinvar_checkboxes_list <- list(prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL,
@@ -168,7 +168,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                                             selected = NULL,inline = TRUE))
         do.call(tagList,clinvar_checkboxes_list)
       })
-      
+
       observeEvent(input$pathogenicity,{
         #show_spinner()
         #print("here")
@@ -189,10 +189,10 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                     choiceValues = clinvar_options,
                                     selected = NULL,inline = TRUE)
         }
-        #hide_spinner() 
+        #hide_spinner()
       })
-      
-      
+
+
       output$consequences <- renderUI({
         consequence_checkboxes_list <- list(prettyCheckboxGroup(ns("consequence_checkboxes"), NULL,
                                                                 choiceNames = consequence_options_display,
@@ -200,7 +200,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                                                 selected = NULL,inline = TRUE))
         do.call(tagList,consequence_checkboxes_list)
       })
-      
+
       observeEvent(input$annotation, {
         #show_spinner()
         if (input$annotation == "High impact") {
@@ -221,7 +221,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #hide_spinner()
       })
-      
+
       observe({
         #show_spinner()
         output$sv_features <- renderUI({
@@ -231,7 +231,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                                                   selected = NULL,inline = FALSE))
           do.call(tagList,sv_features_checkboxes_list)
         })
-        
+
         output$sv_relative_pos <- renderUI({
           sv_relative_pos_checkboxes_list <- list(prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
                                                                       choiceNames = c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic"),
@@ -239,7 +239,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                                                       selected = NULL,inline = FALSE))
           do.call(tagList,sv_relative_pos_checkboxes_list)
         })
-        
+
         output$sv_consequence <- renderUI({
           sv_consequence_checkboxes_list <- list(prettyCheckboxGroup(ns("sv_consequence_checkboxes"), "Predicted consequences:",
                                                                      choiceNames = c("Loss of function (LoF)", "Copy Number Variation (CNV)", "Whole gene inversion", "Regulatory and Non-coding variants"),
@@ -247,7 +247,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                                                      selected = "Loss of function (LoF)",inline = FALSE))
           do.call(tagList,sv_consequence_checkboxes_list)
         })
-        
+
         output$green_genes <- renderUI({
           genes <- ''
           if (!is.null(input$panelapp)) {
@@ -262,7 +262,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             style = "width: 100%; height: 30vh;"  # Adjust the width as needed
           )
         })
-        
+
         output$red_genes <- renderUI({
           genes <- ''
           if (!is.null(input$panelapp)) {
@@ -277,7 +277,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             style = "width: 100%; height: 30vh;"  # Adjust the width as needed
           )
         })
-        
+
         output$amber_genes <- renderUI({
           genes <- ''
           if (!is.null(input$panelapp)) {
@@ -292,7 +292,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             style = "width: 100%; height: 30vh;"  # Adjust the width as needed
           )
         })
-        
+
         output$unclassified_genes <- renderUI({
           genes <- ''
           if (!is.null(input$panelapp)) {
@@ -309,22 +309,22 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         })
         hide_spinner()
       })
-      
+
       ################# IGV
-      
-      
+
+
       observeEvent(input$coords_button, {
         if (input$igv_var_id != "" && input$igv_var_id %in% dataset$ID) {
-          
+
           chrom <- dataset[dataset$ID == input$igv_var_id, "CHROM"]
           pos <- dataset[dataset$ID == input$igv_var_id, "POS"]
           len <- dataset[dataset$ID == input$igv_var_id, "VAR_LENGTH"]
           flanking <- input$igv_flanking
           max_window <- input$igv_max_window
-          
+
           start <- pos - flanking
           end <- pos + len + flanking
-          
+
           if ((end - start) > max_window) {
             split_start <- paste0(chrom, ":", start, "-", (start + max_window))
             split_end <- paste0(chrom, ":", (end - max_window), "-", end)
@@ -333,11 +333,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             coords <- paste0(chrom, ":", start, "-", end)
           }
           print(coords)
-          
+
           igv_coord_box(coords)
         }
       })
-      
+
       output$igv_coord_box <- renderUI({
         variant_coord <- igv_coord_box()
         wellPanel(
@@ -346,10 +346,10 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           style = "width: 100%;"  # Adjust the width as needed
         )
       })
-      
-      
+
+
       ################# Short List
-      
+
       # Add ID to the short list
       observeEvent(input$shortlisted_add, {
         #print("add+button")
@@ -365,7 +365,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #print(current_shortlisted_ids()) # Debugging print statement
       })
-      
+
       # Remove ID from the short list
       observeEvent(input$shortlisted_remove, {
         #print("remove-button")
@@ -381,7 +381,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #print(current_shortlisted_ids()) # Debugging print statement
       })
-      
+
       # Display the list of shortlisted IDs
       output$shortlist <- renderUI({
         if (length(current_shortlisted_ids()) > 0) {
@@ -396,9 +396,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           style = "width: 100%;"  # Adjust the width as needed
         )
       })
-      
+
       ##################### Black List
-      
+
       # Add ID to the black list
       observeEvent(input$blacklisted_add, {
         #print("add+button")
@@ -414,7 +414,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #print(current_blacklisted_ids()) # Debugging print statement
       })
-      
+
       # Remove ID from the black list
       observeEvent(input$blacklisted_remove, {
         #print("remove-button")
@@ -430,7 +430,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
         #print(current_blacklisted_ids()) # Debugging print statement
       })
-      
+
       # Display the list of blacklisted IDs
       output$blacklist <- renderUI({
         if (length(current_blacklisted_ids()) > 0) {
@@ -445,9 +445,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           style = "width: 100%;"  # Adjust the width as needed
         )
       })
-      
-      ##################### Phenotype    
-      
+
+      ##################### Phenotype
+
       # Add ID to the phenotype list
       # observeEvent(input$phenotype_add, {
       #   #print("add+button")
@@ -463,46 +463,46 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       #   }
       #   #print(current_phenotype_terms()) # Debugging print statement
       # })
-      
+
       # Add multiple IDs to the phenotype list
       observeEvent(input$phenotype_add, {
         #new_ids <- strsplit(input$phenotype_var, split = "[,;\\s]+")[[1]]  # Split by comma, semicolon, or whitespace
         new_ids <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))
         new_ids <- trimws(new_ids)
         print(new_ids)
-        
+
         if (length(new_ids) > 0) {
           current_ids <- current_phenotype_terms()
           valid_new_ids <- new_ids[new_ids %in% phenotype_data$hpo_id & !(new_ids %in% current_ids)]
-          
+
           if (length(valid_new_ids) > 0) {
             current_phenotype_terms(c(current_ids, valid_new_ids))
           }
-          
+
           updateTextInput(session, "phenotype_var", value = "")
         }
       })
-      
-      
+
+
       observeEvent(input$phenotype_remove, {
         ids_to_remove <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))  # Split by spaces, commas, or semicolons
-        
+
         if (length(ids_to_remove) > 0) {
           current_ids <- current_phenotype_terms()
           ids_to_remove <- trimws(ids_to_remove)  # Remove leading/trailing spaces
           ids_to_remove <- ids_to_remove[ids_to_remove != ""]  # Remove empty strings
-          
+
           # Remove the terms that are in the current list
           updated_ids <- setdiff(current_ids, ids_to_remove)
-          
+
           # Update the current phenotype terms list
           current_phenotype_terms(updated_ids)
-          
+
           # Clear the input field
           updateTextInput(session, "phenotype_var", value = "")
         }
       })
-      
+
       # # Remove ID from the phenotype list
       # observeEvent(input$phenotype_remove, {
       #   #print("remove-button")
@@ -518,7 +518,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       #   }
       #   #print(current_phenotype_terms()) # Debugging print statement
       # })
-      
+
       # Display the list of HPO terms
       output$phenotype <- renderUI({
         if (length(current_phenotype_terms()) > 0) {
@@ -533,20 +533,20 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           style = "width: 100%;"  # Adjust the width as needed
         )
       })
-      
+
       hide_spinner()
     })
     cat(paste("Initialise widgets time:", format_time(initialise_widgets_time),"\n"))
-    
+
     ##################### Filtering
-    
+
     observeEvent(input$apply_filter, {
       total_time <- system.time({
         show_spinner()
         print("Started filtering")
-        
-        
-        
+
+
+
         # Read selected filters
         filter_time <- system.time({
           inheritance_filter <- input$inheritance
@@ -570,15 +570,15 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           sv_relative_pos <- input$sv_relative_pos_checkboxes
           sv_consequences <- input$sv_consequence_checkboxes
           sv_allele_balance_value <- input$sv_allele_balance
-          
+
           filtered_ids <- dataset[, ID]
           id_vars <- names(dataset)
         })
         cat(paste("Filter reading time:", format_time(filter_time),"\n"))
-        
+
         ## GLOBAL FILTERS (Inheritance and PanelApp)
         # 1) by inheritance
-        
+
         inheritance_time <- system.time({
           if (inheritance_filter != "") {
             compare_allele_count <- function(col, values) {
@@ -590,12 +590,12 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
               }
               return(filtered_rows)
             }
-            
+
             allele_count <- rbindlist(lapply(names(allele_counts$values), function(name) data.table(sample_id = name, allele_count = allele_counts$values[[name]])))
             allele_count <- merge(pedigree, allele_count, by = "sample_id")
             allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
             #print(allele_count)
-            
+
             for (i in seq_len(nrow(allele_count))) {
               col_name <- allele_count[i, col_name]
               val <- allele_count[i, allele_count]
@@ -608,7 +608,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("Inheritance time:", format_time(inheritance_time),"\n"))
-        
+
         # by PanelApp genes
         panelapp_time <- system.time({
           if (length(panelapp_filter) > 0) {
@@ -636,11 +636,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             # genes_sv <- merge(dataset[(ID %in% filtered_ids & CATEGORY =="SV"),.(ID,GENE_SYMBOL)][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=ID],genes,by="GENE_SYMBOL")[,.(ID,PANEL_APP)]
             #genes <- rbind(genes_snv,genes_sv)
             #genes <- genes[, .(PANEL_APP = paste(unique(PANEL_APP), collapse = ";")), by = ID]
-            
+
           }
         })
         cat(paste("PanelApp time:", format_time(panelapp_time),"\n"))
-        
+
         # check short list
         # Shortlisted variants
         shortlisted_ids <- current_shortlisted_ids()
@@ -648,11 +648,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         if (length(shortlisted_ids) > 0) {
           split_shortlisted_ids <- unlist(strsplit(shortlisted_ids,"; "))
         }
-        
+
         ## SNV-specific FILTERS (Pathogenicity, Annotation, in silico filters, call quality, frequency)
         snv_filtered_ids <- dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel"),ID]
         sv_filtered_ids <- dataset[(ID %in% filtered_ids) & (CATEGORY =="SV"),ID]
-        
+
         # Clinvar filter
         clinvar_time <- system.time({
           clinvar_override <- c()
@@ -691,7 +691,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("ClinVar time:", format_time(clinvar_time),"\n"))
-        
+
         # Annotation filter
         annotation_time <- system.time({
           if (length(annotation_filter) > 0) {
@@ -700,7 +700,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("Annotation time:", format_time(annotation_time),"\n"))
-        
+
         spliceai_time <- system.time({
           # SpliceAI filter
           spliceAI_override <- c()
@@ -712,18 +712,18 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("SpliceAI time:", format_time(spliceai_time),"\n"))
-        
+
         insilicofilters_time <- system.time({
           # REVEL score
           if (revel_value > 0) {
             snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][REVEL>=revel_value,ID])
           }
-          
+
           # SIFT
           if (length(sift_filter) > 0) {
             snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][grep(paste(sift_filter, collapse = '|'), SIFT, ignore.case = TRUE),ID])
           }
-          
+
           # Polyphen
           if (length(polyphen_filter) > 0) {
             polyphen_search <- str_replace_all(polyphen_filter," ","_")
@@ -731,7 +731,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("In Silico filters time:", format_time(insilicofilters_time),"\n"))
-        
+
         # Allele Frequency
         if (af_value < 1) {
           if (af_value > 0) {
@@ -742,19 +742,19 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             print(length(snv_filtered_ids))
           }
         }
-        
+
         # # Call filter
         # if (pass_variants_filter != "") {
         #   if (pass_variants_filter == "PASS only variants") {
         #     snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][(FILTER=="PASS") | (FILTER=="."),ID])
-        #   } 
+        #   }
         # }
-        
+
         # Call Quality
         if (genotype_quality_value > 0) {
           snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][QUAL>=genotype_quality_value,ID])
         }
-        
+
         # Call Quality
         if (allele_balance_value > 0) {
           ad_vars <- grep("^AD_", id_vars, value = TRUE)
@@ -769,9 +769,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           vaf <- vaf[complete.cases(vaf)]
           snv_filtered_ids <- intersect(snv_filtered_ids,vaf$ID)
         }
-        
+
         ## SV-specific FILTERS
-        
+
         # SV type
         sv_type_options <- c("Insertion"="INS", "Deletion"="DEL", "Duplication"="DUP", "Inversion"="INV","Translocation"="TRA")
         if (length(sv_types) > 0) {
@@ -779,7 +779,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           names(sv_type_selected) <- NULL
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_TYPE %in% sv_type_selected),ID])
         }
-        
+
         # SV annotation
         sv_relative_pos_patterns <- c("Exonic"="PREDICTED_LOF|PREDICTED_PARTIAL_EXON_DUP|PREDICTED_BREAKEND_EXONIC",
                                       "Intronic"="PREDICTED_INTRONIC","UTR"="PREDICTED_UTR","Promoter"="PREDICTED_PROMOTER","Intergenic"="PREDICTED_INTERGENIC|PREDICTED_NEAREST_TSS")
@@ -789,7 +789,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           sv_relative_pos_selected <- paste(sv_relative_pos_selected,collapse = "|")
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (grepl(sv_relative_pos_selected,CONSEQUENCE)),ID])
         }
-        
+
         sv_consequences_patterns <- c("Loss of function (LoF)"="PREDICTED_LOF|PREDICTED_MSV_EXON_OVERLAP",
                                       "Copy Number Variation (CNV)"="PREDICTED_COPY_GAIN|PREDICTED_INTRAGENIC_EXON_DUP|PREDICTED_PARTIAL_EXON_DUP|PREDICTED_TSS_DUP|PREDICTED_DUP_PARTIAL|PREDICTED_MSV_EXON_OVERLAP",
                                       "Whole gene inversion"="PREDICTED_INV_SPAN","Regulatory and Non-coding variants"="PREDICTED_NONCODING_SPAN|PREDICTED_NONCODING_BREAKPOINT")
@@ -799,7 +799,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           sv_consequences_selected <- paste(sv_consequences_selected,collapse = "|")
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (grepl(sv_consequences_selected,CONSEQUENCE)),ID])
         }
-        
+
         # SV length
         if (sv_min_svlen > 0) {
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_LENGTH >= sv_min_svlen),ID])
@@ -807,12 +807,12 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         if (sv_max_svlen > 0) {
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_LENGTH <= sv_max_svlen),ID])
         }
-        
+
         # SV Call Quality
         if (sv_genotype_quality_value > 0) {
           sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (QUAL>=sv_genotype_quality_value),ID])
         }
-        
+
         # SV allele fraction
         if (sv_allele_balance_value > 0) {
           ad_vars <- grep("^AD_", id_vars, value = TRUE)
@@ -825,23 +825,23 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           vaf <- vaf[complete.cases(vaf)]
           sv_filtered_ids <- intersect(sv_filtered_ids,vaf$ID)
         }
-        
+
         # SV Call filter
         if (sv_pass_variants_filter != "") {
           if (sv_pass_variants_filter == "PASS only variants") {
             sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (FILTER=="PASS"),ID])
-          } 
+          }
         }
-        
+
         finaltable_time <- system.time({
           final_filtered_ids <- unique(c(snv_filtered_ids,sv_filtered_ids,split_shortlisted_ids,clinvar_override,spliceAI_override))
-          
+
           # Prepare filtered dataset to send over to Variants tab
           # Variables to take care of are PANEL_APP, PRIORITY, COLOR, HPO_TERMS, HPO_COUNT
           filtered_dataset <- data.table(PRIORITY = 0,NOTES="", dataset[ID %in% final_filtered_ids])
-          
+
           if (length(panelapp_filter) > 0) {
-            
+
             if (nrow(filtered_dataset) > 0) {
               print("here")
               filtered_dataset <- merge(filtered_dataset,genes[,.(ID,PANEL_APP,INHERITANCE)],by="ID")
@@ -864,7 +864,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("Final filtered table time:", format_time(finaltable_time),"\n"))
-        
+
         # Check HPO terms
         hpo_terms_list <- current_phenotype_terms()
         if (length(hpo_terms_list) > 0) {
@@ -878,7 +878,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           filtered_dataset[,HPO_ID:=NA]
           filtered_dataset[,HPO_COUNT:=0]
         }
-        
+
         # I want color to be the last variable I set
         filtered_dataset <- data.table(filtered_dataset,Color="#FFFFFF")
         filtered_dataset[CATEGORY=="SNV & Indel" & is.na(AF),AF:=0]
@@ -895,8 +895,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           filtered_dataset[ID %in% split_blacklisted_ids,Color:="#FA6B84"]
           filtered_dataset[ID %in% split_blacklisted_ids,PRIORITY:=-1]
         }
-        
-        
+
+
         if (inheritance_filter=="Compound Heterozygous") {
           selected_cols <- c("ID", "GENE_SYMBOL", grep("^alt_allele_count", names(filtered_dataset), value = TRUE))
           selected_data <- filtered_dataset[, .SD, .SDcols = selected_cols]
@@ -907,18 +907,18 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           compunt_hets <- split_gene[,.(VAR_COUNT=.N,SUM_1=sum(as.integer(alt_allele_count_1)),SUM_2=sum(as.integer(alt_allele_count_2)),SUM_3=sum(as.integer(alt_allele_count_3))),by=GENE_SYMBOL]
           filtered_dataset <- filtered_dataset[ID %in% split_gene[GENE_SYMBOL %in% compunt_hets[VAR_COUNT>1 & SUM_2 > 0 & SUM_3>0,GENE_SYMBOL],ID]]
         }
-        
+
         filtered_table_output(as.data.frame(filtered_dataset))
         hide_spinner()
       })
       cat(paste("Total execution time:", format_time(total_time), "\n"))
       cat("\n")
     })
-    
+
     # Trigger the apply_filter button click event when the app launches
     observe({
       #show_spinner()
-      #print(sprintf("before: %s",initialisation())) 
+      #print(sprintf("before: %s",initialisation()))
       initialisation_time <- system.time({
         if (initialisation() == TRUE) {
           #print("here")
@@ -932,11 +932,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
       })
       cat(paste("Initialisation time:", format_time(initialisation_time),"\n"))
-      #print(sprintf("after: %s",initialisation())) 
+      #print(sprintf("after: %s",initialisation()))
       #hide_spinner()
     })
-    
+
     return(filtered_table_output)
-    
+
   })
 }

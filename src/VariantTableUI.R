@@ -32,7 +32,7 @@ tabUI <- function(id,tab_label, outdir, preselected_vars = character(0),show_fil
                           #uiOutput(ns("selected_vars_box"))
                           bsCollapse(
                             id = "select_collapse", open = "Select variables",
-                            bsCollapsePanel("Select variables", 
+                            bsCollapsePanel("Select variables",
                                             uiOutput(ns("selected_vars_box")),
                                             style = "info")
                           )

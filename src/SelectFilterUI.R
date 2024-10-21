@@ -1,6 +1,6 @@
 selectFiltersUI <- function(id, tab_label, panel_app_genes) {
   ns <- NS(id)
-  
+
   fluidPage(
     useShinyjs(),  # Initialize shinyjs
     fluidRow(
@@ -168,7 +168,7 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                        bsCollapse(id = "pathogenicity_collapse", open = "pathogenicity_collapse_box", multiple = TRUE,
                                                   bsCollapsePanel(title = "Pathogenicity", value = "pathogenicity_collapse_box",style = "info",
                                                                   div(
-                                                                    style = "height: 30vh",   
+                                                                    style = "height: 30vh",
                                                                     selectInput(ns("pathogenicity"), "Select Clinvar:",
                                                                                 choices = c("","Pathogenic/Likely pathogenic","Not benign"),
                                                                                 selected = ""),
@@ -182,7 +182,7 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                        bsCollapse(id = "annotation_collapse", open = "annotation_collapse_box", multiple = TRUE,
                                                   bsCollapsePanel(title = "Annotation", value = "annotation_collapse_box",style = "info",
                                                                   div(
-                                                                    style = "height: 30vh",  
+                                                                    style = "height: 30vh",
                                                                     selectInput(ns("annotation"), "Select Annotation:",
                                                                                 choices = c("","High impact","Moderate to high impact"),
                                                                                 selected = ""),
@@ -208,7 +208,7 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                                                   )
                                                   )
                                        )
-                                       
+
                                      ),
                                      column(
                                        width = 2,
@@ -238,13 +238,13 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                                   bsCollapsePanel(title = "Frequency", value = "frequency_collapse_box",style = "info",
                                                                   div(
                                                                     style = "height: 30vh",
-                                                                    selectInput(ns("af"), "gnomADv4 AF:", choices= c(0, seq(0.0001, 0.0005, by = 0.0004), 
-                                                                                                                     0.001, 0.005, 0.01, 0.02, 0.03, 
+                                                                    selectInput(ns("af"), "gnomADv4 AF:", choices= c(0, seq(0.0001, 0.0005, by = 0.0004),
+                                                                                                                     0.001, 0.005, 0.01, 0.02, 0.03,
                                                                                                                      0.04, 0.05, 0.1, 1),selected = 1),
                                                                   )
                                                   )
                                        )
-                                       
+
                                      ),
                                    )
                    )
@@ -260,7 +260,7 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                        bsCollapse(id = "sv_features_collapse", open = "sv_features_collapse_box", multiple = TRUE,
                                                   bsCollapsePanel(title = "Features", value = "sv_features_collapse_box",style = "info",
                                                                   div(
-                                                                    style = "height: 20vh",   
+                                                                    style = "height: 20vh",
                                                                     fluidRow(
                                                                       column(
                                                                         width = 6,  # Adjust width as needed
@@ -281,7 +281,7 @@ selectFiltersUI <- function(id, tab_label, panel_app_genes) {
                                        bsCollapse(id = "sv_consequence_collapse", open = "sv_consequence_collapse_box", multiple = TRUE,
                                                   bsCollapsePanel(title = "Annotation", value = "sv_consequence_collapse_box",style = "info",
                                                                   div(
-                                                                    style = "height: 20vh",   
+                                                                    style = "height: 20vh",
                                                                     fluidRow(
                                                                       column(
                                                                         width = 4,  # Adjust width as needed
