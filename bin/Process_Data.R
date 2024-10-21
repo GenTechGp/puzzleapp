@@ -10,7 +10,7 @@ library(yaml)
 
 ################################################################################
 
-config_path <- "/g/data/kr68/andre/puzzleapp_test/FS43706397.config.yaml"
+config_path <- "/g/data/kr68/andre/puzzleapp_test/RBW401.config.yaml"
 
 if (!file.exists(config_path)) {
   stop(paste("Configuration file not found at:", config_path))
@@ -36,17 +36,27 @@ pedigree_data <- rbindlist(lapply(config$samples, as.data.table))
 # BAM files list
 bam_files <- pedigree_data$bam
 
-# Coverage data with added sample ID column
-coverage_data <- rbindlist(lapply(1:nrow(pedigree_data), function(i) {
-  sample_id <- pedigree_data$id[i]
-  coverage_path <- pedigree_data$coverage[i]
-  
-  # Read the coverage data and add a new column for the sample ID
-  coverage_dt <- fread(coverage_path, header = TRUE)
-  coverage_dt[, sample_id := sample_id]  # Add sample ID column
-  
-  return(coverage_dt)
-}))
+# Error handling for coverage paths
+valid_coverage_paths <- lapply(pedigree_data$coverage, file.exists)
+
+if (any(!unlist(valid_coverage_paths))) {
+  warning("Some coverage file paths are missing or invalid. Setting coverage_data to NULL.")
+  coverage_data <- NULL
+} else {
+  # Coverage data with added sample ID column
+  coverage_data <- rbindlist(lapply(1:nrow(pedigree_data), function(i) {
+    sample_id <- pedigree_data$sample_id[i]
+    coverage_path <- pedigree_data$coverage[i]
+    
+    # Read the coverage data and add a new column for the sample ID
+    coverage_dt <- fread(coverage_path, header = TRUE)
+    coverage_dt[, sample_id := sample_id]  # Add sample ID column
+    
+    return(coverage_dt)
+  }))
+  coverage_data <- coverage_data[,.(CHROM=chromosome,AVERAGE_COVERAGE=average_depth,SAMPLE=sample_id)]
+  coverage_data <- coverage_data[!str_detect(CHROM,"_")]
+}
 
 # Remove 'bam' and 'coverage' columns from pedigree_data
 pedigree_data[, c("bam", "coverage") := NULL]
@@ -60,6 +70,18 @@ rdata_output <- config$paths$rdata_output
 panel_app <- config$dependencies$panel_app
 vep_consequences <- config$dependencies$vep_consequences
 phenotype_data <- config$dependencies$phenotype_data
+
+# Error handling for somalier path
+if (!is.null(config$paths$somalier)) {
+  somalier <- config$paths$somalier
+  if (!file.exists(somalier)) {
+    warning("Somalier file path is invalid. Setting somalier to NULL.")
+    somalier <- NULL
+  }
+} else {
+  warning("Somalier variable is not defined in YAML file. Setting somalier to NULL.")
+  somalier <- NULL
+}
 
 ################################################################################
 
@@ -256,7 +278,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data) {
   
   # Final output
   cat("SNV data processed.\n")
-  return(processed_data[QUAL>=30])
+  return(snvs_data_melt[QUAL>=30])
 }
 
 ################################################################################
@@ -288,5 +310,5 @@ phenotype_data <- fread(phenotype_data,header=TRUE)
 # Save specific objects into an .RData file
 processed_data <- rbind(snv_data)
 
-save(sample, processed_data, pedigree_data, panel_app_genes,
+save(sample, processed_data, pedigree_data, panel_app_genes, coverage_data, somalier,
      vep_consequences, preselected_vars, panel_app, panel_app_vars, snvs_vcf, svs_vcf, bam_files, phenotype_data, file = rdata_output)

@@ -68,9 +68,9 @@ ui <- fluidPage(
     tabPanel("Phenotype",
              HPOtabUI(sprintf("%s-%s",sample,"tab5"), "VEP")
     ),
-    # tabPanel("QC Plots",
-    #        qcPlotsUI(sprintf("%s-%s",sample,"tab6"),"VEP")
-    # )
+    tabPanel("QC Plots",
+             qcPlotsUI(sprintf("%s-%s",sample,"tab6"),"VEP",coverage_analysis=ifelse(!is.null(coverage_data),TRUE,FALSE),somalier_analysis=ifelse(!is.null(somalier),TRUE,FALSE),vaf_distribution_analysis=ifelse(nrow(processed_data[CATEGORY=="SNV & Indel"])==0,TRUE,FALSE))
+    )
   )
 )
 #  processed_data[sample(nrow(processed_data), 100000), ]
@@ -86,7 +86,7 @@ server <- function(input, output, session) {
   panel_app_output <- reactiveVal(as.data.frame(panel_app))
   tabServer(id=sprintf("%s-%s",sample,"tab4"), filtered_data=panel_app_output, vars = names(panel_app),preselected_vars = panel_app_vars)
   HPOtabServer(id=sprintf("%s-%s",sample,"tab5"), phenotype_data = phenotype_data)
-  # qcPlotsServer(id=sprintf("%s-%s",sample,"tab6"),coverage_data=coverage_data,snvs_processed_data=processed_data,pedigree_data=pedigree_data,somalier=somalier)
+  qcPlotsServer(id=sprintf("%s-%s",sample,"tab6"),coverage_data=coverage_data,snvs_processed_data=processed_data,pedigree_data=pedigree_data,somalier=somalier)
 }
 
 
