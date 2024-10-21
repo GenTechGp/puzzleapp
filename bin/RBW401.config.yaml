@@ -10,10 +10,8 @@ samples:
 paths:
   snvs_vcf: "/g/data/kr68/projects/AMAMAL_PKD/RBW401/pipeface-dev/20241011-141204/RBW401.hg38.clair3.snp_indel.phased.annotated.vcf.gz"
   svs_vcf: "/g/data/kr68/projects/AMAMAL_PKD/RBW401/pipeface-dev/20241011-141204/RBW401.hg38.sniffles.sv.phased.vcf.gz"
-  rdata_output: "/g/data/kr68/andre/puzzleapp_test/RBW401.rdata"
 
 dependencies:
   panel_app: "/g/data/kr68/andre/AMAMAL_PKD/Annotations/all_panel_app.tsv"
   vep_consequences: "/g/data/kr68/andre/AMAMAL_PKD/Annotations/vep_annotations.tsv"
   phenotype_data: "/g/data/kr68/andre/AMAMAL_PKD/Annotations/phenotype_to_genes.txt"
-

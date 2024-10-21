@@ -1,5 +1,23 @@
+#!/usr/bin/env Rscript
 # Combined Processing Script: Process_Data.R
-# ------------------------------------------
+# usage: ./Process_Data.R <config> <out.RData>
+# --------------------------------------------
+
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) != 2) {
+  stop("usage: ./Process_Data.R <config> <out.RData>")
+}
+
+config_path <- args[1]
+rdata_output <- args[2]
+
+if (!file.exists(config_path)) {
+  stop(paste("Configuration file not found at:", config_path))
+}
+config <- yaml::read_yaml(config_path)
+
+################################################################################
 
 # Load required libraries
 library(data.table)
@@ -9,13 +27,6 @@ library(stringr)
 library(yaml)
 
 ################################################################################
-
-config_path <- "/g/data/kr68/andre/puzzleapp_test/RBW401.config.yaml"
-
-if (!file.exists(config_path)) {
-  stop(paste("Configuration file not found at:", config_path))
-}
-config <- yaml::read_yaml(config_path)
 
 # Add checks to see if the contents of the YAML file are correct
 if (is.null(config$samples)) {
@@ -64,7 +75,6 @@ pedigree_data[, c("bam", "coverage") := NULL]
 # Access other paths and dependencies
 snvs_vcf <- config$paths$snvs_vcf
 svs_vcf <- config$paths$svs_vcf
-rdata_output <- config$paths$rdata_output
 
 #chain_hg38_to_chm13 <- config$dependencies$chain_hg38_to_chm13
 panel_app <- config$dependencies$panel_app
