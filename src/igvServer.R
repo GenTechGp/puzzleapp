@@ -3,6 +3,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
 
     ns <- session$ns
 
+    # Utility function for parsing regions
     parseRegions <- function(region_string) {
       regions <- strsplit(region_string, " ")[[1]]
       gr_list <- lapply(regions, function(region) {
@@ -17,62 +18,28 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
       })
       do.call(c, gr_list)
     }
-
-    # # Generate dynamic buttons based on kinship vector
-    # output$dynamicButtons <- renderUI({
-    #   buttons <- tagList()
-    #   if ("proband" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons,
-    #                               tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"),
-    #                                        style = "margin-bottom: 10px;"))
-    #   }
-    #   if ("mother" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons,
-    #                               tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"),
-    #                                        style = "margin-bottom: 10px;"))
-    #   }
-    #   if ("father" %in% kinship) {
-    #     buttons <- tagAppendChild(buttons,
-    #                               tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"),
-    #                                        style = "margin-bottom: 10px;"))
-    #   }
-    #   buttons
-    # })
-
+    
+    # Function to capitalise word
+    capitalize_word <- function(word) {
+      paste0(toupper(substr(word, 1, 1)), tolower(substr(word, 2, nchar(word))))
+    }
+    
+    # Dynamic buttons based on kinship
     output$dynamicButtons <- renderUI({
-      buttons <- tagList()
-      if ("proband" %in% kinship) {
-        buttons <- tagAppendChild(buttons,
-                                  tags$div(actionButton(ns("addProbandBAMTrackButton"), "Proband BAM"),
-                                           style = "margin-bottom: 10px;"))
-      }
-      if ("mother" %in% kinship) {
-        buttons <- tagAppendChild(buttons,
-                                  tags$div(actionButton(ns("addMotherBAMTrackButton"), "Mother BAM"),
-                                           style = "margin-bottom: 10px;"))
-      }
-      if ("father" %in% kinship) {
-        buttons <- tagAppendChild(buttons,
-                                  tags$div(actionButton(ns("addFatherBAMTrackButton"), "Father BAM"),
-                                           style = "margin-bottom: 10px;"))
-      }
-      if ("brother" %in% kinship) {
-        buttons <- tagAppendChild(buttons,
-                                  tags$div(actionButton(ns("addBrotherBAMTrackButton"), "Brother BAM"),
-                                           style = "margin-bottom: 10px;"))
-      }
-      if ("uncle" %in% kinship) {
-        buttons <- tagAppendChild(buttons,
-                                  tags$div(actionButton(ns("addUncleBAMTrackButton"), "Uncle BAM"),
-                                           style = "margin-bottom: 10px;"))
-      }
-      buttons
+      kinship_labels <- c("proband", "mother", "father", "brother", "uncle")
+      
+      buttons <- lapply(seq_along(kinship_labels), function(i) {
+        if (kinship_labels[i] %in% kinship) {
+          tags$div(actionButton(ns(sprintf("add%sBAMTrackButton",capitalize_word(kinship_labels[i]))), sprintf("%s BAM",capitalize_word(kinship_labels[i]))), style = "margin-bottom: 10px;")
+        }
+      })
+      tagList(buttons)
     })
 
-
+    # Store the current region for use
     current_region <- reactiveVal(NULL)
-    # chr1:1000-2000 chr1:3000:4000
 
+    # Handle region search
     observeEvent(input$genome_coords_search, {
       region_of_interest <- input$genome_coords
       print(region_of_interest)
@@ -90,74 +57,28 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
         })
       }
     })
-
-    observeEvent(input$addProbandBAMTrackButton, {
+    
+    # Utility function to load BAM track
+    loadBAMTrack <- function(kinship_label, track_name) {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
-        print(region_of_interest)
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
-        current_bam <- unlist(bam_file[kinship=="proband"])
-        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Proband BAM", data = bam, displayMode = "EXPANDED")
+            region.GRanges <- parseRegions(region_of_interest)
+            tags_to_extract <- c("PS", "HP")
+            param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
+            current_bam <- unlist(bam_file[kinship==kinship_label])
+            bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
+            loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_name, data = bam, displayMode = "EXPANDED")
       }
-    })
-
-    observeEvent(input$addMotherBAMTrackButton, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        print(region_of_interest)
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
-        current_bam <- unlist(bam_file[kinship=="mother"])
-        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Mother BAM", data = bam, displayMode = "EXPANDED")
-      }
-    })
-
-    observeEvent(input$addFatherBAMTrackButton, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        print(region_of_interest)
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
-        current_bam <- unlist(bam_file[kinship=="father"])
-        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Father BAM", data = bam, displayMode = "EXPANDED")
-      }
-    })
-
-    # Observe the Brother BAM button click event
-    observeEvent(input$addBrotherBAMTrackButton, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        print(region_of_interest)
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq", tag = tags_to_extract)
-        current_bam <- unlist(bam_file[kinship == "brother"])
-        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Brother BAM", data = bam, displayMode = "EXPANDED")
-      }
-    })
-
-    # Observe the Uncle BAM button click event
-    observeEvent(input$addUncleBAMTrackButton, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        print(region_of_interest)
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq", tag = tags_to_extract)
-        current_bam <- unlist(bam_file[kinship == "uncle"])
-        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = "Uncle BAM", data = bam, displayMode = "EXPANDED")
-      }
-    })
-
+    }
+    
+    # Add BAM track buttons for different kinship labels
+    observeEvent(input$addProbandBAMTrackButton, { loadBAMTrack("proband", "Proband BAM") })
+    observeEvent(input$addMotherBAMTrackButton, { loadBAMTrack("mother", "Mother BAM") })
+    observeEvent(input$addFatherBAMTrackButton, { loadBAMTrack("father", "Father BAM") })
+    observeEvent(input$addBrotherBAMTrackButton, { loadBAMTrack("brother", "Brother BAM") })
+    observeEvent(input$addUncleBAMTrackButton, { loadBAMTrack("uncle", "Uncle BAM") })
+  
+    # Load SNV/Indel VCF Track
     observeEvent(input$snvs_vcf, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
@@ -167,6 +88,7 @@ igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_f
       }
     })
 
+    # Load SV VCF Track
     observeEvent(input$svs_vcf, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
