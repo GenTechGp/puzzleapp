@@ -54,6 +54,57 @@ globalOptsIgvUI <- function(ns) {
   )
 }
 
+shortlistUI <- function(ns) {
+  bsCollapse(id = "short_list_collapse", open = "short_list_collapse_box", multiple = TRUE,
+    bsCollapsePanel(title = "Shortlisted Variants", value = "short_list_collapse_box", style = "info",
+      fluidRow(
+        column(4,
+          textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
+          fluidRow(
+            column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
+            column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
+          )
+        ),
+        column(8, uiOutput(ns("shortlist")))
+      )
+    )
+  )
+}
+
+blacklistUI <- function(ns) {
+  bsCollapse(id = "black_list_collapse", open = "black_list_collapse_box", multiple = TRUE,
+    bsCollapsePanel(title = "Blacklisted Variants", value = "black_list_collapse_box", style = "info",
+      fluidRow(
+        column(4,
+          textInput(ns("blacklisted_var"), "Variant ID:", value = ""),
+          fluidRow(
+            column(3, actionButton(ns("blacklisted_add"), label = NULL, icon = icon("plus"))),
+            column(3, actionButton(ns("blacklisted_remove"), label = NULL, icon = icon("minus")))
+          )
+        ),
+        column(8, uiOutput(ns("blacklist")))
+      )
+    )
+  )
+}
+
+phenotypeUI <- function(ns) {
+  bsCollapse(id = "phenotype_collapse", open = "phenotype_collapse_box", multiple = TRUE,
+    bsCollapsePanel(title = "Phenotype", value = "phenotype_collapse_box", style = "info",
+      fluidRow(
+        column(4,
+          textInput(ns("phenotype_var"), "HPO term:", value = ""),
+          fluidRow(
+            column(3, actionButton(ns("phenotype_add"), label = NULL, icon = icon("plus"))),
+            column(3, actionButton(ns("phenotype_remove"), label = NULL, icon = icon("minus")))
+          )
+        ),
+        column(8, uiOutput(ns("phenotype")))
+      )
+    )
+  )
+}
+
 globalOptsUI <- function(ns, panel_app_genes) {
   bsCollapse(id = "global_options_collapse", open = "global_options_collapse_box", multiple = TRUE,
     bsCollapsePanel(title = "Global options", value = "global_options_collapse_box", style = "primary",
@@ -62,53 +113,10 @@ globalOptsUI <- function(ns, panel_app_genes) {
         column(9, globalOptsPanelAppUI(ns, panel_app_genes)),
         column(3, globalOptsIgvUI(ns))
       ),
-      column(4,
-        bsCollapse(id = "short_list_collapse", open = "short_list_collapse_box", multiple = TRUE,
-          bsCollapsePanel(title = "Shortlisted Variants", value = "short_list_collapse_box",style = "info",
-            fluidRow(
-              column(4,
-                textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
-                fluidRow(
-                  column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
-                  column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
-                )
-              ),
-              column(8, uiOutput(ns("shortlist")))
-            )
-          )
-        )
-      ),
-      column(4,
-        bsCollapse(id = "black_list_collapse", open = "black_list_collapse_box", multiple = TRUE,
-          bsCollapsePanel(title = "Blacklisted Variants", value = "black_list_collapse_box",style = "info",
-            fluidRow(
-              column(4,
-                textInput(ns("blacklisted_var"), "Variant ID:", value = ""),
-                fluidRow(
-                  column(3, actionButton(ns("blacklisted_add"), label = NULL, icon = icon("plus"))),
-                  column(3, actionButton(ns("blacklisted_remove"), label = NULL, icon = icon("minus")))
-                )
-              ),
-              column(8, uiOutput(ns("blacklist")))
-            )
-          )
-        )
-      ),
-      column(4,
-        bsCollapse(id = "phenotype_collapse", open = "phenotype_collapse_box", multiple = TRUE,
-          bsCollapsePanel(title = "Phenotype", value = "phenotype_collapse_box",style = "info",
-            fluidRow(
-              column(4,
-                textInput(ns("phenotype_var"), "HPO term:", value = ""),
-                fluidRow(
-                  column(3, actionButton(ns("phenotype_add"), label = NULL, icon = icon("plus"))),
-                  column(3, actionButton(ns("phenotype_remove"), label = NULL, icon = icon("minus")))
-                )
-              ),
-              column(8, uiOutput(ns("phenotype")))
-            )
-          )
-        )
+      fluidRow(
+        column(4, shortlistUI(ns)),
+        column(4, blacklistUI(ns)),
+        column(4, phenotypeUI(ns))
       )
     )
   )
