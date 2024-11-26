@@ -17,37 +17,34 @@ inherOptsUI <- function(ns) {
   )
 }
 
-genePanelBox <- function(ns, outputId, label, color = "black",width = "100%", height = "30vh") {
-  wellPanel(div(style = "font-weight: bold; margin-bottom: 10px;", paste(label, "genes:")),
-    div(style = paste("overflow-y: auto; max-height: calc(100% - 30px); color:", color, ";"),
-      uiOutput(ns(outputId))),
-    style = paste("width:", width, "; height:", height, ";")
+genePanelBox <- function(id, label, color = "black", width = "100%",
+                         height = "30vh") {
+  labelStyle <- "font-weight: bold; margin-bottom: 10px;"
+  boxStyle <- paste("overflow-y: auto; max-height: calc(100% - 30px); color:",
+                    color, ";")
+  panelStyle <- paste("width:", width, "; height:", height, ";")
+
+  wellPanel(
+    div(style = labelStyle, paste(label, "genes:")),
+    div(style = boxStyle, uiOutput(id)),
+    style = panelStyle
   )
 }
 
 geneOptsUI <- function(ns, panel_app_genes) {
   locs <- c("", unique(panel_app_genes$Level4))
   locUI <- fluidRow(column(12,
-             selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
-             uiOutput(ns("unclassified_genes"))
-           ))
+    selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
+    genePanelBox(ns("unclassified_genes"), "Unclassified", "gray", "80%", "20vh")
+  ))
 
   collapseUI("panelapp_collapse", "Panel App", "info",
     div(style = "height: 33vh",
       fluidRow(
-        column(3,
-          fluidRow(
-            column(12,
-              selectInput(ns("panelapp"), "Select location:",
-                choices = c("", unique(panel_app_genes$Level4)),
-                selected = "", multiple = TRUE),
-              genePanelBox(ns, "unclassified_genes", "Unclassified", color = "gray",width = "80%", height = "20vh")
-            )
-          )
-        ),
-        column(3,genePanelBox(ns, "green_genes", "Green", color = "green")),
-        column(3,genePanelBox(ns, "red_genes", "Red", color = "red")),
-        column(3,genePanelBox(ns, "amber_genes", "Amber", color = "#FFBF00")),
+        column(3, locUI),
+        column(3, genePanelBox(ns("green_genes"), "Green", "green")),
+        column(3, genePanelBox(ns("red_genes"), "Red", "red")),
+        column(3, genePanelBox(ns("amber_genes"), "Amber", "#FFBF00"))
       )
     )
   )
