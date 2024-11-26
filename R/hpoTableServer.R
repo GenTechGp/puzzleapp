@@ -1,5 +1,5 @@
 # Define a server module for the "Tab Label"
-HPOtabServer <- function(id, phenotype_data) {
+hpoTabServer <- function(id, phenotype_data) {
   moduleServer(id, function(input, output, session) {
 
     #ns <- session$n
