@@ -17,6 +17,14 @@ inherOptsUI <- function(ns) {
   )
 }
 
+genePanelBox <- function(ns, outputId, label, color = "black",width = "100%", height = "30vh") {
+  wellPanel(div(style = "font-weight: bold; margin-bottom: 10px;", paste(label, "genes:")),
+    div(style = paste("overflow-y: auto; max-height: calc(100% - 30px); color:", color, ";"),
+      uiOutput(ns(outputId))),
+    style = paste("width:", width, "; height:", height, ";")
+  )
+}
+
 geneOptsUI <- function(ns, panel_app_genes) {
   collapseUI("panelapp_collapse", "Panel App", "info",
     div(style = "height: 33vh",
@@ -27,13 +35,13 @@ geneOptsUI <- function(ns, panel_app_genes) {
               selectInput(ns("panelapp"), "Select location:",
                 choices = c("", unique(panel_app_genes$Level4)),
                 selected = "", multiple = TRUE),
-              uiOutput(ns("unclassified_genes"))
+              genePanelBox(ns, "unclassified_genes", "Unclassified", color = "gray",width = "80%", height = "20vh")
             )
           )
         ),
-        column(3, uiOutput(ns("green_genes"))),
-        column(3, uiOutput(ns("red_genes"))),
-        column(3, uiOutput(ns("amber_genes")))
+        column(3,genePanelBox(ns, "green_genes", "Green", color = "green")),
+        column(3,genePanelBox(ns, "red_genes", "Red", color = "red")),
+        column(3,genePanelBox(ns, "amber_genes", "Amber", color = "#FFBF00")),
       )
     )
   )

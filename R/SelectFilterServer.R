@@ -242,65 +242,29 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         do.call(tagList,sv_consequence_checkboxes_list)
       })
 
-      output$green_genes <- renderUI({
-        genes <- ''
-        if (!is.null(input$panelapp)) {
-          genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & Sources =="Green",Entity_Name]))
-        }
-        green_genes(genes)
-        genes <- paste(genes,collapse="; ")
-        wellPanel(
-          div(style = "font-weight: bold; margin-bottom: 10px;", "Green genes:"),
-          div(style = "overflow-y: auto; max-height: calc(100% - 30px);",
-              p(genes, style = "color: green;")),  # Change text color to red
-          style = "width: 100%; height: 30vh;"  # Adjust the width as needed
-        )
-      })
-
-      output$red_genes <- renderUI({
-        genes <- ''
-        if (!is.null(input$panelapp)) {
-          genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & Sources =="Red",Entity_Name]))
-        }
-        red_genes(genes)
-        genes <- paste(genes,collapse="; ")
-        wellPanel(
-          div(style = "font-weight: bold; margin-bottom: 10px;", "Red genes:"),
-          div(style = "overflow-y: auto; max-height: calc(100% - 30px);",
-              p(genes, style = "color: red;")),  # Change text color to red
-          style = "width: 100%; height: 30vh;"  # Adjust the width as needed
-        )
-      })
-
-      output$amber_genes <- renderUI({
-        genes <- ''
-        if (!is.null(input$panelapp)) {
-          genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & Sources =="Amber",Entity_Name]))
-        }
-        amber_genes(genes)
-        genes <- paste(genes,collapse="; ")
-        wellPanel(
-          div(style = "font-weight: bold; margin-bottom: 10px;", "Amber genes:"),
-          div(style = "overflow-y: auto; max-height: calc(100% - 30px);",
-              p(genes, style = "color: #FFBF00;")),  # Change text color to red
-          style = "width: 100%; height: 30vh;"  # Adjust the width as needed
-        )
-      })
-
-      output$unclassified_genes <- renderUI({
-        genes <- ''
-        if (!is.null(input$panelapp)) {
-          genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & !(Sources %in% c("Green","Red","Amber")),Entity_Name]))
-        }
-        unclassified_genes(genes)
-        genes <- paste(genes,collapse="; ")
-        wellPanel(
-          div(style = "font-weight: bold; margin-bottom: 10px;", "Unclassified genes:"),
-          div(style = "overflow-y: auto; max-height: calc(100% - 30px);",
-              p(genes, style = "color: gray;")),  # Change text color to red
-          style = "width: 80%; height: 20vh"  # Adjust the width as needed
-        )
-      })
+      # Function to dynamically render gene lists based on their source (e.g., "Green", "Red", "Amber", or "Unclassified").
+      renderGeneOutput <- function(source, outputId, reactiveStore) {
+        renderUI({
+          genes <- ""
+          if (!is.null(input$panelapp)) {
+            if (source == "Unclassified") {
+              genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & !(Sources %in% c("Green", "Red", "Amber")), Entity_Name]))
+            } else {
+              genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & Sources == source, Entity_Name]))
+            }
+          }
+          reactiveStore(genes)  # Update the reactive store (if used)
+          genes <- paste(genes, collapse = "; ")
+          p(genes)  # Return the content as a paragraph
+        })
+      }
+      
+      # Render UI outputs for each gene category using the helper function
+      output$green_genes <- renderGeneOutput("Green", "green_genes", green_genes)
+      output$red_genes <- renderGeneOutput("Red", "red_genes", red_genes)
+      output$amber_genes <- renderGeneOutput("Amber", "amber_genes", amber_genes)
+      output$unclassified_genes <- renderGeneOutput("Unclassified", "unclassified_genes", unclassified_genes)
+      
       hide_spinner()
     })
 
