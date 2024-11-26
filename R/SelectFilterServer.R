@@ -257,13 +257,13 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           p(genes)  # Return the content as a paragraph
         })
       }
-      
+
       # Render UI outputs for each gene category using the helper function
       output$green_genes <- renderGeneOutput("Green", "green_genes", green_genes)
       output$red_genes <- renderGeneOutput("Red", "red_genes", red_genes)
       output$amber_genes <- renderGeneOutput("Amber", "amber_genes", amber_genes)
       output$unclassified_genes <- renderGeneOutput("Unclassified", "unclassified_genes", unclassified_genes)
-      
+
       hide_spinner()
     })
 
