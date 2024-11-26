@@ -1,6 +1,3 @@
-# TODO:
-# - replace all uiOutput with reactive variables?
-
 collapseUI <- function(id, title, style, ...) {
   box_id <- paste0(id, "_box")
   bsCollapse(open = box_id, multiple = TRUE,
@@ -38,16 +35,16 @@ geneOptsUI <- function(ns, panel_app_genes) {
     genePanelBox(ns("unclassified_genes"), "Unclassified", "gray", "80%", "20vh")
   ))
 
-  collapseUI("panelapp_collapse", "Panel App", "info",
-    div(style = "height: 33vh",
-      fluidRow(
-        column(3, locUI),
-        column(3, genePanelBox(ns("green_genes"), "Green", "green")),
-        column(3, genePanelBox(ns("red_genes"), "Red", "red")),
-        column(3, genePanelBox(ns("amber_genes"), "Amber", "#FFBF00"))
-      )
+  ui <- div(style = "height: 33vh",
+    fluidRow(
+      column(3, locUI),
+      column(3, genePanelBox(ns("green_genes"), "Green", "green")),
+      column(3, genePanelBox(ns("red_genes"), "Red", "red")),
+      column(3, genePanelBox(ns("amber_genes"), "Amber", "#FFBF00"))
     )
   )
+
+  collapseUI("panelapp_collapse", "Panel App", "info", ui)
 }
 
 igvOptsUI <- function(ns) {
@@ -63,58 +60,30 @@ igvOptsUI <- function(ns) {
     )
   )
 
-  collapseUI("igv_collapse", "IGV", "info",
-    div(style = "height: 33vh",
-      inputUI,
-      fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
-      fluidRow(column(12, br(), uiOutput(ns("igv_coord_box"))))
-    )
+  ui <- div(style = "height: 33vh",
+    inputUI,
+    fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
+    fluidRow(column(12, br(), uiOutput(ns("igv_coord_box"))))
   )
+
+  collapseUI("igv_collapse", "IGV", "info", ui)
 }
 
-shortlistUI <- function(ns) {
- ui <- fluidRow(
+listUI <- function(ns, id, name, prompt) {
+  buttonUI <- fluidRow(
+    column(3, actionButton(ns(paste0(id, "_add")), NULL, icon("plus"))),
+    column(3, actionButton(ns(paste0(id, "_remove")), NULL, icon("minus")))
+  )
+
+  ui <- fluidRow(
     column(4,
-      textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
-      fluidRow(
-        column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
-        column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
-      )
+      textInput(ns(paste0(id, "_var")), prompt, ""),
+      buttonUI
     ),
-    column(8, uiOutput(ns("shortlist")))
+    column(8, uiOutput(ns(id)))
   )
 
-  collapseUI("short_list_collapse", "Shortlisted Variants", "info", ui)
-}
-
-blacklistUI <- function(ns) {
-  collapseUI("black_list_collapse", "Blacklisted Variants", "info",
-    fluidRow(
-      column(4,
-        textInput(ns("blacklisted_var"), "Variant ID:", value = ""),
-        fluidRow(
-          column(3, actionButton(ns("blacklisted_add"), label = NULL, icon = icon("plus"))),
-          column(3, actionButton(ns("blacklisted_remove"), label = NULL, icon = icon("minus")))
-        )
-      ),
-      column(8, uiOutput(ns("blacklist")))
-    )
-  )
-}
-
-phenotypeUI <- function(ns) {
-  collapseUI("phenotype_collapse", "Phenotype", "info",
-    fluidRow(
-      column(4,
-        textInput(ns("phenotype_var"), "HPO term:", value = ""),
-        fluidRow(
-          column(3, actionButton(ns("phenotype_add"), label = NULL, icon = icon("plus"))),
-          column(3, actionButton(ns("phenotype_remove"), label = NULL, icon = icon("minus")))
-        )
-      ),
-      column(8, uiOutput(ns("phenotype")))
-    )
-  )
+  collapseUI(paste0(id, "_collapse"), name, "info", ui)
 }
 
 globalOptsUI <- function(ns, panel_app_genes) {
@@ -125,9 +94,9 @@ globalOptsUI <- function(ns, panel_app_genes) {
       column(3, igvOptsUI(ns))
     ),
     fluidRow(
-      column(4, shortlistUI(ns)),
-      column(4, blacklistUI(ns)),
-      column(4, phenotypeUI(ns))
+      column(4, listUI(ns, "shortlist", "Shortlisted Variants", "Variant ID:")),
+      column(4, listUI(ns, "blacklist", "Blacklisted Variants", "Variant ID:")),
+      column(4, listUI(ns, "phenotype", "Phenotype", "HPO term:"))
     )
   )
 }
