@@ -5,9 +5,6 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
     #ns <- session$n
     ns <- shiny::NS(id)
 
-    # Store initial order
-    column_order <- reactiveVal(seq_along(vars))
-
     observe({
       # Example condition to set show_file_saving
       show_file_saving <- FALSE  # Or set this based on some reactive expression
@@ -15,10 +12,6 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
     })
 
     output$selected_vars_box <- renderUI({
-      # clinvar_checkboxes_list <- list(prettyCheckboxGroup(ns("clinvar_checkboxes"), "",
-      #                                                     choiceNames = clinvar_options_display,
-      #                                                     choiceValues = clinvar_options,
-      #                                                     selected = NULL,inline = TRUE))
 
       checkboxGroupInput(ns("selected_vars"), NULL,
                          choices = vars,
@@ -52,42 +45,29 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
       "filter" = rep("", length(vars)),
       "active" = vars %in% preselected_vars
     )
-
-    # Update table if sidebar input is changed (lacy)
+    
+    # Update table if sidebar input is changed
     fileData <- reactive({
-      if (!is.null(filtered_data())) {
-        dataset <- filtered_data()
-        #print(names(dataset))
-        selected_vars <- input$selected_vars
-        #print(selected_vars)
-        # Add PRIORITY & NOTES columns at the beginning and Color column at the end
-        # Add PRIORITY and Color columns if they don't exist
-        if (!("PRIORITY" %in% names(dataset))) {
-          dataset <- data.frame(PRIORITY = 0, NOTES="", dataset)
-        }
-        if (!("Color" %in% names(dataset))) {
-          dataset$Color <-"#FFFFFF"
-        }
-        new_dataset <- dataset[, selected_vars, drop = FALSE]
-      } else {
-        new_dataset <- data.frame()  # Return an empty data frame if filtered_data() is NULL
-      }
+      req(filtered_data())  # Ensure filtered_data() is not NULL
+      
+      dataset <- as.data.frame(filtered_data())
+      selected_vars <- input$selected_vars
+      
+      if (!("PRIORITY" %in% names(dataset))) dataset$PRIORITY <- 0
+      if (!("NOTES" %in% names(dataset))) dataset$NOTES <- ""
+      if (!("Color" %in% names(dataset))) dataset$Color <- "#FFFFFF"
 
+      # Return dataset with the selected variables
+      dataset[, selected_vars, drop = FALSE]
     })
-
+    
     # before table is updated save all filter settings in transition$table
     observeEvent(c(input$selected_vars, input$table_search_columns), {
-      # Set type
-      #print("transition")
-      transition$table[,"filter"] <- as.character(transition$table[,"filter"])
-
-      # save filter settings in currently displayed columns
+      active_cols <- transition$table$colnames %in% input$selected_vars
       if (length(input$table_search_columns) != 0) {
-        transition$table[transition$table[,"active"] == TRUE, "filter"] <- input$table_search_columns
+        transition$table$filter[active_cols] <- input$table_search_columns
       }
-
-      # save new column state after changing
-      transition$table[,"active"] <- transition$table[,"colnames"] %in% input$selected_vars
+      transition$table$active <- active_cols
 
       current_order <- ordered_columns()
       new_selection <- setdiff(setdiff(input$selected_vars,"Color"), current_order)
@@ -114,24 +94,6 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
       hide_spinner()
     })
 
-
-    # observeEvent(input$table_cell_edit, {
-    #   info <- input$table_cell_edit
-    #
-    #   # Ensure the edit was in the PRIORITY column
-    #   if (names(fileData())[info$col] == "PRIORITY") {
-    #
-    #     # Update the PRIORITY value in the reactive dataset
-    #     fileData <- isolate(fileData())
-    #     fileData[info$row, "PRIORITY"] <- as.numeric(info$value)
-    #
-    #     # Update the Color column based on PRIORITY value
-    #     fileData[info$row, "Color"] <- ifelse(fileData[info$row, "PRIORITY"] > 0, "#90EE90", "#FFCCCC")  # example colors: light red for >0, light blue for <=0
-    #
-    #     # Re-assign the updated data to the reactive object
-    #     filtered_data(fileData)
-    #   }
-    # })
 
     observeEvent(input$table_cell_edit, {
       info <- input$table_cell_edit
@@ -170,55 +132,70 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
         }
         # Re-assign the updated data to the reactive object, preserving all columns
         filtered_data(full_dataset)
-
-        # # Update the PRIORITY value in the full dataset
-        # full_dataset[row_index, "PRIORITY"] <- as.numeric(info$value)
-        #
-        # # Update the Color column based on PRIORITY value
-        # full_dataset[row_index, "Color"] <- ifelse(full_dataset[row_index, "PRIORITY"] > 0, "#90EE90", "#FFCCCC")
-        #
-        # # Re-assign the updated data to the reactive object, preserving all columns
-        # #print(names(filtered_data()))
-        # filtered_data(full_dataset)
-        # #print(names(filtered_data()))
       } else {
         warning("ID not found or multiple matches.")
       }
     })
-
+    
 
     observe({
       show_spinner()
+
       output$table <- DT::renderDT({
 
+        # Check if fileData is valid and has columns
         if (!is.null(fileData()) && ncol(fileData()) > 0) {
-          #print("not null")
-          if (length(names(fileData())) > 0) {
-            #print(length(names(fileData())))
-            selected_columns <- ordered_columns()
-            #print(selected_columns)
-            #print(names(fileData()))
 
-            fileData <- fileData()[,names(fileData())]
-            #print(class(fileData))
+          # Verify that fileData has column names
+          if (length(names(fileData())) > 0) {
+
+            # Retrieve selected columns
+            selected_columns <- ordered_columns()
+
+            # Prepare fileData by ensuring only existing columns are used
+            fileData <- fileData()[, names(fileData())]
+
+            # Check if all selected columns are present in fileData
             if (all(selected_columns %in% names(fileData()))) {
+
+              # Case 1: If "Color" column is present, set up datatable with "Color" styling
               if ("Color" %in% names(fileData)) {
-                #print(names(fileData))
-                #print(c(selected_columns,"Color"))
-                DT::datatable(fileData[,c(selected_columns,"Color"),drop=FALSE], filter = list(position="top",clear=TRUE), selection = "none", escape = FALSE, options = list(stateSave = FALSE,lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
-                                                                                                                                                                              columnDefs = list(
-                                                                                                                                                                                list(visible = FALSE, targets = which(c(selected_columns,"Color") %in% c("Color"))),
-                                                                                                                                                                                list(targets = '_all', className = 'dt-body-nowrap')
-                                                                                                                                                                              )),editable = list(target = "cell", columns = 1)) %>%
-                  formatStyle(columns = c(selected_columns,"Color"), valueColumns = "Color", backgroundColor = JS("value"), target = 'row')
+                DT::datatable(
+                  fileData[, c(selected_columns, "Color"), drop = FALSE],
+                  filter = list(position = "top", clear = TRUE),
+                  selection = "none",
+                  escape = FALSE,
+                  options = list(
+                    stateSave = FALSE,
+                    lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
+                    columnDefs = list(
+                      # Hide "Color" column in display
+                      list(visible = FALSE, targets = which(c(selected_columns, "Color") %in% c("Color"))),
+                      list(targets = '_all', className = 'dt-body-nowrap')
+                    )
+                  ),
+                  editable = list(target = "cell", columns = 1)
+                ) %>%
+                  # Apply row background color based on "Color" column values
+                  formatStyle(columns = c(selected_columns, "Color"), valueColumns = "Color", backgroundColor = JS("value"), target = 'row')
+
+                # Case 2: If "Level4" column is present, display datatable without "Color" styling
               } else if ("Level4" %in% names(fileData)) {
-                #print("else if")
-                DT::datatable(fileData[,c(selected_columns),drop=FALSE], filter = list(position="top",clear=TRUE), selection = "none", escape = FALSE,options = list(stateSave = FALSE,lengthMenu = list(c(25, 50, -1), c("25", "50", "All"))))
+                DT::datatable(
+                  fileData[, c(selected_columns), drop = FALSE],
+                  filter = list(position = "top", clear = TRUE),
+                  selection = "none",
+                  escape = FALSE,
+                  options = list(
+                    stateSave = FALSE,
+                    lengthMenu = list(c(25, 50, -1), c("25", "50", "All"))
+                  )
+                )
               }
             }
           }
         } else {
-          #print("else")
+          # Display message if fileData is null or empty
           DT::datatable(
             data.frame(Message = "No data available"),
             selection = "none",
@@ -232,9 +209,11 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
         }
 
       })
+
       hide_spinner()
     })
 
+    # Save table to output file
     observeEvent(input$save_file, {
       show_spinner()
       output_dir <- input$output_dir
