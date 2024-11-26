@@ -3,16 +3,16 @@
 
 collapseUI <- function(id, title, style, ...) {
   box_id <- paste0(id, "_box")
-  bsCollapse(id = id, open = box_id, multiple = TRUE,
+  bsCollapse(open = box_id, multiple = TRUE,
     bsCollapsePanel(title = title, value = box_id, style = style, ...)
   )
 }
 
 inherOptsUI <- function(ns) {
+  choices <- c("", "Homozygous Recessive", "X-Linked Recessive",
+               "Compound Heterozygous", "Dominant/De Novo", "Custom")
   collapseUI("inheritance_collapse", "Inheritance", "info",
-    selectInput(ns("inheritance"), "Select inheritance:",
-      choices = c("", c("Homozygous Recessive","X-Linked Recessive","Compound Heterozygous","Dominant/De Novo","Custom")),
-      selected = ""),
+    selectInput(ns("inheritance"), "Select inheritance:", choices, ""),
     uiOutput(ns("additional_rows"))
   )
 }
@@ -26,6 +26,12 @@ genePanelBox <- function(ns, outputId, label, color = "black",width = "100%", he
 }
 
 geneOptsUI <- function(ns, panel_app_genes) {
+  locs <- c("", unique(panel_app_genes$Level4))
+  locUI <- fluidRow(column(12,
+             selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
+             uiOutput(ns("unclassified_genes"))
+           ))
+
   collapseUI("panelapp_collapse", "Panel App", "info",
     div(style = "height: 33vh",
       fluidRow(
@@ -48,15 +54,21 @@ geneOptsUI <- function(ns, panel_app_genes) {
 }
 
 igvOptsUI <- function(ns) {
+  inputUI <- fluidRow(
+    column(6,
+      textInput(ns("igv_var_id"), "Variant ID:", value = ""),
+      numericInput(ns("igv_max_window"), "Max window size:", value = 10000,
+                   min = 0)
+    ),
+    column(6,
+      numericInput(ns("igv_flanking"), "Flanking size:",
+                   value = 200, min = 0)
+    )
+  )
+
   collapseUI("igv_collapse", "IGV", "info",
     div(style = "height: 33vh",
-      fluidRow(
-        column(6,
-          textInput(ns("igv_var_id"), "Variant ID:", value = ""),
-          numericInput(ns("igv_max_window"), "Max window size:", value = 10000, min = 0)
-        ),
-        column(6, numericInput(ns("igv_flanking"), "Flanking size:", value = 200, min = 0))
-      ),
+      inputUI,
       fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
       fluidRow(column(12, br(), uiOutput(ns("igv_coord_box"))))
     )
@@ -64,18 +76,18 @@ igvOptsUI <- function(ns) {
 }
 
 shortlistUI <- function(ns) {
-  collapseUI("short_list_collapse", "Shortlisted Variants", "info",
-    fluidRow(
-      column(4,
-        textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
-        fluidRow(
-          column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
-          column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
-        )
-      ),
-      column(8, uiOutput(ns("shortlist")))
-    )
+ ui <- fluidRow(
+    column(4,
+      textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
+      fluidRow(
+        column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
+        column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
+      )
+    ),
+    column(8, uiOutput(ns("shortlist")))
   )
+
+  collapseUI("short_list_collapse", "Shortlisted Variants", "info", ui)
 }
 
 blacklistUI <- function(ns) {
@@ -130,9 +142,7 @@ snvOptsUI <- function(ns) {
         collapseUI("pathogenicity_collapse", "Pathogenicity", "info",
           div(style = "height: 30vh",
             selectInput(ns("pathogenicity"), "Select Clinvar:",
-              choices = c("","Pathogenic/Likely pathogenic","Not benign"),
-              selected = ""
-            ),
+                        c("","Pathogenic/Likely pathogenic","Not benign"), ""),
             uiOutput(ns("clinvar"))
           )
         )
@@ -141,9 +151,7 @@ snvOptsUI <- function(ns) {
         collapseUI("annotation_collapse", "Annotation", "info",
           div(style = "height: 30vh",
             selectInput(ns("annotation"), "Select Annotation:",
-              choices = c("","High impact","Moderate to high impact"),
-              selected = ""
-            ),
+                        c("","High impact","Moderate to high impact"), ""),
             uiOutput(ns("consequences")),
             numericInput(ns("spliceai_score"), "SpliceAI score:", value = 0, min = 0, max = 1, step = 0.05)
           )
@@ -154,12 +162,10 @@ snvOptsUI <- function(ns) {
           div(style = "height: 30vh",
             numericInput(ns("revel"), "Enter Revel:", value = 0, min = 0, max = 1, step = 0.05),
             selectInput(ns("sift"), "Select Sift:",
-              choices = c("","Deleterious","Tolerated"),
-              selected = "", multiple = TRUE),
+                        c("","Deleterious","Tolerated"), "", TRUE),
             selectInput(ns("polyphen"), "Select Polyphen:",
-              choices = c("","Probably damaging","Possibly damaging","Benign"),
-              selected = "", multiple = TRUE
-            )
+                        c("","Probably damaging","Possibly damaging","Benign"),
+                        "", TRUE)
           )
         )
       ),
@@ -167,8 +173,7 @@ snvOptsUI <- function(ns) {
         collapseUI("quality_collapse", "Call quality", "info",
           div(style = "height: 30vh",
             # selectInput(ns("pass_variants"), "Select Variant:",
-            #   choices = c("","PASS only variants","All variants"), selected = ""
-            # ),
+            #             c("","PASS only variants","All variants"), ""),
             sliderInput(ns("genotype_quality"), label = "Genotype quality:",
               min = 0, max = 100, ticks = FALSE, value = 0
             ),
@@ -182,9 +187,8 @@ snvOptsUI <- function(ns) {
       column(2,
         collapseUI("frequency_collapse", "Frequency", "info",
           div(style = "height: 30vh",
-            selectInput(ns("af"), "gnomADv4 AF:", choices= c(0, seq(0.0001, 0.0005, by = 0.0004),
-              0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1), selected = 1
-            ),
+            selectInput(ns("af"), "gnomADv4 AF:", c(0, seq(0.0001, 0.0005, by = 0.0004),
+                        0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1), 1),
           )
         )
       ),
@@ -224,9 +228,7 @@ svOptsUI <- function(ns) {
             fluidRow(
               column(6,
                 selectInput(ns("sv_pass_variants"), "Select Variant:",
-                  choices = c("","PASS only variants","All variants"),
-                  selected = ""
-                ),
+                            c("","PASS only variants","All variants"), ""),
                 sliderInput(ns("sv_genotype_quality"), label = "Genotype quality:",
                   min = 0, max = 100, ticks = FALSE, value = 0
                 ),
