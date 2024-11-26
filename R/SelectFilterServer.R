@@ -183,7 +183,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                                   choiceValues = clinvar_options,
                                   selected = NULL,inline = TRUE)
       }
-      #hide_spinner()
     })
 
 
@@ -310,7 +309,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     # Add ID to the short list
     observeEvent(input$shortlisted_add, {
-      #print("add+button")
       new_id <- input$shortlisted_var
       if (new_id != "" & new_id %in% dataset$ID) {
         current_ids <- current_shortlisted_ids()
@@ -321,7 +319,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           updateTextInput(session, "shortlisted_var", value = "")
         }
       }
-      #print(current_shortlisted_ids()) # Debugging print statement
     })
 
     # Remove ID from the short list
@@ -337,7 +334,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           updateTextInput(session, "shortlisted_var", value = "")
         }
       }
-      #print(current_shortlisted_ids()) # Debugging print statement
     })
 
     # Display the list of shortlisted IDs
@@ -359,7 +355,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     # Add ID to the black list
     observeEvent(input$blacklisted_add, {
-      #print("add+button")
       new_id <- input$blacklisted_var
       if (new_id != "" & new_id %in% dataset$ID) {
         current_ids <- current_blacklisted_ids()
@@ -370,7 +365,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           updateTextInput(session, "blacklisted_var", value = "")
         }
       }
-      #print(current_blacklisted_ids()) # Debugging print statement
     })
 
     # Remove ID from the black list
@@ -386,7 +380,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           updateTextInput(session, "blacklisted_var", value = "")
         }
       }
-      #print(current_blacklisted_ids()) # Debugging print statement
     })
 
     # Display the list of blacklisted IDs
@@ -406,25 +399,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     ##################### Phenotype
 
-    # Add ID to the phenotype list
-    # observeEvent(input$phenotype_add, {
-    #   #print("add+button")
-    #   new_id <- input$phenotype_var
-    #   if (new_id != "") {
-    #     current_ids <- current_phenotype_terms()
-    #     if (!(new_id %in% current_ids) & new_id %in% phenotype_data$hpo_id) {
-    #       current_phenotype_terms(c(current_ids, new_id))
-    #       updateTextInput(session, "phenotype_var", value = "")
-    #     } else {
-    #       updateTextInput(session, "phenotype_var", value = "")
-    #     }
-    #   }
-    #   #print(current_phenotype_terms()) # Debugging print statement
-    # })
-
     # Add multiple IDs to the phenotype list
     observeEvent(input$phenotype_add, {
-      #new_ids <- strsplit(input$phenotype_var, split = "[,;\\s]+")[[1]]  # Split by comma, semicolon, or whitespace
       new_ids <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))
       new_ids <- trimws(new_ids)
       print(new_ids)
@@ -460,22 +436,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         updateTextInput(session, "phenotype_var", value = "")
       }
     })
-
-    # # Remove ID from the phenotype list
-    # observeEvent(input$phenotype_remove, {
-    #   #print("remove-button")
-    #   id_to_remove <- input$phenotype_var
-    #   if (id_to_remove != "") {
-    #     current_ids <- current_phenotype_terms()
-    #     if (id_to_remove %in% current_ids) {
-    #       current_phenotype_terms(current_ids[current_ids != id_to_remove])
-    #       updateTextInput(session, "phenotype_var", value = "")
-    #     } else {
-    #       updateTextInput(session, "phenotype_var", value = "")
-    #     }
-    #   }
-    #   #print(current_phenotype_terms()) # Debugging print statement
-    # })
 
     # Display the list of HPO terms
     output$phenotype <- renderUI({
@@ -570,8 +530,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           if (length(panelapp_filter) > 0) {
             genes <- panel_app_genes[Level4 %in% panelapp_filter,.(PANEL_APP=Level4,GENE_SYMBOL=Entity_Name,INHERITANCE=Model_Of_Inheritance)]
             genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
-            #numeric_cols <- grep("^alt_allele_count_", id_vars, value = TRUE)
-            #selected_vars <- c("ID","GENE_SYMBOL",numeric_cols)
             selected_vars <- c("ID","GENE_SYMBOL")
             print(dim(genes))
             print(dim(dataset[(ID %in% filtered_ids) & !is.na(GENE_SYMBOL),c(selected_vars),with=FALSE][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=setdiff(selected_vars,"GENE_SYMBOL")]))
@@ -585,14 +543,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
               genes[,ID:=NA]
               warning("The filtered dataset is empty. Merge operation will be skipped.")
             }
-            #genes <- merge(dataset[(ID %in% filtered_ids) & !is.na(GENE_SYMBOL),c(selected_vars),with=FALSE][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=setdiff(selected_vars,"GENE_SYMBOL")],genes,by="GENE_SYMBOL")
-            # setkey(dataset, GENE_SYMBOL)
-            # setkey(genes, GENE_SYMBOL)
-            # genes_snv <- merge(dataset[(ID %in% filtered_ids & CATEGORY == "SNV & Indel"),.(ID,GENE_SYMBOL)],genes,by="GENE_SYMBOL")[,.(ID,PANEL_APP)]
-            # genes_sv <- merge(dataset[(ID %in% filtered_ids & CATEGORY =="SV"),.(ID,GENE_SYMBOL)][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=ID],genes,by="GENE_SYMBOL")[,.(ID,PANEL_APP)]
-            #genes <- rbind(genes_snv,genes_sv)
-            #genes <- genes[, .(PANEL_APP = paste(unique(PANEL_APP), collapse = ";")), by = ID]
-
           }
         })
         cat(paste("PanelApp time:", format_time(panelapp_time),"\n"))
@@ -661,7 +611,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           # SpliceAI filter
           spliceAI_override <- c()
           if (spliceai_filter > 0) {
-            #snv_filtered_ids <- intersect(dataset[(ID %in% snv_filtered_ids)][(Donor_Loss>spliceai_filter) | (Donor_Gain>spliceai_filter) | (Acceptor_Loss>spliceai_filter) | (Acceptor_Gain>spliceai_filter),ID],snv_filtered_ids)
             if (spliceai_filter >= 0.2) {
               spliceAI_override <- unique(c(spliceAI_override,dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel")][(Donor_Loss>spliceai_filter) | (Donor_Gain>spliceai_filter) | (Acceptor_Loss>spliceai_filter) | (Acceptor_Gain>spliceai_filter),ID]))
             }
@@ -698,13 +647,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             print(length(snv_filtered_ids))
           }
         }
-
-        # # Call filter
-        # if (pass_variants_filter != "") {
-        #   if (pass_variants_filter == "PASS only variants") {
-        #     snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][(FILTER=="PASS") | (FILTER=="."),ID])
-        #   }
-        # }
 
         # Call Quality
         if (genotype_quality_value > 0) {
@@ -805,15 +747,10 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
               filtered_dataset[,PANEL_APP:=NA]
               filtered_dataset[,INHERITANCE:=NA]
             }
-            #print(dim(filtered_dataset))
-            #filtered_dataset[, PANEL_APP := paste(unique(PANEL_APP), collapse = ";"), by = ID]
+
             filtered_dataset[, `:=`(PANEL_APP = paste(unique(PANEL_APP), collapse = ";"),
                                     INHERITANCE = paste(unique(INHERITANCE), collapse = ";")), by = ID]
-            #print("Names:")
-            #print(names(filtered_dataset))
             filtered_dataset <- unique(filtered_dataset)
-            #print(names(filtered_dataset))
-            #print(dim(filtered_dataset))
           } else {
             filtered_dataset[,PANEL_APP:=NA]
             filtered_dataset[,INHERITANCE:=NA]
