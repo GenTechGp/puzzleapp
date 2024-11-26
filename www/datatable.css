@@ -1,0 +1,10 @@
+.dataTables_wrapper .dataTables_scrollBody table {
+  width: 100%;
+}
+
+table.dataTable td {
+  max-width: 20vw;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
