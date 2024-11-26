@@ -297,11 +297,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     output$igv_coord_box <- renderUI({
       variant_coord <- igv_coord_box()
-      wellPanel(
-        div(style = "overflow-y: auto; max-height: 100px;",
-            p(variant_coord, style = "color: #000000;")),
-        style = "width: 100%;"  # Adjust the width as needed
-      )
+      variant_coord
     })
 
 
@@ -343,12 +339,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       } else {
         variant_ids <- ""
       }
-      wellPanel(
-        div(style = "font-weight: bold; margin-bottom: 10px;", "Shortlist:"),
-        div(style = "overflow-y: auto; max-height: 300px;",
-            p(variant_ids, style = "color: black;")),  # Change text color to red
-        style = "width: 100%;"  # Adjust the width as needed
-      )
+      variant_ids
     })
 
     ##################### Black List
@@ -389,12 +380,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       } else {
         variant_ids <- ""
       }
-      wellPanel(
-        div(style = "font-weight: bold; margin-bottom: 10px;", "Blacklist:"),
-        div(style = "overflow-y: auto; max-height: 300px;",
-            p(variant_ids, style = "color: black;")),  # Change text color to red
-        style = "width: 100%;"  # Adjust the width as needed
-      )
+      variant_ids
     })
 
     ##################### Phenotype
@@ -444,12 +430,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       } else {
         hpo_ids <- ""
       }
-      wellPanel(
-        div(style = "font-weight: bold; margin-bottom: 10px;", "HPO list:"),
-        div(style = "overflow-y: auto; max-height: 300px;",
-            p(hpo_ids, style = "color: black;")),  # Change text color to red
-        style = "width: 100%;"  # Adjust the width as needed
-      )
+      hpo_ids
     })
 
     hide_spinner()
