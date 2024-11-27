@@ -9,11 +9,17 @@ inherOptsUI <- function(ns) {
   )
 }
 
-panelBox <- function(ns,outputId, label, color = "black",width = "100%", height = "30vh") {
-  wellPanel(div(style = "font-weight: bold; margin-bottom: 10px;", label),
-    div(style = paste("overflow-y: auto; max-height: calc(100% - 30px); color:", color, ";"),
-      uiOutput(ns(outputId))),
-    style = paste("width:", width, "; height:", height, ";")
+panelBox <- function(id, label, color = "black", width = "100%",
+                     height = "30vh") {
+  labelStyle <- "font-weight: bold; margin-bottom: 10px;"
+  boxStyle <- paste("overflow-y: auto; max-height: calc(100% - 30px); color:",
+                    color, ";")
+  panelStyle <- paste("width:", width, "; height:", height, ";")
+
+  wellPanel(
+    div(style = labelStyle, label),
+    div(style = boxStyle, uiOutput(id)),
+    style = panelStyle
   )
 }
 
@@ -21,28 +27,20 @@ geneOptsUI <- function(ns, panel_app_genes) {
   locs <- c("", unique(panel_app_genes$Level4))
   locUI <- fluidRow(column(12,
     selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
-    panelBox(ns,"unclassified_genes", "Unclassified", "gray", "80%", "20vh")
+    panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray", "80%",
+             "20vh")
   ))
 
-  collapseUI("panelapp_collapse", "Panel App", "info",
-    div(style = "height: 33vh",
-      fluidRow(
-        column(3,
-          fluidRow(
-            column(12,
-              selectInput(ns("panelapp"), "Select location:",
-                choices = c("", unique(panel_app_genes$Level4)),
-                selected = "", multiple = TRUE),
-              panelBox(ns,"unclassified_genes", paste("Unclassified", "genes:"), color = "gray",width = "80%", height = "20vh")
-            )
-          )
-        ),
-        column(3,panelBox(ns,"green_genes", paste("Green", "genes:"), color = "green")),
-        column(3,panelBox(ns,"red_genes", paste("Red", "genes:"), color = "red")),
-        column(3,panelBox(ns,"amber_genes", paste("Amber", "genes:"), color = "#FFBF00")),
-      )
+  ui <- div(style = "height: 33vh",
+    fluidRow(
+      column(3, locUI),
+      column(3, panelBox(ns("green_genes"), "Green genes:", "green")),
+      column(3, panelBox(ns("red_genes"), "Red genes:", "red")),
+      column(3, panelBox(ns("amber_genes"), "Amber genes:", "#FFBF00"))
     )
   )
+
+  collapseUI("panelapp_collapse", "Panel App", "info", ui)
 }
 
 igvOptsUI <- function(ns) {
@@ -56,16 +54,16 @@ igvOptsUI <- function(ns) {
     )
   )
 
-  collapseUI("igv_collapse", "IGV", "info",
-    div(style = "height: 33vh",
-      inputUI,
-      fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
-      fluidRow(column(12, br(), panelBox(ns,"igv_coord_box", "", height = "7vh")))
-    )
+  ui <- div(style = "height: 33vh",
+    inputUI,
+    fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
+    fluidRow(column(12, br(), panelBox(ns("igv_coord_box"), "", height = "7vh")))
   )
+
+  collapseUI("igv_collapse", "IGV", "info", ui)
 }
 
-listUI <- function(ns, id, name, prompt) {
+listUI <- function(ns, id, label, prompt, box_label) {
   buttonUI <- fluidRow(
     column(3, actionButton(ns(paste0(id, "_add")), NULL, icon("plus"))),
     column(3, actionButton(ns(paste0(id, "_remove")), NULL, icon("minus")))
@@ -76,40 +74,22 @@ listUI <- function(ns, id, name, prompt) {
       textInput(ns(paste0(id, "_var")), prompt, ""),
       buttonUI
     ),
-    column(8, panelBox(ns,"shortlist", "Shortlist:", height = "10vh"))
+    column(8, panelBox(ns(id), box_label, height = "10vh"))
   )
 
-  collapseUI("short_list_collapse", "Shortlisted Variants", "info", ui)
+  collapseUI(paste0(id, "_collapse"), label, "info", ui)
+}
+
+shortlistUI <- function(ns) {
+  listUI(ns, "shortlist", "Shortlisted Variants", "Variant ID:", "Shortlist:")
 }
 
 blacklistUI <- function(ns) {
-  collapseUI("black_list_collapse", "Blacklisted Variants", "info",
-    fluidRow(
-      column(4,
-        textInput(ns("blacklisted_var"), "Variant ID:", value = ""),
-        fluidRow(
-          column(3, actionButton(ns("blacklisted_add"), label = NULL, icon = icon("plus"))),
-          column(3, actionButton(ns("blacklisted_remove"), label = NULL, icon = icon("minus")))
-        )
-      ),
-      column(8, panelBox(ns,"blacklist", "Blacklist:", height = "10vh"))
-    )
-  )
+  listUI(ns, "blacklist", "Blacklisted Variants", "Variant ID:", "Blacklist:")
 }
 
-phenotypeUI <- function(ns) {
-  collapseUI("phenotype_collapse", "Phenotype", "info",
-    fluidRow(
-      column(4,
-        textInput(ns("phenotype_var"), "HPO term:", value = ""),
-        fluidRow(
-          column(3, actionButton(ns("phenotype_add"), label = NULL, icon = icon("plus"))),
-          column(3, actionButton(ns("phenotype_remove"), label = NULL, icon = icon("minus")))
-        )
-      ),
-      column(8, panelBox(ns("phenotype"), "HPO terms:", height = "10vh"))
-    )
-  )
+phenoUI <- function(ns) {
+  listUI(ns, "phenotype", "Phenotype", "HPO term:", "HPO list:")
 }
 
 globalOptsUI <- function(ns, panel_app_genes) {
@@ -120,9 +100,9 @@ globalOptsUI <- function(ns, panel_app_genes) {
       column(3, igvOptsUI(ns))
     ),
     fluidRow(
-      column(4, listUI(ns, "shortlist", "Shortlisted Variants", "Variant ID:")),
-      column(4, listUI(ns, "blacklist", "Blacklisted Variants", "Variant ID:")),
-      column(4, listUI(ns, "phenotype", "Phenotype", "HPO term:"))
+      column(4, shortlistUI(ns)),
+      column(4, blacklistUI(ns)),
+      column(4, phenoUI(ns))
     )
   )
 }
