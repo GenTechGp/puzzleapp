@@ -1,12 +1,4 @@
-# TODO:
-# - replace all uiOutput with reactive variables?
-
-collapseUI <- function(id, title, style, ...) {
-  box_id <- paste0(id, "_box")
-  bsCollapse(open = box_id, multiple = TRUE,
-    bsCollapsePanel(title = title, value = box_id, style = style, ...)
-  )
-}
+# Global Options
 
 inherOptsUI <- function(ns) {
   choices <- c("", "Homozygous Recessive", "X-Linked Recessive",
@@ -28,9 +20,9 @@ panelBox <- function(ns, outputId, label, color = "black",width = "100%", height
 geneOptsUI <- function(ns, panel_app_genes) {
   locs <- c("", unique(panel_app_genes$Level4))
   locUI <- fluidRow(column(12,
-             selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
-             uiOutput(ns("unclassified_genes"))
-           ))
+    selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
+    genePanelBox(ns("unclassified_genes"), "Unclassified", "gray", "80%", "20vh")
+  ))
 
   collapseUI("panelapp_collapse", "Panel App", "info",
     div(style = "height: 33vh",
@@ -51,18 +43,18 @@ geneOptsUI <- function(ns, panel_app_genes) {
       )
     )
   )
+
+  collapseUI("panelapp_collapse", "Panel App", "info", ui)
 }
 
 igvOptsUI <- function(ns) {
   inputUI <- fluidRow(
     column(6,
       textInput(ns("igv_var_id"), "Variant ID:", value = ""),
-      numericInput(ns("igv_max_window"), "Max window size:", value = 10000,
-                   min = 0)
+      numericInput(ns("igv_max_window"), "Max window size:", 10000, 0)
     ),
     column(6,
-      numericInput(ns("igv_flanking"), "Flanking size:",
-                   value = 200, min = 0)
+      numericInput(ns("igv_flanking"), "Flanking size:", 200, 0)
     )
   )
 
@@ -73,16 +65,20 @@ igvOptsUI <- function(ns) {
       fluidRow(column(12, br(), panelBox(ns, "igv_coord_box", "", height = "7vh")))
     )
   )
+
+  collapseUI("igv_collapse", "IGV", "info", ui)
 }
 
-shortlistUI <- function(ns) {
- ui <- fluidRow(
+listUI <- function(ns, id, name, prompt) {
+  buttonUI <- fluidRow(
+    column(3, actionButton(ns(paste0(id, "_add")), NULL, icon("plus"))),
+    column(3, actionButton(ns(paste0(id, "_remove")), NULL, icon("minus")))
+  )
+
+  ui <- fluidRow(
     column(4,
-      textInput(ns("shortlisted_var"), "Variant ID:", value = ""),
-      fluidRow(
-        column(3, actionButton(ns("shortlisted_add"), label = NULL, icon = icon("plus"))),
-        column(3, actionButton(ns("shortlisted_remove"), label = NULL, icon = icon("minus")))
-      )
+      textInput(ns(paste0(id, "_var")), prompt, ""),
+      buttonUI
     ),
     column(8, panelBox(ns, "shortlist", "Shortlist:", height = "10vh"))
   )
@@ -128,124 +124,144 @@ globalOptsUI <- function(ns, panel_app_genes) {
       column(3, igvOptsUI(ns))
     ),
     fluidRow(
-      column(4, shortlistUI(ns)),
-      column(4, blacklistUI(ns)),
-      column(4, phenotypeUI(ns))
+      column(4, listUI(ns, "shortlist", "Shortlisted Variants", "Variant ID:")),
+      column(4, listUI(ns, "blacklist", "Blacklisted Variants", "Variant ID:")),
+      column(4, listUI(ns, "phenotype", "Phenotype", "HPO term:"))
     )
   )
+}
+
+# SNVs and Indels
+
+snvPathoUI <- function(ns) {
+  ui <- div(style = "height: 30vh",
+    selectInput(ns("pathogenicity"), "Select Clinvar:",
+                c("","Pathogenic/Likely pathogenic","Not benign"), ""),
+    uiOutput(ns("clinvar"))
+  )
+
+  collapseUI("pathogenicity_collapse", "Pathogenicity", "info", ui)
+}
+
+snvAnnotUI <- function(ns) {
+  ui <- div(style = "height: 30vh",
+    selectInput(ns("annotation"), "Select Annotation:",
+                c("","High impact","Moderate to high impact"), ""),
+    uiOutput(ns("consequences")),
+    numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05)
+  )
+
+  collapseUI("annotation_collapse", "Annotation", "info", ui)
+}
+
+snvInsilicoUI <- function(ns) {
+  ui <- div(style = "height: 30vh",
+    numericInput(ns("revel"), "Enter Revel:", 0, 0, 1, 0.05),
+    selectInput(ns("sift"), "Select Sift:", c("", "Deleterious", "Tolerated"),
+                "", TRUE),
+    selectInput(ns("polyphen"), "Select Polyphen:",
+                c("", "Probably damaging", "Possibly damaging", "Benign"), "",
+                TRUE)
+  )
+
+  collapseUI("insilico_filters_collapse", "In silico filters", "info", ui)
+}
+
+snvQualityUI <- function(ns) {
+  ui <- div(style = "height: 30vh",
+    # selectInput(ns("pass_variants"), "Select Variant:",
+    #             c("", "PASS only variants", "All variants"), ""),
+    sliderInput(ns("genotype_quality"), "Genotype quality:", 0, 100, 0,
+                ticks = FALSE),
+    sliderInput(ns("allele_balance"), "Minimum Allele fraction:", 0, 1, 0,
+                ticks = FALSE),
+    materialSwitch(ns("affected_switch"), label = tags$b("Affected only:"))
+  )
+
+  collapseUI("quality_collapse", "Call quality", "info", ui)
+}
+
+snvFreqUI <- function(ns) {
+  freqs <- c(0, seq(0.0001, 0.0005, by = 0.0004), 0.001, 0.005, 0.01, 0.02,
+             0.03, 0.04, 0.05, 0.1, 1)
+
+  ui <- div(style = "height: 30vh",
+    selectInput(ns("af"), "gnomADv4 AF:", freqs, 1)
+  )
+
+  collapseUI("frequency_collapse", "Frequency", "info", ui)
 }
 
 snvOptsUI <- function(ns) {
-  collapseUI("snvs_indels_collapse", "SNVs and Indels", "primary",
-    fluidRow(
-      column(2,
-        collapseUI("pathogenicity_collapse", "Pathogenicity", "info",
-          div(style = "height: 30vh",
-            selectInput(ns("pathogenicity"), "Select Clinvar:",
-                        c("","Pathogenic/Likely pathogenic","Not benign"), ""),
-            uiOutput(ns("clinvar"))
-          )
-        )
-      ),
-      column(4,
-        collapseUI("annotation_collapse", "Annotation", "info",
-          div(style = "height: 30vh",
-            selectInput(ns("annotation"), "Select Annotation:",
-                        c("","High impact","Moderate to high impact"), ""),
-            uiOutput(ns("consequences")),
-            numericInput(ns("spliceai_score"), "SpliceAI score:", value = 0, min = 0, max = 1, step = 0.05)
-          )
-        )
-      ),
-      column(2,
-        collapseUI("insilico_filters_collapse", "In silico filters", "info",
-          div(style = "height: 30vh",
-            numericInput(ns("revel"), "Enter Revel:", value = 0, min = 0, max = 1, step = 0.05),
-            selectInput(ns("sift"), "Select Sift:",
-                        c("","Deleterious","Tolerated"), "", TRUE),
-            selectInput(ns("polyphen"), "Select Polyphen:",
-                        c("","Probably damaging","Possibly damaging","Benign"),
-                        "", TRUE)
-          )
-        )
-      ),
-      column(2,
-        collapseUI("quality_collapse", "Call quality", "info",
-          div(style = "height: 30vh",
-            # selectInput(ns("pass_variants"), "Select Variant:",
-            #             c("","PASS only variants","All variants"), ""),
-            sliderInput(ns("genotype_quality"), label = "Genotype quality:",
-              min = 0, max = 100, ticks = FALSE, value = 0
-            ),
-            sliderInput(ns("allele_balance"), label = "Minimum Allele fraction:",
-              min = 0, max = 1,ticks = FALSE, value = 0
-            ),
-            materialSwitch(ns("affected_switch"), label = tags$b("Affected only:"))
-          )
-        )
-      ),
-      column(2,
-        collapseUI("frequency_collapse", "Frequency", "info",
-          div(style = "height: 30vh",
-            selectInput(ns("af"), "gnomADv4 AF:", c(0, seq(0.0001, 0.0005, by = 0.0004),
-                        0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1), 1),
-          )
-        )
-      ),
-    )
+  ui <- fluidRow(
+    column(2, snvPathoUI(ns)),
+    column(4, snvAnnotUI(ns)),
+    column(2, snvInsilicoUI(ns)),
+    column(2, snvQualityUI(ns)),
+    column(2, snvFreqUI(ns))
   )
+
+  collapseUI("snvs_indels_collapse", "SNVs and Indels", "primary", ui)
 }
 
-svOptsUI <- function(ns) {
-  collapseUI("svs_collapse", "SVs", "primary",
+# SVs
+
+svFeatsUI <- function(ns) {
+  ui <- div(style = "height: 20vh",
     fluidRow(
-      column(2,
-        collapseUI("sv_features_collapse", "Features", "info",
-          div(style = "height: 20vh",
-            fluidRow(
-              column(6, uiOutput(ns("sv_features"))),
-              column(6,
-                numericInput(ns("min_svlen"), "Min Length:", value = 0, min = NA, max = NA),
-                numericInput(ns("max_svlen"), "Max Length:", value = 0, min = NA, max = NA)
-              )
-            )
-          )
-        )
-      ),
-      column(3,
-        collapseUI("sv_consequence_collapse", "Annotation", "info",
-          div(style = "height: 20vh",
-            fluidRow(
-              column(4, uiOutput(ns("sv_relative_pos"))),
-              column(8, uiOutput(ns("sv_consequence")))
-            )
-          )
-        )
-      ),
-      column(3,
-        collapseUI("sv_quality_collapse", "Call quality", "info",
-          div(style = "height: 20vh",
-            fluidRow(
-              column(6,
-                selectInput(ns("sv_pass_variants"), "Select Variant:",
-                            c("","PASS only variants","All variants"), ""),
-                sliderInput(ns("sv_genotype_quality"), label = "Genotype quality:",
-                  min = 0, max = 100, ticks = FALSE, value = 0
-                ),
-              ),
-              column(6,
-                sliderInput(ns("sv_allele_balance"), label = "Minimum Allele fraction:",
-                  min = 0, max = 1, ticks = FALSE, value = 0
-                ),
-                materialSwitch(ns("sv_affected_switch"), label = tags$b("Affected only:"))
-              )
-            )
-          )
-        )
+      column(6, uiOutput(ns("sv_features"))),
+      column(6,
+        numericInput(ns("min_svlen"), "Min Length:", 0, NA, NA),
+        numericInput(ns("max_svlen"), "Max Length:", 0, NA, NA)
       )
     )
   )
+
+  collapseUI("sv_features_collapse", "Features", "info", ui)
 }
+
+svConseqUI <- function(ns) {
+  ui <- div(style = "height: 20vh",
+    fluidRow(
+      column(4, uiOutput(ns("sv_relative_pos"))),
+      column(8, uiOutput(ns("sv_consequence")))
+    )
+  )
+
+  collapseUI("sv_consequence_collapse", "Annotation", "info", ui)
+}
+
+svQualityUI <- function(ns) {
+  ui <- div(style = "height: 20vh",
+    fluidRow(
+      column(6,
+        selectInput(ns("sv_pass_variants"), "Select Variant:",
+                    c("","PASS only variants","All variants"), ""),
+        sliderInput(ns("sv_genotype_quality"), "Genotype quality:", 0, 100, 0,
+                    ticks = FALSE),
+      ),
+      column(6,
+        sliderInput(ns("sv_allele_balance"), "Minimum Allele fraction:", 0, 1,
+                    0, ticks = FALSE),
+        materialSwitch(ns("sv_affected_switch"), tags$b("Affected only:"))
+      )
+    )
+  )
+
+  collapseUI("sv_quality_collapse", "Call quality", "info", ui)
+}
+
+svOptsUI <- function(ns) {
+  ui <- fluidRow(
+    column(2, svFeatsUI(ns)),
+    column(3, svConseqUI(ns)),
+    column(3, svQualityUI(ns))
+  )
+
+  collapseUI("svs_collapse", "SVs", "primary", ui)
+}
+
+# Main
 
 selectFiltersUI <- function(id, panel_app_genes) {
   ns <- NS(id)

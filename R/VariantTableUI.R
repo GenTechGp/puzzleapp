@@ -1,70 +1,65 @@
-tabUI <- function(id, tab_label, outdir, preselected_vars = character(0), show_file_saving=FALSE) {
+tabFileSavingUI <- function(ns, outdir) {
+  sample_id <- unlist(strsplit(ns("sample"), "-"))[1]
+  date <- format(Sys.time(), "%Y%m%d_%H%M")
+  default_file <- paste0(sample_id, ".shinyApp.", date)
+  fmts <- c("Excel (.xlsx)" = "excel", "Tab-separated values (.tsv)" = "tsv",
+            "Tab-delimited text (.tab)" = "tab")
+  scopes <- c("All variables" = "all",
+              "Selected variables only" = "selected_only")
+
+  fluidPage(
+    textInput(ns("output_dir"), "Output directory:", value = outdir),
+    selectInput(ns("filetype"), "File format:", fmts, "tsv"),
+    selectInput(ns("out_scope"), "Scope:", scopes, "all"),
+    textInput(ns("out_filename"), "File name prefix:", value = default_file),
+    actionButton(ns("save_file"), "save"),
+    hr()
+  )
+}
+
+# Collapsible panel for ranking columns
+tabRankUI <- function(ns) {
+  ui <- uiOutput(ns("sortable_columns"))
+  collapseUI("rank_collapse", "Re-order variables", "info", ui)
+}
+
+tabSelectUI <- function(ns) {
+  ui <- uiOutput(ns("selected_vars_box"))
+  collapseUI("select_collapse", "Select variables", "info", ui)
+}
+
+tabSidebarUI <- function(ns, outdir, show_file_saving) {
+  if (show_file_saving == TRUE)
+    save_ui <- tabFileSavingUI(ns, outdir)
+  else
+    save_ui <- NULL
+
+  sidebarPanel(width = 2,
+    save_ui,
+    tabRankUI(ns),
+    #uiOutput(ns("selected_vars_box"))
+    tabSelectUI(ns)
+  )
+}
+
+tabMainUI <- function(ns) {
+  mainPanel(width = 10,
+    tags$head(
+      tags$link(rel = "stylesheet", type = "text/css", href = "datatable.css")
+    ),
+    DT::dataTableOutput(ns("table"))
+  )
+}
+
+tabUI <- function(id, tab_label, outdir, show_file_saving) {
   ns <- NS(id)
   tabPanel(tab_label,
-           #use_busy_spinner(spin = "fading-circle", position = "top-right", color = "#0000FF",spin_id = ns("spin_table_rendering")),
-           sidebarLayout(
-             sidebarPanel(width = 2,
-                          conditionalPanel(
-                            condition = ifelse(show_file_saving, "true", "false"),
-                            textInput(ns("output_dir"), "Output directory:", value = outdir),
-                            selectInput(ns("filetype"), "File format:",
-                                        choices = c("Excel (.xlsx)" = "excel",
-                                                    "Tab-separated values (.tsv)" = "tsv",
-                                                    "Tab-delimited text (.tab)" = "tab"),
-                                        selected = "tsv"),
-                            selectInput(ns("out_scope"), "Scope:",
-                                        choices = c("All variables" = "all",
-                                                    "Selected variables only" = "selected_only"),
-                                        selected = "all"),
-                            textInput(ns("out_filename"), "File name prefix:", value = paste0(unlist(strsplit(sample,"-"))[1],".shinyApp.",format(Sys.time(), "%Y%m%d_%H%M"))),
-                            actionButton(ns("save_file"), "save"),
-                            hr()
-                          ),
-                          # Collapsible panel for ranking columns
-                          bsCollapse(
-                            id = "rank_collapse", open = "Re-order variables",
-                            bsCollapsePanel(
-                              title = "Re-order variables",
-                              uiOutput(ns("sortable_columns")),
-                              style = "info"
-                            )
-                          ),
-                          #uiOutput(ns("selected_vars_box"))
-                          bsCollapse(
-                            id = "select_collapse", open = "Select variables",
-                            bsCollapsePanel("Select variables",
-                                            uiOutput(ns("selected_vars_box")),
-                                            style = "info")
-                          )
-             ),
-             mainPanel( width = 10,
-                        tags$head(
-                          tags$style(HTML("
-          .dataTables_wrapper .dataTables_scrollBody table {
-            width: 100%;
-          }
-          table.dataTable td {
-            max-width: 20vw;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-          }
-        "))
-                        ),
-                        DT::dataTableOutput(ns("table")),
-             )
-           ),
-           tags$head(
-             tags$style(HTML("
-                            .well {
-                            background-color: #F4F4F4;
-                            border: 1px solid #337ab7; /* Primary color border */
-                            }
-                            .tab-content {
-                            background-color: white;
-                            }
-                            hr {border-top: 1.75px solid #D3D3D3;}
-                             "))
-           )
+    sidebarLayout(
+      tabSidebarUI(ns, outdir, show_file_saving),
+      tabMainUI(ns)
+    ),
+    tags$head(
+      tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
+    )
   )
 }
