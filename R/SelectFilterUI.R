@@ -1,3 +1,9 @@
+# Metadata
+
+metaUI <- function(ns) {
+  tableOutput(ns("meta"))
+}
+
 # Global Options
 
 inherOptsUI <- function(ns) {
@@ -243,7 +249,8 @@ selectFiltersUI <- function(id, panel_app_genes) {
   ns <- NS(id)
 
   fluidPage(
-    useShinyjs(),  # Initialize shinyjs
+    useShinyjs(),
+    fluidRow(metaUI(ns)),
     fluidRow(globalOptsUI(ns, panel_app_genes)),
     fluidRow(snvOptsUI(ns)),
     fluidRow(svOptsUI(ns)),

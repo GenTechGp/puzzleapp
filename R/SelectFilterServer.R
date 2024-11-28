@@ -1,3 +1,13 @@
+# Metadata
+
+metaServer <- function(output, pedigree) {
+  peditab <- pedigree[, 1:4]
+  names(peditab) <- c("Sample ID", "Kinship", "Status", "Sex")
+  output$meta <- renderTable(peditab)
+}
+
+# Main
+
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
@@ -28,6 +38,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     igv_coord_box <- reactiveVal(NULL)
 
     initialisation <- reactiveVal(TRUE)
+
+    metaServer(output, pedigree)
 
     clinvar_options <- c("Pathogenic", "Likely pathogenic", "VUS","Conflicting","Benign","Likely benign","Not available")
     clinvar_options_display <- lapply(
