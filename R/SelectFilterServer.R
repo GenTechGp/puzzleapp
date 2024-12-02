@@ -37,12 +37,13 @@ alleleCount <- function(inher, p) {
   } else if (inher == "Custom") {
     #x$alleles <- input[[paste0("allele", i)]]
     print("Custom inheritance") # TODO: handle
-  } else {
-    print("Empty inheritance") # TODO: handle
   }
 }
 
 alleleTable <- function(inher, pedigree) {
+  if (inher == "")
+    return()
+
   tab <- data.frame(id = pedigree$sample_id, alleles = NA)
   for (id in pedigree$sample_id) {
     p <- pedigree[pedigree$sample_id == id, ]
