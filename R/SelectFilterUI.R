@@ -10,8 +10,8 @@ inherOptsUI <- function(ns) {
   choices <- c("", "Homozygous Recessive", "X-Linked Recessive",
                "Compound Heterozygous", "Dominant/De Novo", "Custom")
   collapseUI("inheritance_collapse", "Inheritance", "info",
-    selectInput(ns("inheritance"), "Select inheritance:", choices, ""),
-    uiOutput(ns("additional_rows"))
+    selectInput(ns("inher"), "Select inheritance:", choices, ""),
+    tableOutput(ns("allele"))
   )
 }
 

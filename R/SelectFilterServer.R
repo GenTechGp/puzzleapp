@@ -6,6 +6,57 @@ metaServer <- function(output, pedigree) {
   output$meta <- renderTable(peditab)
 }
 
+alleleCount <- function(inher, p) {
+  if (inher == "Homozygous Recessive") {
+    if (p$status == "affected")
+      "2"
+    else
+      "0, 1"
+  } else if (inher == "Dominant/De Novo") {
+    if (p$status == "affected")
+      "1, 2"
+    else
+      "0"
+  } else if (inher == "Compound Heterozygous") {
+    if (p$status == "affected")
+      "1"
+    else
+      "0, 1"
+  } else if (inher == "X-Linked Recessive") {
+    if (p$sex == "male") {
+      if (p$status == "affected")
+        "1"
+      else
+        "0"
+    } else {
+      if (p$status == "affected")
+        "2"
+      else
+        "0, 1"
+    }
+  } else if (inher == "Custom") {
+    #x$alleles <- input[[paste0("allele", i)]]
+    print("Custom inheritance") # TODO: handle
+  } else {
+    print("Empty inheritance") # TODO: handle
+  }
+}
+
+alleleTable <- function(inher, pedigree) {
+  tab <- data.frame(id = pedigree$sample_id, alleles = NA)
+  for (id in pedigree$sample_id) {
+    p <- pedigree[pedigree$sample_id == id, ]
+    tab[tab$id == id, "alleles"] <- alleleCount(inher, p)
+  }
+  names(tab) <- c("Sample ID", "Allele Count")
+  tab
+}
+
+alleleServer <- function(input, output, pedigree) {
+  allele <- reactive(alleleTable(input$inher, pedigree))
+  output$allele <- renderTable(allele())
+}
+
 # Main
 
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
@@ -63,7 +114,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
 
     observe({
-      shinyjs::enable(ns("inheritance"))
+      shinyjs::enable(ns("inher"))
       shinyjs::enable(ns("pathogenicity"))
 
       shinyjs::enable(ns("apply_filter"))
@@ -84,87 +135,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       #hide_spinner()
     })
 
-    output$additional_rows <- renderUI({
-
-      additional_rows_list <- lapply(1:number_of_individuals(), function(i) {
-
-        sample_id <- pedigree$sample_id[i]
-        kinship <- pedigree$kinship[i]
-        status <- pedigree$status[i]
-        sex <- pedigree$sex[i]
-
-        sample_id_labels <- rep("",number_of_individuals())
-        kinship_labels <- rep("",number_of_individuals())
-        status_labels <- rep("",number_of_individuals())
-        sex_labels <- rep("",number_of_individuals())
-        allele_count_labels <- rep("",number_of_individuals())
-
-        sample_id_labels[1] <- "Sample ID:"
-        kinship_labels[1] <- "Kinship:"
-        status_labels[1] <- "Status:"
-        sex_labels[1] <- "Genotypic sex:"
-        allele_count_labels[1] <- "Allele count:"
-
-        fluidRow(
-          column(2,
-                 selectInput(ns(paste0("kinship", i)), kinship_labels[i],
-                             choices = kinship,
-                             selected = kinship)
-          ),
-          column(2,
-                 selectInput(ns(paste0("name", i)), sample_id_labels[i],
-                             choices = sample_id,
-                             selected = sample_id)
-          ),
-          column(2,
-                 selectInput(ns(paste0("sex", i)), sex_labels[i],
-                             choices = sex,
-                             selected = sex)
-          ),
-          column(2,
-                 selectInput(ns(paste0("status", i)), status_labels[i],
-                             choices = unique(pedigree$status),
-                             selected = condition_status$values[[sample_id]])
-          ),
-          column(2,
-                 selectInput(ns(paste0("allele", i)), allele_count_labels[i],
-                             choices = c("", c("0","0-1","1","1-2","2")),
-                             selected = allele_counts$values[[sample_id]])
-          )
-        )
-      })
-      do.call(tagList, additional_rows_list)
-    })
-
-
-    observe({
-
-      #show_spinner()
-      sample_ids <- pedigree$sample_id
-      i <- 1
-      for (current_id in sample_ids) {
-        status <- condition_status[["values"]][[current_id]]
-        kinship <- pedigree[pedigree$sample_id==current_id,kinship]
-        sex <- pedigree[pedigree$sample_id==current_id,sex]
-        if (input$inheritance == "Homozygous Recessive") {
-          allele_counts$values[[current_id]] <- ifelse(status=="affected","2","0-1")
-        } else if (input$inheritance == "Dominant/De Novo") {
-          allele_counts$values[[current_id]] <- ifelse(status=="affected","1-2","0")
-        } else if (input$inheritance == "Compound Heterozygous") {
-          allele_counts$values[[current_id]] <- ifelse(status=="affected","1","0-1")
-        } else if (input$inheritance == "X-Linked Recessive") {
-          if (sex == "male") {
-            allele_counts$values[[current_id]] <- ifelse(status=="affected","1","0")
-          } else {
-            allele_counts$values[[current_id]] <- ifelse(status=="affected","2","0-1")
-          }
-        } else if (input$inheritance == "Custom") {
-          allele_counts$values[[current_id]] <- input[[paste0("allele", i)]]
-        }
-        i <- i + 1
-      }
-      #hide_spinner()
-    })
+    alleleServer(input, output, pedigree)
 
     output$clinvar <- renderUI({
       #print("clinvar_checkboxes")
@@ -458,7 +429,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
         # Read selected filters
         filter_time <- system.time({
-          inheritance_filter <- input$inheritance
+          inheritance_filter <- input$inher
           pathogenicity_filter <- input$pathogenicity
           clinvar_filter <- input$clinvar_checkboxes
           annotation_filter <- input$consequence_checkboxes
