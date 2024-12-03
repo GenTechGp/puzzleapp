@@ -50,17 +50,17 @@ alleleTable <- function(inher, pedigree) {
   tab
 }
 
-alleleUI <- function(inher, pedigree) {
+alleleUI <- function(inher, pedigree, allele_tab) {
   if (inher == "")
     return()
 
-  tab <- alleleTable(inher, pedigree)
-  renderTable(tab, sanitize.text.function = function(x) x)
+  allele_tab(alleleTable(inher, pedigree))
+  renderTable(allele_tab(), sanitize.text.function = function(x) x)
 }
 
-alleleServer <- function(input, output, pedigree) {
-  allele <- reactive(alleleUI(input$inher, pedigree))
-  output$allele <- renderUI(allele())
+alleleServer <- function(input, output, pedigree, allele_tab) {
+  ui <- eventReactive(input$inher, alleleUI(input$inher, pedigree, allele_tab))
+  output$allele <- renderUI(ui())
 }
 
 # Main
@@ -73,9 +73,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     number_of_individuals <- reactiveVal(dim(pedigree)[1])
 
-    allele_counts <- rep("",dim(pedigree)[1])
-    names(allele_counts) <- pedigree$sample_id
-    allele_counts <- reactiveValues(values=allele_counts)
+    allele_tab <- reactiveVal()
 
     condition_status <- pedigree$status
     names(condition_status) <- pedigree$sample_id
@@ -141,7 +139,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       #hide_spinner()
     })
 
-    alleleServer(input, output, pedigree)
+    alleleServer(input, output, pedigree, allele_tab)
 
     output$clinvar <- renderUI({
       #print("clinvar_checkboxes")
@@ -477,7 +475,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
               return(filtered_rows)
             }
 
-            allele_count <- rbindlist(lapply(names(allele_counts$values), function(name) data.table(sample_id = name, allele_count = allele_counts$values[[name]])))
+            allele_count <- allele_tab()
+            names(allele_count) <- c("sample_id", "allele_count")
             allele_count <- merge(pedigree, allele_count, by = "sample_id")
             allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
             #print(allele_count)
