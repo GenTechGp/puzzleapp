@@ -35,15 +35,12 @@ alleleCount <- function(inher, p) {
         "0, 1"
     }
   } else if (inher == "Custom") {
-    #x$alleles <- input[[paste0("allele", i)]]
-    print("Custom inheritance") # TODO: handle
+    id = paste0("allele-box-", p$sample_id)
+    as.character(checkboxGroupInput(id, NULL, c("0", "1", "2"), inline = TRUE))
   }
 }
 
 alleleTable <- function(inher, pedigree) {
-  if (inher == "")
-    return()
-
   tab <- data.frame(id = pedigree$sample_id, alleles = NA)
   for (id in pedigree$sample_id) {
     p <- pedigree[pedigree$sample_id == id, ]
@@ -53,9 +50,17 @@ alleleTable <- function(inher, pedigree) {
   tab
 }
 
+alleleUI <- function(inher, pedigree) {
+  if (inher == "")
+    return()
+
+  tab <- alleleTable(inher, pedigree)
+  renderTable(tab, sanitize.text.function = function(x) x)
+}
+
 alleleServer <- function(input, output, pedigree) {
-  allele <- reactive(alleleTable(input$inher, pedigree))
-  output$allele <- renderTable(allele())
+  allele <- reactive(alleleUI(input$inher, pedigree))
+  output$allele <- renderUI(allele())
 }
 
 # Main
