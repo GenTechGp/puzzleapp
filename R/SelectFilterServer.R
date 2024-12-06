@@ -35,32 +35,56 @@ alleleCount <- function(inher, p) {
         "0, 1"
     }
   } else if (inher == "Custom") {
-    id = paste0("allele-box-", p$sample_id)
-    as.character(checkboxGroupInput(id, NULL, c("0", "1", "2"), inline = TRUE))
+    ""
   }
 }
 
-alleleTable <- function(inher, pedigree) {
+alleleTable <- function(pedigree, alleles_FUN) {
   tab <- data.frame(id = pedigree$sample_id, alleles = NA)
-  for (id in pedigree$sample_id) {
-    p <- pedigree[pedigree$sample_id == id, ]
-    tab[tab$id == id, "alleles"] <- alleleCount(inher, p)
-  }
+  tab$alleles <- sapply(pedigree$sample_id, alleles_FUN)
   names(tab) <- c("Sample ID", "Allele Count")
   tab
 }
 
-alleleUI <- function(inher, pedigree, allele_tab) {
+alleleCustomTable <- function(ns, pedigree) {
+  FUN <- function(x) {
+    boxId <- paste0("allele_", x)
+    as.character(checkboxGroupInput(ns(boxId), NULL, c("0", "1", "2"),
+                                    inline = TRUE))
+  }
+  alleleTable(pedigree, FUN)
+}
+
+alleleUI <- function(inher, ns, pedigree, allele_tab) {
   if (inher == "")
     return()
 
-  allele_tab(alleleTable(inher, pedigree))
-  renderTable(allele_tab(), sanitize.text.function = function(x) x)
+  FUN <- function(x) alleleCount(inher, pedigree[pedigree$sample_id == x, ])
+  allele_tab(alleleTable(pedigree, FUN))
+
+  if (inher == "Custom")
+    tab <- alleleCustomTable(ns, pedigree)
+  else
+    tab <- allele_tab()
+
+  renderTable(tab, sanitize.text.function = function(x) x)
 }
 
-alleleServer <- function(input, output, pedigree, allele_tab) {
-  ui <- eventReactive(input$inher, alleleUI(input$inher, pedigree, allele_tab))
+alleleServer <- function(input, output, ns, pedigree, allele_tab) {
+  ui <- eventReactive(input$inher,
+    alleleUI(input$inher, ns, pedigree, allele_tab)
+  )
   output$allele <- renderUI(ui())
+
+  for (id in pedigree$sample_id) {
+    boxId <- paste0("allele_", id)
+    observeEvent(input[[boxId]], {
+      tab <- allele_tab()
+      cnt <- paste(input[[boxId]], collapse = ", ")
+      tab[tab["Sample ID"] == id, "Allele Count"] <- cnt
+      allele_tab(tab)
+    })
+  }
 }
 
 # Main
@@ -139,7 +163,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       #hide_spinner()
     })
 
-    alleleServer(input, output, pedigree, allele_tab)
+    alleleServer(input, output, ns, pedigree, allele_tab)
 
     output$clinvar <- renderUI({
       #print("clinvar_checkboxes")
