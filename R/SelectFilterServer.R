@@ -87,6 +87,34 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
   }
 }
 
+listServer <- function(dataset, input, output, session, name, ids) {
+  # Add ID to the short list
+  observeEvent(input[[paste0(name, "_add")]], {
+    new <- input[[paste0(name, "_var")]]
+    if (new %in% dataset$ID) {
+      cur <- ids()
+      if (!(new %in% cur)) {
+        ids(c(cur, new))
+      }
+      updateTextInput(session, paste0(name, "_var"), value = "")
+    }
+  })
+
+  # Remove ID from the short list
+  observeEvent(input[[paste0(name, "_remove")]], {
+    del <- input[[paste0(name, "_var")]]
+    cur <- ids()
+    if (del %in% cur) {
+      ids(cur[cur != del])
+      updateTextInput(session, paste0(name, "_var"), value = "")
+    }
+  })
+
+  # Display the list of shortlisted IDs
+  # TODO: renderText
+  output[[name]] <- renderUI({paste(ids(), collapse="; ")})
+}
+
 # Main
 
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
@@ -108,8 +136,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     amber_genes <- reactiveVal()
     unclassified_genes <- reactiveVal()
 
-    current_shortlisted_ids <- reactiveVal()
-    current_blacklisted_ids <- reactiveVal()
+    shortlist <- reactiveVal()
+    blacklist <- reactiveVal()
     current_phenotype_terms <- reactiveVal()
 
     filtered_table_output <- reactiveVal(dataset)
@@ -312,87 +340,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     })
 
 
-    ################# Short List
-
-    # Add ID to the short list
-    observeEvent(input$shortlist_add, {
-      new_id <- input$shortlist_var
-      if (new_id != "" & new_id %in% dataset$ID) {
-        current_ids <- current_shortlisted_ids()
-        if (!(new_id %in% current_ids)) {
-          current_shortlisted_ids(c(current_ids, new_id))
-          updateTextInput(session, "shortlist_var", value = "")
-        } else {
-          updateTextInput(session, "shortlist_var", value = "")
-        }
-      }
-    })
-
-    # Remove ID from the short list
-    observeEvent(input$shortlist_remove, {
-      #print("remove-button")
-      id_to_remove <- input$shortlist_var
-      if (id_to_remove != "") {
-        current_ids <- current_shortlisted_ids()
-        if (id_to_remove %in% current_ids) {
-          current_shortlisted_ids(current_ids[current_ids != id_to_remove])
-          updateTextInput(session, "shortlist_var", value = "")
-        } else {
-          updateTextInput(session, "shortlist_var", value = "")
-        }
-      }
-    })
-
-    # Display the list of shortlisted IDs
-    output$shortlist <- renderUI({
-      if (length(current_shortlisted_ids()) > 0) {
-        variant_ids <- paste(current_shortlisted_ids(),collapse="; ")
-      } else {
-        variant_ids <- ""
-      }
-      variant_ids
-    })
-
-    ##################### Black List
-
-    # Add ID to the black list
-    observeEvent(input$blacklist_add, {
-      new_id <- input$blacklist_var
-      if (new_id != "" & new_id %in% dataset$ID) {
-        current_ids <- current_blacklisted_ids()
-        if (!(new_id %in% current_ids)) {
-          current_blacklisted_ids(c(current_ids, new_id))
-          updateTextInput(session, "blacklist_var", value = "")
-        } else {
-          updateTextInput(session, "blacklist_var", value = "")
-        }
-      }
-    })
-
-    # Remove ID from the black list
-    observeEvent(input$blacklist_remove, {
-      #print("remove-button")
-      id_to_remove <- input$blacklist_var
-      if (id_to_remove != "") {
-        current_ids <- current_blacklisted_ids()
-        if (id_to_remove %in% current_ids) {
-          current_blacklisted_ids(current_ids[current_ids != id_to_remove])
-          updateTextInput(session, "blacklist_var", value = "")
-        } else {
-          updateTextInput(session, "blacklist_var", value = "")
-        }
-      }
-    })
-
-    # Display the list of blacklisted IDs
-    output$blacklist <- renderUI({
-      if (length(current_blacklisted_ids()) > 0) {
-        variant_ids <- paste(current_blacklisted_ids(),collapse="; ")
-      } else {
-        variant_ids <- ""
-      }
-      variant_ids
-    })
+    listServer(dataset, input, output, session, "shortlist", shortlist)
+    listServer(dataset, input, output, session, "blacklist", blacklist)
 
     ##################### Phenotype
 
@@ -542,7 +491,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
         # check short list
         # Shortlisted variants
-        shortlisted_ids <- current_shortlisted_ids()
+        shortlisted_ids <- shortlist()
         split_shortlisted_ids <- c()
         if (length(shortlisted_ids) > 0) {
           split_shortlisted_ids <- unlist(strsplit(shortlisted_ids,"; "))
@@ -775,7 +724,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           filtered_dataset[ID %in% spliceAI_override,Color:="#FFFF0099"]
           filtered_dataset[ID %in% split_shortlisted_ids,PRIORITY:=1]
         }
-        blacklisted_ids <- current_blacklisted_ids()
+        blacklisted_ids <- blacklist()
         if (length(blacklisted_ids) > 0) {
           split_blacklisted_ids <- unlist(strsplit(blacklisted_ids,"; "))
           filtered_dataset[ID %in% split_blacklisted_ids,Color:="#FA6B84"]
