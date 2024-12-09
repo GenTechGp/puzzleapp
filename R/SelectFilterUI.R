@@ -24,7 +24,7 @@ panelBox <- function(id, label, color = "black", width = "100%",
 
   wellPanel(
     div(style = labelStyle, label),
-    div(style = boxStyle, uiOutput(id)),
+    div(style = boxStyle, textOutput(id)),
     style = panelStyle
   )
 }

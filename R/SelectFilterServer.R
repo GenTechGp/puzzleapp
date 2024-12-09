@@ -111,8 +111,7 @@ listServer <- function(dataset, input, output, session, name, ids) {
   })
 
   # Display the list of shortlisted IDs
-  # TODO: renderText
-  output[[name]] <- renderUI({paste(ids(), collapse="; ")})
+  output[[name]] <- renderText({paste(ids(), collapse="; ")})
 }
 
 # Main
@@ -138,7 +137,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     shortlist <- reactiveVal()
     blacklist <- reactiveVal()
-    current_phenotype_terms <- reactiveVal()
+    phenos <- reactiveVal()
 
     filtered_table_output <- reactiveVal(dataset)
 
@@ -282,7 +281,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
       # Function to dynamically render gene lists based on their source (e.g., "Green", "Red", "Amber", or "Unclassified").
       renderGeneOutput <- function(source, outputId, reactiveStore) {
-        renderUI({
+        renderText({
           genes <- ""
           if (!is.null(input$panelapp)) {
             if (source == "Unclassified") {
@@ -292,8 +291,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
             }
           }
           reactiveStore(genes)  # Update the reactive store (if used)
-          genes <- paste(genes, collapse = "; ")
-          p(genes)  # Return the content as a paragraph
+          paste(genes, collapse = "; ")
         })
       }
 
@@ -334,7 +332,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       }
     })
 
-    output$igv_coord_box <- renderUI({
+    output$igv_coord_box <- renderText({
       variant_coord <- igv_coord_box()
       variant_coord
     })
@@ -352,14 +350,13 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       print(new_ids)
 
       if (length(new_ids) > 0) {
-        current_ids <- current_phenotype_terms()
+        current_ids <- phenos()
         valid_new_ids <- new_ids[new_ids %in% phenotype_data$hpo_id & !(new_ids %in% current_ids)]
 
         if (length(valid_new_ids) > 0) {
-          current_phenotype_terms(c(current_ids, valid_new_ids))
+          phenos(c(current_ids, valid_new_ids))
+          updateTextInput(session, "phenotype_var", value = "")
         }
-
-        updateTextInput(session, "phenotype_var", value = "")
       }
     })
 
@@ -368,7 +365,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       ids_to_remove <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))  # Split by spaces, commas, or semicolons
 
       if (length(ids_to_remove) > 0) {
-        current_ids <- current_phenotype_terms()
+        current_ids <- phenos()
         ids_to_remove <- trimws(ids_to_remove)  # Remove leading/trailing spaces
         ids_to_remove <- ids_to_remove[ids_to_remove != ""]  # Remove empty strings
 
@@ -376,21 +373,17 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         updated_ids <- setdiff(current_ids, ids_to_remove)
 
         # Update the current phenotype terms list
-        current_phenotype_terms(updated_ids)
+        phenos(updated_ids)
 
         # Clear the input field
+        # TODO: don't clear on failure
         updateTextInput(session, "phenotype_var", value = "")
       }
     })
 
     # Display the list of HPO terms
-    output$phenotype <- renderUI({
-      if (length(current_phenotype_terms()) > 0) {
-        hpo_ids <- paste(current_phenotype_terms(),collapse="; ")
-      } else {
-        hpo_ids <- ""
-      }
-      hpo_ids
+    output$phenotype <- renderText({
+      paste(phenos(), collapse="; ")
     })
 
     hide_spinner()
@@ -701,7 +694,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         cat(paste("Final filtered table time:", format_time(finaltable_time),"\n"))
 
         # Check HPO terms
-        hpo_terms_list <- current_phenotype_terms()
+        hpo_terms_list <- phenos()
         if (length(hpo_terms_list) > 0) {
           split_hpo_terms_list <- unlist(strsplit(hpo_terms_list,"; "))
           hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list][,.(HPO_ID=hpo_id,GENE_SYMBOL=gene_symbol)]
