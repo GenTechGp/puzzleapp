@@ -83,7 +83,7 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
       cnt <- paste(input[[boxId]], collapse = ", ")
       tab[tab["Sample ID"] == id, "Allele Count"] <- cnt
       allele_tab(tab)
-    })
+    }, ignoreNULL = FALSE)
   }
 }
 
@@ -147,16 +147,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     metaServer(output, pedigree)
 
-    clinvar_options <- c("Pathogenic", "Likely pathogenic", "VUS","Conflicting","Benign","Likely benign","Not available")
-    clinvar_options_display <- lapply(
-      X = clinvar_options,
-      FUN = function(x) {
-        tags$div(
-          style = "width: 140px;", x
-        )
-      }
-    )
-
     consequence_options <- c("Stop gained","Start lost","Stop lost","Splice variant","Frameshift variant","Missense variant","In-frame variant","Synonymous variant","5'UTR variant","3'UTR variant","Intron variant","Other")
     consequence_options_display <- lapply(
       X = consequence_options,
@@ -192,35 +182,17 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     alleleServer(input, output, ns, pedigree, allele_tab)
 
-    output$clinvar <- renderUI({
-      #print("clinvar_checkboxes")
-      clinvar_checkboxes_list <- list(prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL,
-                                                          choiceNames = clinvar_options_display,
-                                                          choiceValues = clinvar_options,
-                                                          selected = NULL,inline = TRUE))
-      do.call(tagList,clinvar_checkboxes_list)
-    })
-
-    observeEvent(input$pathogenicity,{
-      #show_spinner()
-      #print("here")
+    observeEvent(input$pathogenicity, {
       if (input$pathogenicity == "Pathogenic/Likely pathogenic") {
-        #print("pathogenicity/checked")
-        updatePrettyCheckboxGroup(session, inputId = "clinvar_checkboxes",
-                                  choiceNames = clinvar_options_display,
-                                  choiceValues = clinvar_options,
-                                  selected = c("Pathogenic", "Likely pathogenic"),inline = TRUE)
+        select <- c("Pathogenic", "Likely pathogenic")
       } else if (input$pathogenicity == "Not benign") {
-        updatePrettyCheckboxGroup(session, inputId = "clinvar_checkboxes",
-                                  choiceNames = clinvar_options_display,
-                                  choiceValues = clinvar_options,
-                                  selected = c("Pathogenic", "Likely pathogenic", "VUS","Conflicting"),inline = TRUE)
+        select <- c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting")
       } else if (input$pathogenicity == "") {
-        updatePrettyCheckboxGroup(session, inputId = "clinvar_checkboxes",
-                                  choiceNames = clinvar_options_display,
-                                  choiceValues = clinvar_options,
-                                  selected = NULL,inline = TRUE)
+        select <- NULL
+      } else {
+        return
       }
+      updatePrettyCheckboxGroup(session, "clinvar_checkboxes", selected = select)
     })
 
 
@@ -437,6 +409,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                 filtered_rows <- (col == values)
               } else if (length(values) == 2) {
                 filtered_rows <- (col >= values[1] & col <= values[2])
+              } else { # TODO: handle error
               }
               return(filtered_rows)
             }

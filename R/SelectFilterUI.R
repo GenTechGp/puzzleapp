@@ -116,10 +116,14 @@ globalOptsUI <- function(ns, panel_app_genes) {
 # SNVs and Indels
 
 snvPathoUI <- function(ns) {
+  clinvar_opts <- c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting",
+                    "Benign", "Likely benign", "Not available")
+
   ui <- div(style = "height: 30vh",
     selectInput(ns("pathogenicity"), "Select Clinvar:",
-                c("","Pathogenic/Likely pathogenic","Not benign"), ""),
-    uiOutput(ns("clinvar"))
+                c("", "Pathogenic/Likely pathogenic", "Not benign"), ""),
+    prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL, clinvar_opts, NULL,
+                        inline = TRUE, width = "140px")
   )
 
   collapseUI("pathogenicity_collapse", "Pathogenicity", "info", ui)
