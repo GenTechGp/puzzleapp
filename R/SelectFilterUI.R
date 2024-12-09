@@ -115,25 +115,41 @@ globalOptsUI <- function(ns, panel_app_genes) {
 
 # SNVs and Indels
 
+checkboxDisplay <- function(x) {
+  tags$div(style = "width: 140px;", x)
+}
+
 snvPathoUI <- function(ns) {
   clinvar_opts <- c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting",
                     "Benign", "Likely benign", "Not available")
+  clinvar_opts_display <- lapply(clinvar_opts, checkboxDisplay)
 
   ui <- div(style = "height: 30vh",
     selectInput(ns("pathogenicity"), "Select Clinvar:",
                 c("", "Pathogenic/Likely pathogenic", "Not benign"), ""),
-    prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL, clinvar_opts, NULL,
-                        inline = TRUE, width = "140px")
+    prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL,
+                        choiceNames = clinvar_opts_display,
+                        choiceValues = clinvar_opts, selected = NULL,
+                        inline = TRUE)
   )
 
   collapseUI("pathogenicity_collapse", "Pathogenicity", "info", ui)
 }
 
 snvAnnotUI <- function(ns) {
+  conseq_opts <- c("Stop gained", "Start lost", "Stop lost", "Splice variant",
+                   "Frameshift variant", "Missense variant", "In-frame variant",
+                   "Synonymous variant", "5'UTR variant", "3'UTR variant",
+                   "Intron variant", "Other")
+  conseq_opts_display <- lapply(conseq_opts, checkboxDisplay)
+
   ui <- div(style = "height: 30vh",
     selectInput(ns("annotation"), "Select Annotation:",
-                c("","High impact","Moderate to high impact"), ""),
-    uiOutput(ns("consequences")),
+                c("", "High impact", "Moderate to high impact"), ""),
+    prettyCheckboxGroup(ns("conseq_checkboxes"), NULL,
+                        choiceNames = conseq_opts_display,
+                        choiceValues = conseq_opts, selected = NULL,
+                        inline = TRUE),
     numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05)
   )
 

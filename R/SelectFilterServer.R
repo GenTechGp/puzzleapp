@@ -158,16 +158,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     metaServer(output, pedigree)
 
-    consequence_options <- c("Stop gained","Start lost","Stop lost","Splice variant","Frameshift variant","Missense variant","In-frame variant","Synonymous variant","5'UTR variant","3'UTR variant","Intron variant","Other")
-    consequence_options_display <- lapply(
-      X = consequence_options,
-      FUN = function(x) {
-        tags$div(
-          style = "width: 140px;", x
-        )
-      }
-    )
-
 
     observe({
       shinyjs::enable(ns("inher"))
@@ -207,33 +197,19 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     })
 
 
-    output$consequences <- renderUI({
-      consequence_checkboxes_list <- list(prettyCheckboxGroup(ns("consequence_checkboxes"), NULL,
-                                                              choiceNames = consequence_options_display,
-                                                              choiceValues = consequence_options,
-                                                              selected = NULL,inline = TRUE))
-      do.call(tagList,consequence_checkboxes_list)
-    })
-
     observeEvent(input$annotation, {
-      #show_spinner()
       if (input$annotation == "High impact") {
-        updatePrettyCheckboxGroup(session, inputId = "consequence_checkboxes",
-                                  choiceNames = consequence_options_display,
-                                  choiceValues = consequence_options,
-                                  selected = c("Stop gained","Start lost","Stop lost","Splice variant","Frameshift variant"),inline = TRUE)
+        select <- c("Stop gained", "Start lost", "Stop lost", "Splice variant",
+                    "Frameshift variant")
       } else if (input$annotation == "Moderate to high impact") {
-        updatePrettyCheckboxGroup(session, inputId = "consequence_checkboxes",
-                                  choiceNames = consequence_options_display,
-                                  choiceValues = consequence_options,
-                                  selected = c("Stop gained","Start lost","Stop lost","Splice variant","Frameshift variant","Missense variant","In-frame variant"),inline = TRUE)
+        select <- c("Stop gained", "Start lost", "Stop lost", "Splice variant",
+                    "Frameshift variant", "Missense variant", "In-frame variant")
       } else if (input$annotation == "") {
-        updatePrettyCheckboxGroup(session, inputId = "consequence_checkboxes",
-                                  choiceNames = consequence_options_display,
-                                  choiceValues = consequence_options,
-                                  selected = NULL,inline = TRUE)
+        select <- NULL
+      } else {
+        return
       }
-      #hide_spinner()
+      updatePrettyCheckboxGroup(session, "conseq_checkboxes", selected = select)
     })
 
     observe({
@@ -385,7 +361,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           inheritance_filter <- input$inher
           pathogenicity_filter <- input$pathogenicity
           clinvar_filter <- input$clinvar_checkboxes
-          annotation_filter <- input$consequence_checkboxes
+          annotation_filter <- input$conseq_checkboxes
           revel_value <- input$revel
           sift_filter <- input$sift
           polyphen_filter <- input$polyphen
