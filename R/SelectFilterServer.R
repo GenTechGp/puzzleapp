@@ -34,7 +34,7 @@ alleleCount <- function(inher, p) {
       else
         "0, 1"
     }
-  } else if (inher == "Custom") {
+  } else {
     ""
   }
 }
@@ -55,15 +55,19 @@ alleleCustomTable <- function(ns, pedigree) {
   alleleTable(pedigree, FUN)
 }
 
-alleleUI <- function(inher, ns, pedigree, allele_tab) {
+updateAlleleTable <- function(inher, pedigree, allele_tab) {
+  tab <- allele_tab()
+  FUN <- function(x) alleleCount(inher, pedigree[pedigree$sample_id == x, ])
+  tab["Allele Count"] <- sapply(tab["Sample ID"], FUN)
+  allele_tab(tab)
+}
+
+alleleUI <- function(inher, allele_tab, allele_custom_tab) {
   if (inher == "")
     return()
 
-  FUN <- function(x) alleleCount(inher, pedigree[pedigree$sample_id == x, ])
-  allele_tab(alleleTable(pedigree, FUN))
-
   if (inher == "Custom")
-    tab <- alleleCustomTable(ns, pedigree)
+    tab <- allele_custom_tab
   else
     tab <- allele_tab()
 
@@ -71,11 +75,18 @@ alleleUI <- function(inher, ns, pedigree, allele_tab) {
 }
 
 alleleServer <- function(input, output, ns, pedigree, allele_tab) {
-  ui <- eventReactive(input$inher,
-    alleleUI(input$inher, ns, pedigree, allele_tab)
-  )
-  output$allele <- renderUI(ui())
+  # Init allele table and custom checkbox table
+  allele_tab(alleleTable(pedigree, function(x) ""))
+  allele_custom_tab <- alleleCustomTable(ns, pedigree)
 
+  # Update allele table and table UI on inheritance dropdown event
+  observeEvent(input$inher, {
+    updateAlleleTable(input$inher, pedigree, allele_tab)
+    ui <- alleleUI(input$inher, allele_tab, allele_custom_tab)
+    output$allele <- renderUI(ui)
+  })
+
+  # Update allele table on custom checkbox event
   for (id in pedigree$sample_id) {
     boxId <- paste0("allele_", id)
     observeEvent(input[[boxId]], {
