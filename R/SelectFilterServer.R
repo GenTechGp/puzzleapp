@@ -215,27 +215,24 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     observe({
       #show_spinner()
       output$sv_features <- renderUI({
-        sv_features_checkboxes_list <- list(prettyCheckboxGroup(ns("sv_features_checkboxes"), "SV type:",
+        prettyCheckboxGroup(ns("sv_features_checkboxes"), "SV type:",
                                                                 choiceNames = c("Insertion", "Deletion", "Duplication", "Inversion","Translocation"),
                                                                 choiceValues = c("Insertion", "Deletion", "Duplication", "Inversion","Translocation"),
-                                                                selected = NULL,inline = FALSE))
-        do.call(tagList,sv_features_checkboxes_list)
+                                                                selected = NULL,inline = FALSE)
       })
 
       output$sv_relative_pos <- renderUI({
-        sv_relative_pos_checkboxes_list <- list(prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
+        prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
                                                                     choiceNames = c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic"),
                                                                     choiceValues = c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic"),
-                                                                    selected = NULL,inline = FALSE))
-        do.call(tagList,sv_relative_pos_checkboxes_list)
+                                                                    selected = NULL,inline = FALSE)
       })
 
       output$sv_consequence <- renderUI({
-        sv_consequence_checkboxes_list <- list(prettyCheckboxGroup(ns("sv_consequence_checkboxes"), "Predicted consequences:",
+        prettyCheckboxGroup(ns("sv_consequence_checkboxes"), "Predicted consequences:",
                                                                    choiceNames = c("Loss of function (LoF)", "Copy Number Variation (CNV)", "Whole gene inversion", "Regulatory and Non-coding variants"),
                                                                    choiceValues = c("Loss of function (LoF)", "Copy Number Variation (CNV)", "Whole gene inversion", "Regulatory and Non-coding variants"),
-                                                                   selected = "Loss of function (LoF)",inline = FALSE))
-        do.call(tagList,sv_consequence_checkboxes_list)
+                                                                   selected = "Loss of function (LoF)",inline = FALSE)
       })
 
       # Function to dynamically render gene lists based on their source (e.g., "Green", "Red", "Amber", or "Unclassified").
