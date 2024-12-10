@@ -286,10 +286,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
 
     observeEvent(input$phenotype_remove, {
+      current_ids <- phenos()
       ids_to_remove <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))  # Split by spaces, commas, or semicolons
+      ids_to_remove <- ids_to_remove[ids_to_remove %in% current_ids]
 
       if (length(ids_to_remove) > 0) {
-        current_ids <- phenos()
         ids_to_remove <- trimws(ids_to_remove)  # Remove leading/trailing spaces
         ids_to_remove <- ids_to_remove[ids_to_remove != ""]  # Remove empty strings
 
@@ -300,7 +301,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         phenos(updated_ids)
 
         # Clear the input field
-        # TODO: don't clear on failure
         updateTextInput(session, "phenotype_var", value = "")
       }
     })

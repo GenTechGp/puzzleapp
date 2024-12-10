@@ -87,7 +87,7 @@ listUI <- function(ns, id, label, prompt, box_label) {
 }
 
 phenoUI <- function(ns) {
-  listUI(ns, "phenotype", "Phenotype", "HPO term:", "HPO list:")
+  listUI(ns, "phenotype", "Phenotype", "HPO term:", NULL)
 }
 
 globalOptsUI <- function(ns, panel_app_genes) {
