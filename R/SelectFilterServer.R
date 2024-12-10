@@ -185,20 +185,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     observe({
 
-      output$sv_relative_pos <- renderUI({
-        prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
-                                                                    choiceNames = c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic"),
-                                                                    choiceValues = c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic"),
-                                                                    selected = NULL,inline = FALSE)
-      })
-
-      output$sv_consequence <- renderUI({
-        prettyCheckboxGroup(ns("sv_consequence_checkboxes"), "Predicted consequences:",
-                                                                   choiceNames = c("Loss of function (LoF)", "Copy Number Variation (CNV)", "Whole gene inversion", "Regulatory and Non-coding variants"),
-                                                                   choiceValues = c("Loss of function (LoF)", "Copy Number Variation (CNV)", "Whole gene inversion", "Regulatory and Non-coding variants"),
-                                                                   selected = "Loss of function (LoF)",inline = FALSE)
-      })
-
       # Function to dynamically render gene lists based on their source (e.g., "Green", "Red", "Amber", or "Unclassified").
       renderGeneOutput <- function(source, outputId, reactiveStore) {
         renderText({
@@ -221,7 +207,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       output$amber_genes <- renderGeneOutput("Amber", "amber_genes", amber_genes)
       output$unclassified_genes <- renderGeneOutput("Unclassified", "unclassified_genes", unclassified_genes)
 
-      hide_spinner()
     })
 
     ################# IGV

@@ -217,10 +217,21 @@ svFeatsUI <- function(ns) {
 }
 
 svConseqUI <- function(ns) {
+  rel_choices <- c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic")
+  conseq_choices <- c("Loss of function (LoF)", "Copy Number Variation (CNV)",
+                      "Whole gene inversion",
+                      "Regulatory and Non-coding variants")
   ui <- div(style = "height: 20vh",
     fluidRow(
-      column(4, uiOutput(ns("sv_relative_pos"))),
-      column(8, uiOutput(ns("sv_consequence")))
+      column(4,
+        prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
+                            rel_choices, NULL, inline = FALSE)
+      ),
+      column(8,
+        prettyCheckboxGroup(ns("sv_consequence_checkboxes"),
+                            "Predicted consequences:", conseq_choices,
+                            "Loss of function (LoF)", inline = FALSE)
+      )
     )
   )
 
