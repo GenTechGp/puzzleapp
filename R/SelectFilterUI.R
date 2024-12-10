@@ -199,9 +199,13 @@ snvOptsUI <- function(ns) {
 # SVs
 
 svFeatsUI <- function(ns) {
+  choices <- c("Insertion", "Deletion", "Duplication", "Inversion", "Translocation")
   ui <- div(style = "height: 20vh",
     fluidRow(
-      column(6, uiOutput(ns("sv_features"))),
+      column(6,
+        prettyCheckboxGroup(ns("sv_features_checkboxes"), "SV type:", choices,
+                            NULL, inline = FALSE)
+      ),
       column(6,
         numericInput(ns("min_svlen"), "Min Length:", 0, NA, NA),
         numericInput(ns("max_svlen"), "Max Length:", 0, NA, NA)

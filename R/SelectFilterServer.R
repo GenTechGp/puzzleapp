@@ -184,13 +184,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     })
 
     observe({
-      #show_spinner()
-      output$sv_features <- renderUI({
-        prettyCheckboxGroup(ns("sv_features_checkboxes"), "SV type:",
-                                                                choiceNames = c("Insertion", "Deletion", "Duplication", "Inversion","Translocation"),
-                                                                choiceValues = c("Insertion", "Deletion", "Duplication", "Inversion","Translocation"),
-                                                                selected = NULL,inline = FALSE)
-      })
 
       output$sv_relative_pos <- renderUI({
         prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
