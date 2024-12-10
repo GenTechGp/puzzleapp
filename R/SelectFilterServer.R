@@ -98,33 +98,6 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
   }
 }
 
-listServer <- function(dataset, input, output, session, name, ids) {
-  # Add ID to the short list
-  observeEvent(input[[paste0(name, "_add")]], {
-    new <- input[[paste0(name, "_var")]]
-    if (new %in% dataset$ID) {
-      cur <- ids()
-      if (!(new %in% cur)) {
-        ids(c(cur, new))
-      }
-      updateTextInput(session, paste0(name, "_var"), value = "")
-    }
-  })
-
-  # Remove ID from the short list
-  observeEvent(input[[paste0(name, "_remove")]], {
-    del <- input[[paste0(name, "_var")]]
-    cur <- ids()
-    if (del %in% cur) {
-      ids(cur[cur != del])
-      updateTextInput(session, paste0(name, "_var"), value = "")
-    }
-  })
-
-  # Display the list of shortlisted IDs
-  output[[name]] <- renderText({paste(ids(), collapse="; ")})
-}
-
 # Main
 
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
@@ -146,8 +119,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     amber_genes <- reactiveVal()
     unclassified_genes <- reactiveVal()
 
-    shortlist <- reactiveVal()
-    blacklist <- reactiveVal()
     phenos <- reactiveVal()
 
     filtered_table_output <- reactiveVal(dataset)
@@ -294,9 +265,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     })
 
 
-    listServer(dataset, input, output, session, "shortlist", shortlist)
-    listServer(dataset, input, output, session, "blacklist", blacklist)
-
     ##################### Phenotype
 
     # Add multiple IDs to the phenotype list
@@ -438,14 +406,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           }
         })
         cat(paste("PanelApp time:", format_time(panelapp_time),"\n"))
-
-        # check short list
-        # Shortlisted variants
-        shortlisted_ids <- shortlist()
-        split_shortlisted_ids <- c()
-        if (length(shortlisted_ids) > 0) {
-          split_shortlisted_ids <- unlist(strsplit(shortlisted_ids,"; "))
-        }
 
         ## SNV-specific FILTERS (Pathogenicity, Annotation, in silico filters, call quality, frequency)
         snv_filtered_ids <- dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel"),ID]
@@ -624,7 +584,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
 
         finaltable_time <- system.time({
-          final_filtered_ids <- unique(c(snv_filtered_ids,sv_filtered_ids,split_shortlisted_ids,clinvar_override,spliceAI_override))
+          final_filtered_ids <- unique(c(snv_filtered_ids,sv_filtered_ids,clinvar_override,spliceAI_override))
 
           # Prepare filtered dataset to send over to Variants tab
           # Variables to take care of are PANEL_APP, PRIORITY, COLOR, HPO_TERMS, HPO_COUNT
@@ -667,18 +627,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         # I want color to be the last variable I set
         filtered_dataset <- data.table(filtered_dataset,Color="#FFFFFF")
         filtered_dataset[CATEGORY=="SNV & Indel" & is.na(AF),AF:=0]
-        if (length(shortlisted_ids) > 0 | length(clinvar_override) > 0 | length(spliceAI_override) > 0) {
-          #split_shortlisted_ids <- c(split_shortlisted_ids,clinvar_override,spliceAI_override)
-          filtered_dataset[ID %in% split_shortlisted_ids,Color:="#ACF3AE"]
+        if (length(clinvar_override) > 0 | length(spliceAI_override) > 0) {
           filtered_dataset[ID %in% clinvar_override,Color:="#FFA50099"]
           filtered_dataset[ID %in% spliceAI_override,Color:="#FFFF0099"]
-          filtered_dataset[ID %in% split_shortlisted_ids,PRIORITY:=1]
-        }
-        blacklisted_ids <- blacklist()
-        if (length(blacklisted_ids) > 0) {
-          split_blacklisted_ids <- unlist(strsplit(blacklisted_ids,"; "))
-          filtered_dataset[ID %in% split_blacklisted_ids,Color:="#FA6B84"]
-          filtered_dataset[ID %in% split_blacklisted_ids,PRIORITY:=-1]
         }
 
 

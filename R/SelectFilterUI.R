@@ -86,14 +86,6 @@ listUI <- function(ns, id, label, prompt, box_label) {
   collapseUI(paste0(id, "_collapse"), label, "info", ui)
 }
 
-shortlistUI <- function(ns) {
-  listUI(ns, "shortlist", "Shortlisted Variants", "Variant ID:", "Shortlist:")
-}
-
-blacklistUI <- function(ns) {
-  listUI(ns, "blacklist", "Blacklisted Variants", "Variant ID:", "Blacklist:")
-}
-
 phenoUI <- function(ns) {
   listUI(ns, "phenotype", "Phenotype", "HPO term:", "HPO list:")
 }
@@ -106,8 +98,6 @@ globalOptsUI <- function(ns, panel_app_genes) {
       column(3, igvOptsUI(ns))
     ),
     fluidRow(
-      column(4, shortlistUI(ns)),
-      column(4, blacklistUI(ns)),
       column(4, phenoUI(ns))
     )
   )
