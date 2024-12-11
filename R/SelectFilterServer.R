@@ -204,11 +204,12 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
 
     observeEvent(input$coords_button, {
-      if (input$igv_var_id != "" && input$igv_var_id %in% dataset$ID) {
+      if (input$igv_var_id %in% dataset$ID) {
 
-        chrom <- dataset[dataset$ID == input$igv_var_id, "CHROM"]
-        pos <- dataset[dataset$ID == input$igv_var_id, "POS"]
-        len <- dataset[dataset$ID == input$igv_var_id, "VAR_LENGTH"]
+        x <- dataset[dataset$ID == input$igv_var_id, ]
+        chrom <- x$CHROM
+        pos <- x$POS
+        len <- x$VAR_LENGTH
         flanking <- input$igv_flanking
         max_window <- input$igv_max_window
 
@@ -228,10 +229,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       }
     })
 
-    output$igv_coord_box <- renderText({
-      variant_coord <- igv_coord_box()
-      variant_coord
-    })
+    output$igv_coord_box <- renderText(igv_coord_box())
 
 
     ##################### Phenotype

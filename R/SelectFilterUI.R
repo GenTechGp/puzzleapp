@@ -17,13 +17,19 @@ inherOptsUI <- function(ns) {
 
 panelBox <- function(id, label, color = "black", width = "100%",
                      height = "30vh") {
-  labelStyle <- "font-weight: bold; margin-bottom: 10px;"
   boxStyle <- paste("overflow-y: auto; max-height: calc(100% - 30px); color:",
                     color, ";")
-  panelStyle <- paste("width:", width, "; height:", height, ";")
+  panelStyle <- paste("width:", width, "; height:", height, "; padding: 5px;")
+
+  if (is.null(label)) {
+    labelUI <- NULL
+  } else {
+    labelStyle <- "font-weight: bold; margin-bottom: 5px;"
+    labelUI <- div(style = labelStyle, label)
+  }
 
   wellPanel(
-    div(style = labelStyle, label),
+    labelUI,
     div(style = boxStyle, textOutput(id)),
     style = panelStyle
   )
@@ -33,7 +39,7 @@ geneOptsUI <- function(ns, panel_app_genes) {
   locs <- c("", unique(panel_app_genes$Level4))
   locUI <- fluidRow(column(12,
     selectInput(ns("panelapp"), "Select location:", locs, "", TRUE),
-    panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray", "80%",
+    panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray", "100%",
              "20vh")
   ))
 
@@ -63,7 +69,7 @@ igvOptsUI <- function(ns) {
   ui <- div(style = "height: 33vh",
     inputUI,
     fluidRow(column(4, actionButton(ns("coords_button"), "get coords"))),
-    fluidRow(column(12, br(), panelBox(ns("igv_coord_box"), "", height = "7vh")))
+    fluidRow(column(12, br(), panelBox(ns("igv_coord_box"), NULL, height = "7vh")))
   )
 
   collapseUI("igv_collapse", "IGV", "info", ui)
