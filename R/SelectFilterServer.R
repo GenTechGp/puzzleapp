@@ -183,30 +183,21 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       updatePrettyCheckboxGroup(session, "conseq_checkboxes", selected = select)
     })
 
-    observe({
+    observeEvent(input$panelapp, {
+      tmp <- panel_app_genes[Level4 %in% input$panelapp]
+      green_genes(sort(unique(tmp[Sources == "Green", Entity_Name])))
+      red_genes(sort(unique(tmp[Sources == "Red", Entity_Name])))
+      amber_genes(sort(unique(tmp[Sources == "Amber", Entity_Name])))
+      unclassified_genes(sort(unique(tmp[!(Sources %in% c("Green", "Red", "Amber")),
+                                         Entity_Name])))
+    }, ignoreNULL = FALSE)
 
-      # Function to dynamically render gene lists based on their source (e.g., "Green", "Red", "Amber", or "Unclassified").
-      renderGeneOutput <- function(source, outputId, reactiveStore) {
-        renderText({
-          genes <- ""
-          if (!is.null(input$panelapp)) {
-            if (source == "Unclassified") {
-              genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & !(Sources %in% c("Green", "Red", "Amber")), Entity_Name]))
-            } else {
-              genes <- sort(unique(panel_app_genes[Level4 %in% input$panelapp & Sources == source, Entity_Name]))
-            }
-          }
-          reactiveStore(genes)  # Update the reactive store (if used)
-          paste(genes, collapse = "; ")
-        })
-      }
-
-      # Render UI outputs for each gene category using the helper function
-      output$green_genes <- renderGeneOutput("Green", "green_genes", green_genes)
-      output$red_genes <- renderGeneOutput("Red", "red_genes", red_genes)
-      output$amber_genes <- renderGeneOutput("Amber", "amber_genes", amber_genes)
-      output$unclassified_genes <- renderGeneOutput("Unclassified", "unclassified_genes", unclassified_genes)
-
+    # Render UI outputs for each gene category
+    output$green_genes <- renderText({ paste(green_genes(), collapse = "; ") })
+    output$red_genes <- renderText({ paste(red_genes(), collapse = "; ") })
+    output$amber_genes <- renderText({ paste(amber_genes(), collapse = "; ") })
+    output$unclassified_genes <- renderText({
+      paste(unclassified_genes(), collapse = "; ")
     })
 
     ################# IGV
