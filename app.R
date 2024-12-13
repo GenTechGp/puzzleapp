@@ -37,9 +37,11 @@ ui <- fluidPage(
     tabPanel("Home",
       selectFiltersUI(sprintf("%s-tab1", sample), panel_app_genes)
     ),
-    tabUI(sprintf("%s-tab2", sample), "Variants", outdir, TRUE),
+    tabUI(sprintf("%s-tab2", sample), "Variants", outdir, TRUE, vtabvars,
+          vtabsel),
     igvUI(sprintf("%s-tab3", sample), "IGV"),
-    tabUI(sprintf("%s-tab4", sample), "PanelApp", outdir, FALSE),
+    tabUI(sprintf("%s-tab4", sample), "PanelApp", outdir, FALSE,
+          names(panel_app), panel_app_vars),
     hpoTabUI(sprintf("%s-tab5", sample), "Phenotype"),
     qcPlotsUI(sprintf("%s-tab6", sample), "QC Plots", !is.null(coverage_data),
               !is.null(somalier),

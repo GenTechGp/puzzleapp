@@ -23,12 +23,12 @@ tabRankUI <- function(ns) {
   collapseUI("rank_collapse", "Re-order variables", "info", ui)
 }
 
-tabSelectUI <- function(ns) {
-  ui <- uiOutput(ns("selected_vars_box"))
+tabSelectUI <- function(ns, vars, selected) {
+  ui <- checkboxGroupInput(ns("selected_vars"), NULL, vars, selected)
   collapseUI("select_collapse", "Select variables", "info", ui)
 }
 
-tabSidebarUI <- function(ns, outdir, show_file_saving) {
+tabSidebarUI <- function(ns, outdir, show_file_saving, vars, selected) {
   if (show_file_saving == TRUE)
     save_ui <- tabFileSavingUI(ns, outdir)
   else
@@ -37,8 +37,7 @@ tabSidebarUI <- function(ns, outdir, show_file_saving) {
   sidebarPanel(width = 2,
     save_ui,
     tabRankUI(ns),
-    #uiOutput(ns("selected_vars_box"))
-    tabSelectUI(ns)
+    tabSelectUI(ns, vars, selected)
   )
 }
 
@@ -51,11 +50,11 @@ tabMainUI <- function(ns) {
   )
 }
 
-tabUI <- function(id, tab_label, outdir, show_file_saving) {
+tabUI <- function(id, tab_label, outdir, show_file_saving, vars, selected) {
   ns <- NS(id)
   tabPanel(tab_label,
     sidebarLayout(
-      tabSidebarUI(ns, outdir, show_file_saving),
+      tabSidebarUI(ns, outdir, show_file_saving, vars, selected),
       tabMainUI(ns)
     ),
     tags$head(

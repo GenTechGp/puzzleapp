@@ -11,13 +11,6 @@ tabServer <- function(id, filtered_data, vars, preselected_vars) {
       updateCheckboxInput(session, "show_file_saving", value = show_file_saving)
     })
 
-    output$selected_vars_box <- renderUI({
-
-      checkboxGroupInput(ns("selected_vars"), NULL,
-                         choices = vars,
-                         selected = preselected_vars)
-    })
-
     # Reactive value to store the order of columns
     ordered_columns <- reactiveVal(setdiff(preselected_vars,"Color"))
 
