@@ -1,4 +1,4 @@
-igvServer <- function(id,input, output, session,snps_vcf_file,svs_vcf_file,bam_file,assembly,chain_file,kinship) {
+igvServer <- function(id, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinship) {
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns

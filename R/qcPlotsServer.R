@@ -1,4 +1,5 @@
-qcPlotsServer <- function(id,coverage_data,snvs_processed_data,pedigree_data,somalier) {
+qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
+                          somalier) {
   moduleServer(id, function(input, output, session) {
 
     if (!is.null(snvs_processed_data) & nrow(snvs_processed_data[CATEGORY=="SNV & Indel"])>0) {

@@ -100,7 +100,7 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
 
 # Main
 
-selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data = phenotype_data) {
+selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
