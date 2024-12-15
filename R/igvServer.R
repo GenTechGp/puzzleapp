@@ -19,23 +19,6 @@ igvServer <- function(id, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinsh
       do.call(c, gr_list)
     }
     
-    # Function to capitalise word
-    capitalize_word <- function(word) {
-      paste0(toupper(substr(word, 1, 1)), tolower(substr(word, 2, nchar(word))))
-    }
-    
-    # Dynamic buttons based on kinship
-    output$dynamicButtons <- renderUI({
-      kinship_labels <- c("proband", "mother", "father", "brother", "uncle")
-      
-      buttons <- lapply(seq_along(kinship_labels), function(i) {
-        if (kinship_labels[i] %in% kinship) {
-          tags$div(actionButton(ns(sprintf("add%sBAMTrackButton",capitalize_word(kinship_labels[i]))), sprintf("%s BAM",capitalize_word(kinship_labels[i]))), style = "margin-bottom: 10px;")
-        }
-      })
-      tagList(buttons)
-    })
-
     # Store the current region for use
     current_region <- reactiveVal(NULL)
 

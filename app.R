@@ -39,7 +39,7 @@ ui <- fluidPage(
     ),
     tabUI(sprintf("%s-tab2", sample), "Variants", outdir, TRUE, vtabvars,
           vtabsel),
-    igvUI(sprintf("%s-tab3", sample), "IGV"),
+    igvUI(sprintf("%s-tab3", sample), "IGV", pedigree_data$kinship),
     tabUI(sprintf("%s-tab4", sample), "PanelApp", outdir, FALSE,
           names(panel_app), panel_app_vars),
     hpoTabUI(sprintf("%s-tab5", sample), "Phenotype"),

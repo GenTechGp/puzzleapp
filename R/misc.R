@@ -8,3 +8,7 @@ collapseUI <- function(id, title, style, ...) {
     bsCollapsePanel(title = title, value = box_id, style = style, ...)
   )
 }
+
+capitalize_word <- function(word) {
+  paste0(toupper(substr(word, 1, 1)), tolower(substr(word, 2, nchar(word))))
+}
