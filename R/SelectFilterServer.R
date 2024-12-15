@@ -11,17 +11,17 @@ alleleCount <- function(inher, p) {
     if (p$status == "affected")
       "2"
     else
-      "0, 1"
+      "0-1"
   } else if (inher == "Dominant/De Novo") {
     if (p$status == "affected")
-      "1, 2"
+      "1-2"
     else
       "0"
   } else if (inher == "Compound Heterozygous") {
     if (p$status == "affected")
       "1"
     else
-      "0, 1"
+      "0-1"
   } else if (inher == "X-Linked Recessive") {
     if (p$sex == "male") {
       if (p$status == "affected")
@@ -32,7 +32,7 @@ alleleCount <- function(inher, p) {
       if (p$status == "affected")
         "2"
       else
-        "0, 1"
+        "0-1"
     }
   } else {
     ""
@@ -49,8 +49,10 @@ alleleTable <- function(pedigree, alleles_FUN) {
 alleleCustomTable <- function(ns, pedigree) {
   FUN <- function(x) {
     boxId <- paste0("allele_", x)
-    as.character(checkboxGroupInput(ns(boxId), NULL, c("0", "1", "2"),
-                                    inline = TRUE))
+    names <- c("None", "0", "0-1", "1", "1-2", "2")
+    vals <- c("", "0", "0-1", "1", "1-2", "2")
+    as.character(radioButtons(ns(boxId), NULL, selected = "", inline = TRUE,
+                              choiceNames = names, choiceValues = vals))
   }
   alleleTable(pedigree, FUN)
 }
@@ -91,10 +93,10 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
     boxId <- paste0("allele_", id)
     observeEvent(input[[boxId]], {
       tab <- allele_tab()
-      cnt <- paste(input[[boxId]], collapse = ", ")
+      cnt <- c(input[[boxId]])
       tab[tab["Sample ID"] == id, "Allele Count"] <- cnt
       allele_tab(tab)
-    }, ignoreNULL = FALSE)
+    })
   }
 }
 
@@ -328,7 +330,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
                 filtered_rows <- (col == values)
               } else if (length(values) == 2) {
                 filtered_rows <- (col >= values[1] & col <= values[2])
-              } else { # TODO: handle error
+              } else {
+                filtered_rows <- rep(TRUE, length(col))
               }
               return(filtered_rows)
             }
@@ -607,6 +610,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           split_gene <- cbind(selected_data[, setdiff(selected_cols,"GENE_SYMBOL"),with=FALSE], split_gene)
           split_gene <- melt(split_gene, id.vars = setdiff(selected_cols,"GENE_SYMBOL"), value.name = "GENE_SYMBOL", na.rm = TRUE)
           split_gene <- split_gene[, .SD, .SDcols = selected_cols][(alt_allele_count_1==1)]
+          # TODO: below fails for datasets with 1-2 individuals
           compunt_hets <- split_gene[,.(VAR_COUNT=.N,SUM_1=sum(as.integer(alt_allele_count_1)),SUM_2=sum(as.integer(alt_allele_count_2)),SUM_3=sum(as.integer(alt_allele_count_3))),by=GENE_SYMBOL]
           filtered_dataset <- filtered_dataset[ID %in% split_gene[GENE_SYMBOL %in% compunt_hets[VAR_COUNT>1 & SUM_2 > 0 & SUM_3>0,GENE_SYMBOL],ID]]
         }
