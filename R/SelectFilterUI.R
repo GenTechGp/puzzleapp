@@ -11,7 +11,7 @@ inherOptsUI <- function(ns) {
                "Compound Heterozygous", "Dominant/De Novo", "Custom")
   collapseUI("inheritance_collapse", "Inheritance", "info",
     selectInput(ns("inher"), "Select inheritance:", choices, ""),
-    uiOutput(ns("allele"))
+    tableOutput(ns("allele"))
   )
 }
 

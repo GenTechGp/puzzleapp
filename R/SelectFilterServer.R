@@ -1,35 +1,42 @@
 # Metadata
 
-metaServer <- function(output, pedigree) {
+metaServer <- function(output, ns, pedigree) {
   peditab <- pedigree[, 1:4]
+  opts <- c("affected", "unaffected")
+
+  for (i in seq_len(dim(pedigree)[1])) {
+    id = paste0("status_", pedigree$sample_id[i])
+    selected = pedigree$status[i]
+    peditab$status[i] <- as.character(selectInput(ns(id), NULL, opts, selected))
+  }
   names(peditab) <- c("Sample ID", "Kinship", "Status", "Sex")
-  output$meta <- renderTable(peditab)
+  output$meta <- renderTable(peditab, sanitize.text.function = function(x) x)
 }
 
-alleleCount <- function(inher, p) {
+alleleCount <- function(inher, status, sex) {
   if (inher == "Homozygous Recessive") {
-    if (p$status == "affected")
+    if (status == "affected")
       "2"
     else
       "0-1"
   } else if (inher == "Dominant/De Novo") {
-    if (p$status == "affected")
+    if (status == "affected")
       "1-2"
     else
       "0"
   } else if (inher == "Compound Heterozygous") {
-    if (p$status == "affected")
+    if (status == "affected")
       "1"
     else
       "0-1"
   } else if (inher == "X-Linked Recessive") {
-    if (p$sex == "male") {
-      if (p$status == "affected")
+    if (sex == "male") {
+      if (status == "affected")
         "1"
       else
         "0"
     } else {
-      if (p$status == "affected")
+      if (status == "affected")
         "2"
       else
         "0-1"
@@ -57,36 +64,42 @@ alleleCustomTable <- function(ns, pedigree) {
   alleleTable(pedigree, FUN)
 }
 
-updateAlleleTable <- function(inher, pedigree, allele_tab) {
-  tab <- allele_tab()
-  FUN <- function(x) alleleCount(inher, pedigree[pedigree$sample_id == x, ])
-  tab["Allele Count"] <- sapply(tab["Sample ID"], FUN)
-  allele_tab(tab)
-}
-
-alleleUI <- function(inher, allele_tab, allele_custom_tab) {
-  if (inher == "")
-    return()
-
-  if (inher == "Custom")
-    tab <- allele_custom_tab
-  else
-    tab <- allele_tab()
-
-  renderTable(tab, sanitize.text.function = function(x) x)
-}
-
 alleleServer <- function(input, output, ns, pedigree, allele_tab) {
   # Init allele table and custom checkbox table
   allele_tab(alleleTable(pedigree, function(x) ""))
   allele_custom_tab <- alleleCustomTable(ns, pedigree)
 
-  # Update allele table and table UI on inheritance dropdown event
-  observeEvent(input$inher, {
-    updateAlleleTable(input$inher, pedigree, allele_tab)
-    ui <- alleleUI(input$inher, allele_tab, allele_custom_tab)
-    output$allele <- renderUI(ui)
+  n <- dim(pedigree)[1]
+
+  alleles <- reactiveValues()
+  for (i in seq_len(n)) {
+    id <- pedigree$sample_id[i]
+    sid <- paste0("status_", id)
+    alleles[[id]] <- reactive(
+      if (is.null(input[[sid]])) {
+        alleleCount(input$inher, pedigree$status[i], pedigree$sex[i])
+      } else {
+        alleleCount(input$inher, input[[sid]], pedigree$sex[i])
+      }
+    )
+  }
+
+  tab <- reactive({
+    if (input$inher == "") {
+      NULL
+    } else if (input$inher == "Custom") {
+      allele_custom_tab
+    } else {
+      tmp <- isolate(allele_tab())
+      for (i in seq_len(n)) {
+        id <- tmp[i, "Sample ID"]
+        tmp[i, "Allele Count"] <- alleles[[id]]()
+      }
+      allele_tab(tmp)
+      tmp
+    }
   })
+  output$allele <- renderTable(tab(), sanitize.text.function = function(x) x)
 
   # Update allele table on custom checkbox event
   for (id in pedigree$sample_id) {
@@ -112,10 +125,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     allele_tab <- reactiveVal()
 
-    condition_status <- pedigree$status
-    names(condition_status) <- pedigree$sample_id
-    condition_status <- reactiveValues(values=condition_status)
-
     green_genes <- reactiveVal()
     red_genes <- reactiveVal()
     amber_genes <- reactiveVal()
@@ -129,7 +138,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     initialisation <- reactiveVal(TRUE)
 
-    metaServer(output, pedigree)
+    metaServer(output, ns, pedigree)
 
 
     observe({
@@ -137,21 +146,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       shinyjs::enable(ns("pathogenicity"))
 
       shinyjs::enable(ns("apply_filter"))
-    })
-
-    observe({
-      #show_spinner()
-      for (i in 1:number_of_individuals()) {
-        label <- paste0("status", i)
-        sample_id <- pedigree$sample_id[i]
-        new_status <- input[[label]]
-        if (!is.null(new_status)) {
-          if (new_status!=condition_status[["values"]][[sample_id]]) {
-            condition_status[["values"]][[sample_id]] <- new_status
-          }
-        }
-      }
-      #hide_spinner()
     })
 
     alleleServer(input, output, ns, pedigree, allele_tab)
