@@ -1,32 +1,20 @@
-kinship_labels <- c("proband", "mother", "father", "brother", "uncle")
-
-buttons <- function(ns, kinship) {
-  lapply(seq_along(kinship_labels), function(i) {
-    if (kinship_labels[i] %in% kinship) {
-      tags$div(actionButton(ns(sprintf("add%sBAMTrackButton", capitalize_word(kinship_labels[i]))), sprintf("%s BAM", capitalize_word(kinship_labels[i]))), style = "margin-bottom: 10px;")
-    }
-  })
-}
-
 igvSidebarUI <- function(ns, kinship) {
   sidebarPanel(
+    textInput(ns("igv_var_id"), "Variant ID:", value = ""),
+    numericInput(ns("igv_max_window"), "Max window size:", 10000, 0),
+    numericInput(ns("igv_flanking"), "Flanking size:", 200, 0),
+    actionButton(ns("coords_button"), "get coords"),
+    br(),
+    br(),
     textInput(ns("genome_coords"), "Genome coordinates:",
               placeholder = "chr:start-end"),
-    actionButton(ns("genome_coords_search"), "search"),
-    br(),
-    br(),
-    tags$p(tags$strong("Load tracks:")),
-    tags$div(
-      actionButton(ns("snvs_vcf"), "SNVs/Indels VCF"),
-      style = "margin-bottom: 10px;"
-    ),
-    tags$div(
-      actionButton(ns("svs_vcf"), "SVs VCF"),
-      style = "margin-bottom: 10px;"
-    ),
-    tagList(buttons(ns, kinship)),
-    br(),
-    br(),
+    tags$script(HTML(sprintf("
+      $(document).on('keypress', function(e) {
+        if(e.which == 13 && $('#%s').is(':focus')) {
+          $('#%s').click();
+        }
+      });
+    ", ns("igv_var_id"), ns("coords_button")))),
     width = 2
   )
 }

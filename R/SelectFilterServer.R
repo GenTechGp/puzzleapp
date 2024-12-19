@@ -196,38 +196,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       paste(unclassified_genes(), collapse = "; ")
     })
 
-    ################# IGV
-
-
-    observeEvent(input$coords_button, {
-      if (input$igv_var_id %in% dataset$ID) {
-
-        x <- dataset[dataset$ID == input$igv_var_id, ]
-        chrom <- x$CHROM
-        pos <- x$POS
-        len <- x$VAR_LENGTH
-        flanking <- input$igv_flanking
-        max_window <- input$igv_max_window
-
-        start <- pos - flanking
-        end <- pos + len + flanking
-
-        if ((end - start) > max_window) {
-          split_start <- paste0(chrom, ":", start, "-", (start + max_window))
-          split_end <- paste0(chrom, ":", (end - max_window), "-", end)
-          coords <- paste(split_start, split_end)
-        } else {
-          coords <- paste0(chrom, ":", start, "-", end)
-        }
-        print(coords)
-
-        igv_coord_box(coords)
-      }
-    })
-
-    output$igv_coord_box <- renderText(igv_coord_box())
-
-
     ##################### Phenotype
 
     # Add multiple IDs to the phenotype list
@@ -596,17 +564,30 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           filtered_dataset[ID %in% spliceAI_override,Color:="#FFFF0099"]
         }
 
-
-        if (inheritance_filter=="Compound Heterozygous") {
-          selected_cols <- c("ID", "GENE_SYMBOL", grep("^alt_allele_count", names(filtered_dataset), value = TRUE))
+        if (inheritance_filter == "Compound Heterozygous") {
+          selected_cols <- c("ID", "GENE_SYMBOL", grep("^alt_allele_count", names(filtered_dataset), value = TRUE), "GT_1")
           selected_data <- filtered_dataset[, .SD, .SDcols = selected_cols]
-          split_gene <- selected_data[,tstrsplit(GENE_SYMBOL,",",fixed=TRUE)]
-          split_gene <- cbind(selected_data[, setdiff(selected_cols,"GENE_SYMBOL"),with=FALSE], split_gene)
-          split_gene <- melt(split_gene, id.vars = setdiff(selected_cols,"GENE_SYMBOL"), value.name = "GENE_SYMBOL", na.rm = TRUE)
-          split_gene <- split_gene[, .SD, .SDcols = selected_cols][(alt_allele_count_1==1)]
-          # TODO: below fails for datasets with 1-2 individuals
-          compunt_hets <- split_gene[,.(VAR_COUNT=.N,SUM_1=sum(as.integer(alt_allele_count_1)),SUM_2=sum(as.integer(alt_allele_count_2)),SUM_3=sum(as.integer(alt_allele_count_3))),by=GENE_SYMBOL]
-          filtered_dataset <- filtered_dataset[ID %in% split_gene[GENE_SYMBOL %in% compunt_hets[VAR_COUNT>1 & SUM_2 > 0 & SUM_3>0,GENE_SYMBOL],ID]]
+          split_gene <- selected_data[, tstrsplit(GENE_SYMBOL, ",", fixed = TRUE)]
+          split_gene <- cbind(selected_data[, setdiff(selected_cols, "GENE_SYMBOL"), with = FALSE], split_gene)
+          split_gene <- melt(split_gene, id.vars = setdiff(selected_cols, "GENE_SYMBOL"), value.name = "GENE_SYMBOL", na.rm = TRUE)
+          if (all(c("alt_allele_count_2", "alt_allele_count_3") %in% names(filtered_dataset))) {
+            split_gene <- split_gene[(alt_allele_count_1 == 1)]
+            compound_hets <- split_gene[, .(
+              VAR_COUNT = .N,
+              SUM_1 = sum(as.integer(alt_allele_count_1)),
+              SUM_2 = sum(as.integer(alt_allele_count_2)),
+              SUM_3 = sum(as.integer(alt_allele_count_3))
+            ), by = GENE_SYMBOL]
+            filtered_dataset <- filtered_dataset[ID %in% split_gene[GENE_SYMBOL %in% compound_hets[VAR_COUNT > 1 & SUM_2 > 0 & SUM_3 > 0, GENE_SYMBOL], ID]]
+          } else {
+            het_variants <- split_gene[GT_1 %in% c("0|1", "1|0")]
+            phased_variants <- het_variants[, .(
+              HAPLOTYPE_0 = sum(GT_1 == "0|1"),
+              HAPLOTYPE_1 = sum(GT_1 == "1|0")
+            ), by = GENE_SYMBOL]
+            compound_hets <- phased_variants[HAPLOTYPE_0 > 0 & HAPLOTYPE_1 > 0]
+            filtered_dataset <- filtered_dataset[ID %in% het_variants[GENE_SYMBOL %in% compound_hets$GENE_SYMBOL, ID]]
+          }
         }
 
         filtered_table_output(as.data.frame(filtered_dataset))

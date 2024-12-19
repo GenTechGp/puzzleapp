@@ -1,4 +1,4 @@
-igvServer <- function(id, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinship) {
+igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinship) {
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns
@@ -21,22 +21,71 @@ igvServer <- function(id, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinsh
     
     # Store the current region for use
     current_region <- reactiveVal(NULL)
-
-    # Handle region search
-    observeEvent(input$genome_coords_search, {
-      region_of_interest <- input$genome_coords
-      print(region_of_interest)
-      current_region(input$genome_coords)
-      if (!is.null(region_of_interest) && region_of_interest != "") {
+    
+    observe({
+      if (is.null(current_region())) {
         genomeOptions <- parseAndValidateGenomeSpec(
           genomeName = assembly,
-          initialLocus = region_of_interest,
+          initialLocus = "all", 
           stockGenome = TRUE,
           dataMode = "localFiles"
         )
         output$igvShiny_0 <- renderIgvShiny({
-          cat("--- starting renderIgvShiny\n")
           igvShiny(genomeOptions, displayMode = "SQUISHED")
+        })
+      }
+    })
+    
+    observeEvent(input$coords_button, {
+      if (input$igv_var_id %in% dataset$ID) {
+        
+        x <- dataset[dataset$ID == input$igv_var_id, ]
+        chrom <- x$CHROM
+        pos <- x$POS
+        len <- x$VAR_LENGTH
+        flanking <- input$igv_flanking
+        max_window <- input$igv_max_window
+        
+        start <- pos - flanking
+        end <- pos + len + flanking
+        
+        if ((end - start) > max_window) {
+          split_start <- paste0(chrom, ":", start, "-", (start + max_window))
+          split_end <- paste0(chrom, ":", (end - max_window), "-", end)
+          coords <- paste(split_start, split_end)
+        } else {
+          coords <- paste0(chrom, ":", start, "-", end)
+        }
+        updateTextInput(session, inputId = "genome_coords", value = coords)
+        region_of_interest <- coords
+        if (!is.null(region_of_interest) && region_of_interest != "") {
+          genomeOptions <- parseAndValidateGenomeSpec(
+            genomeName = assembly,
+            initialLocus = region_of_interest,
+            stockGenome = TRUE,
+            dataMode = "localFiles"
+          )
+          output$igvShiny_0 <- renderIgvShiny({
+            cat("--- starting renderIgvShiny\n")
+            igvShiny(genomeOptions, displayMode = "SQUISHED")
+          })
+        }
+        current_region(coords)
+      }
+    })
+    
+    # Observe changes to `current_region` to load VCF tracks
+    observeEvent(current_region(), {
+      region_of_interest <- current_region()
+      if (!is.null(region_of_interest)) {
+        # Introduce a delay to ensure IGV viewer is fully initialised
+        shinyjs::delay(2000, {
+          region.GRanges <- parseRegions(region_of_interest)
+          vcf1 <- readVcf(snps_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
+          loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf1)
+          vcf2 <- readVcf(svs_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
+          loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf2)
+          lapply(pedigree_data$kinship, function(x) loadBAMTrack(x, sprintf("%s BAM",x)))
         })
       }
     })
@@ -45,41 +94,14 @@ igvServer <- function(id, snps_vcf_file, svs_vcf_file, bam_file, assembly, kinsh
     loadBAMTrack <- function(kinship_label, track_name) {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
-            region.GRanges <- parseRegions(region_of_interest)
-            tags_to_extract <- c("PS", "HP")
-            param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
-            current_bam <- unlist(bam_file[kinship==kinship_label])
-            bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
-            loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_name, data = bam, displayMode = "EXPANDED")
+        region.GRanges <- parseRegions(region_of_interest)
+        tags_to_extract <- c("PS", "HP")
+        param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
+        current_bam <- unlist(bam_file[kinship==kinship_label])
+        bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
+        loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_name, data = bam, displayMode = "EXPANDED")
       }
     }
-    
-    # Add BAM track buttons for different kinship labels
-    observeEvent(input$addProbandBAMTrackButton, { loadBAMTrack("proband", "Proband BAM") })
-    observeEvent(input$addMotherBAMTrackButton, { loadBAMTrack("mother", "Mother BAM") })
-    observeEvent(input$addFatherBAMTrackButton, { loadBAMTrack("father", "Father BAM") })
-    observeEvent(input$addBrotherBAMTrackButton, { loadBAMTrack("brother", "Brother BAM") })
-    observeEvent(input$addUncleBAMTrackButton, { loadBAMTrack("uncle", "Uncle BAM") })
-  
-    # Load SNV/Indel VCF Track
-    observeEvent(input$snvs_vcf, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        region.GRanges <- parseRegions(region_of_interest)
-        vcf <- readVcf(snps_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
-        loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf)
-      }
-    })
-
-    # Load SV VCF Track
-    observeEvent(input$svs_vcf, {
-      region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        region.GRanges <- parseRegions(region_of_interest)
-        vcf <- readVcf(svs_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
-        loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf)
-      }
-    })
 
   })
 }

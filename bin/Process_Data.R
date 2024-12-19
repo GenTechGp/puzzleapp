@@ -288,7 +288,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data) {
 
   # Final output
   cat("SNV data processed.\n")
-  return(snvs_data_melt[QUAL>=30])
+  return(snvs_data_melt)
 }
 
 ################################################################################

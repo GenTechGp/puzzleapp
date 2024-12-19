@@ -100,11 +100,11 @@ globalOptsUI <- function(ns, panel_app_genes) {
   collapseUI("global_options_collapse", "Global options", "primary",
     fluidRow(column(12, inherOptsUI(ns))),
     fluidRow(
-      column(9, geneOptsUI(ns, panel_app_genes)),
-      column(3, igvOptsUI(ns))
+      column(12, geneOptsUI(ns, panel_app_genes)),
+      #column(3, igvOptsUI(ns))
     ),
     fluidRow(
-      column(4, phenoUI(ns))
+      column(6, phenoUI(ns))
     )
   )
 }

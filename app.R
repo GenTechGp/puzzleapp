@@ -56,7 +56,7 @@ server <- function(input, output, session) {
                                        panel_app_genes, vep_consequences,
                                        phenotype_data)
   tabServer(sprintf("%s-tab2", sample), filtered_data, vtabvars, vtabsel)
-  igvServer(sprintf("%s-tab3", sample), snvs_vcf, svs_vcf, bam_files, "hg38",
+  igvServer(sprintf("%s-tab3", sample), processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
             pedigree_data$kinship)
   panel_app_output <- reactiveVal(as.data.frame(panel_app))
   tabServer(sprintf("%s-tab4", sample), panel_app_output, names(panel_app),
