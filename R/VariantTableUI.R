@@ -3,7 +3,7 @@ tabFileSavingUI <- function(ns, outdir) {
   date <- format(Sys.time(), "%Y%m%d_%H%M")
   default_file <- paste0(sample_id, ".shinyApp.", date)
   fmts <- c("Excel (.xlsx)" = "excel", "Tab-separated values (.tsv)" = "tsv",
-            "Tab-delimited text (.tab)" = "tab")
+            "Comma-separated values (.csv)" = "csv")
   scopes <- c("All variables" = "all",
               "Selected variables only" = "selected_only")
 
