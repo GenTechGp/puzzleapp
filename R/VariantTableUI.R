@@ -17,12 +17,6 @@ tabFileSavingUI <- function(ns, outdir) {
   )
 }
 
-# Collapsible panel for ranking columns
-tabRankUI <- function(ns) {
-  ui <- uiOutput(ns("sortable_columns"))
-  collapseUI("rank_collapse", "Re-order variables", "info", ui)
-}
-
 tabSelectUI <- function(ns, vars, selected) {
   ui <- checkboxGroupInput(ns("selected_vars"), NULL, vars, selected)
   collapseUI("select_collapse", "Select variables", "info", ui)
@@ -36,7 +30,6 @@ tabSidebarUI <- function(ns, outdir, show_file_saving, vars, selected) {
 
   sidebarPanel(width = 2,
     save_ui,
-    tabRankUI(ns),
     tabSelectUI(ns, vars, selected)
   )
 }

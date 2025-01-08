@@ -55,12 +55,11 @@ server <- function(input, output, session) {
                                        processed_data, pedigree_data,
                                        panel_app_genes, vep_consequences,
                                        phenotype_data)
-  tabServer(sprintf("%s-tab2", sample), filtered_data, vtabvars, vtabsel)
+  tabServer(sprintf("%s-tab2", sample), filtered_data, vtabsel)
   igvServer(sprintf("%s-tab3", sample), processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
             pedigree_data$kinship)
   panel_app_output <- reactiveVal(as.data.frame(panel_app))
-  tabServer(sprintf("%s-tab4", sample), panel_app_output, names(panel_app),
-            panel_app_vars)
+  tabServer(sprintf("%s-tab4", sample), panel_app_output, panel_app_vars)
   hpoTabServer(sprintf("%s-tab5", sample), phenotype_data)
   qcPlotsServer(sprintf("%s-tab6", sample), coverage_data, processed_data,
                 pedigree_data, somalier)
