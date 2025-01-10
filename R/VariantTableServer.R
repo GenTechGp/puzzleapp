@@ -56,6 +56,7 @@ tabServer <- function(id, filtered_data, selected) {
       "  Shiny.setInputValue('", ns("colOrder"), "', details.mapping, {priority: 'event'});",
       "});"
     )
+    disable_cols <- c(0, which(names(data) %in% c("PRIORITY", "NOTES") == FALSE))
 
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
@@ -68,7 +69,10 @@ tabServer <- function(id, filtered_data, selected) {
           extensions = "ColReorder",
           callback = JS(js),
           options = opts,
-          editable = list(target = "cell", columns = 1)
+          editable = list(
+            target = "cell",
+            disable = list(columns = disable_cols)
+          )
         ) %>%
           # Apply row background color based on "Color" column values
           # TODO: fix
@@ -166,5 +170,44 @@ tabServer <- function(id, filtered_data, selected) {
       data <- setup_data(filtered_data(), selected)
       replaceData(proxy, data)
     }, ignoreInit = TRUE)
+
+    observeEvent(input$table_cell_edit, {
+      info <- input$table_cell_edit
+
+      # Retrieve the edited ID
+      edited_id <- data[info$row, "ID"]
+
+      # Ensure the edit was in the PRIORITY column
+
+      # Get the full dataset, not just the currently selected columns
+      full_dataset <- isolate(filtered_data())
+
+      # Find the index of the row with the matching ID in the full dataset
+      row_index <- which(full_dataset$ID == edited_id)
+
+      if (length(row_index) == 1) {  # Ensure we have exactly one match
+
+        # Handle edits to the PRIORITY column
+        if (names(data)[info$col] == "PRIORITY") {
+
+          # Update the PRIORITY value in the full dataset
+          full_dataset[row_index, "PRIORITY"] <- as.numeric(info$value)
+
+          # Update the Color column based on PRIORITY value
+          full_dataset[row_index, "Color"] <- ifelse(full_dataset[row_index, "PRIORITY"] > 0, "#90EE90", "#FFCCCC")
+
+          # Handle edits to the NOTES column
+        } else if (names(data)[info$col] == "NOTES") {
+
+          # Update the NOTES value in the full dataset
+          full_dataset[row_index, "NOTES"] <- info$value
+
+        }
+        # Re-assign the updated data to the reactive object, preserving all columns
+        filtered_data(full_dataset)
+      } else {
+        warning("ID not found or multiple matches.")
+      }
+    })
   })
 }
