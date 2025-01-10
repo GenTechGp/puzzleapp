@@ -1,23 +1,45 @@
+coladd <- function(df, id, val) {
+  if (!(id %in% names(df))) {
+    df[, id] <- val
+  }
+  df
+}
+
+setup_data <- function(data, selected) {
+  data <- data %>%
+    as.data.frame %>%
+    coladd("PRIORITY", 0) %>%
+    coladd("NOTES", "") %>%
+    coladd("INHERITANCE", NA) %>%
+    coladd("PANEL_APP", NA) %>%
+    coladd("HPO_ID", NA) %>%
+    coladd("HPO_COUNT", 0) %>%
+    coladd("Color", "#FFFFFF")
+  # Order selected columns first
+  data[, c(selected, setdiff(sort(names(data)), selected))]
+}
+
+# Swap column re-order direction
+# Case 1) i+1, i+2, ..., i+j-1, i+j, i
+# Case 2) i+j, i  , i+1, i+2  , ..., i+j-1
+swap_order <- function(x) {
+  l <- length(x)
+  if (l < 3)
+    return(x)
+
+  if (x[1] < x[2]) # Case 1
+    return(x[c(l-1, l, 1:(l-2))])
+
+  return(x[c(3:l, 1, 2)]) # Case 2
+}
+
 # Define a server module for the "Tab Label"
 tabServer <- function(id, filtered_data, selected) {
   moduleServer(id, function(input, output, session) {
 
     ns <- shiny::NS(id)
 
-    selected <- setdiff(selected, "Color")
-
-    data <- as.data.frame(isolate(filtered_data()))
-    if (!("PRIORITY" %in% names(data))) {
-      data$PRIORITY <- 0
-    }
-    if (!("NOTES" %in% names(data))) {
-      data$NOTES <- ""
-    }
-    if (!("Color" %in% names(data))) {
-      data$Color <- "#FFFFFF"
-    }
-    # Order selected columns first
-    data <- data[, c(selected, setdiff(names(data), selected))]
+    data <- setup_data(isolate(filtered_data()), selected)
 
     opts <- list(
       stateSave = FALSE,
@@ -49,6 +71,7 @@ tabServer <- function(id, filtered_data, selected) {
           editable = list(target = "cell", columns = 1)
         ) %>%
           # Apply row background color based on "Color" column values
+          # TODO: fix
           formatStyle(columns = c(selected, "Color"), valueColumns = "Color",
                       backgroundColor = JS("value"), target = 'row')
       } else {
@@ -64,7 +87,7 @@ tabServer <- function(id, filtered_data, selected) {
           )
         )
       }
-    })
+    }, server = TRUE)
 
     # Save table to output file
     observeEvent(input$save_file, {
@@ -122,15 +145,26 @@ tabServer <- function(id, filtered_data, selected) {
 
     proxy <- dataTableProxy("table")
 
-    # 0 represents the row index column
+    # 0 and NA represent the row index column
     colOrder <- reactiveVal(0:ncol(data))
-    observeEvent(input$colOrder, colOrder(colOrder()[input$colOrder + 1]))
+    cols <- reactive(c(NA, names(data))[colOrder() + 1])
+    sel <- reactive(c(NA, input$selected_vars))
+    pos <- reactive(which(cols() %in% sel()) - 1)
 
-    observeEvent(input$selected_vars, {
-      cols <- c(NA, names(data))[colOrder() + 1]
-      sel <- c(setdiff(input$selected_vars, "Color"), NA)
-      pos <- which(cols %in% sel) - 1
-      showCols(proxy, pos, reset = TRUE)
+    observeEvent(input$colOrder, {
+      order <- input$colOrder
+      focus <- order[order != 0:ncol(data)]
+      order[order != 0:ncol(data)] <- swap_order(focus)
+      colOrder(colOrder()[order + 1])
     })
+
+    observeEvent(input$selected_vars, # TODO: react to table rendering
+      showCols(proxy, pos(), reset = TRUE)
+    )
+
+    observeEvent(filtered_data(), {
+      data <- setup_data(filtered_data(), selected)
+      replaceData(proxy, data)
+    }, ignoreInit = TRUE)
   })
 }

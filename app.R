@@ -7,8 +7,8 @@ project_dir <- getwd()
 set.seed(123)
 
 vtabvars <- c("PRIORITY", "NOTES", names(processed_data), "HPO_ID", "HPO_COUNT",
-              "PANEL_APP", "INHERITANCE", "Color")
-vtabsel <- c("PRIORITY", "NOTES", preselected_vars, "Color")
+              "PANEL_APP", "INHERITANCE")
+vtabsel <- c("PRIORITY", "NOTES", preselected_vars)
 
 # Define UI
 ui <- fluidPage(
