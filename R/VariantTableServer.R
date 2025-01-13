@@ -5,7 +5,7 @@ coladd <- function(df, id, val) {
   df
 }
 
-setup_data <- function(data, selected) {
+setupData <- function(data, selected) {
   data <- data %>%
     as.data.frame %>%
     coladd("PRIORITY", 0) %>%
@@ -15,8 +15,13 @@ setup_data <- function(data, selected) {
     coladd("HPO_ID", NA) %>%
     coladd("HPO_COUNT", 0) %>%
     coladd("Color", "#FFFFFF")
-  # Order selected columns first
-  data[, c(selected, setdiff(sort(names(data)), selected))]
+  # Order selected columns first, then the rest and Color at the end
+  data[, c(selected, setdiff(sort(names(data)), c(selected, "Color")), "Color")]
+}
+
+resetData <- function(proxy, data, selected) {
+  data <- setupData(data, selected)
+  replaceData(proxy, data)
 }
 
 # Swap column re-order direction
@@ -39,8 +44,14 @@ tabServer <- function(id, filtered_data, selected) {
 
     ns <- shiny::NS(id)
 
-    data <- setup_data(isolate(filtered_data()), selected)
+    data <- setupData(isolate(filtered_data()), selected)
+    filtered_data(data)
 
+    initComplete <- paste0(
+      "function(settings, json) {",
+      "  Shiny.setInputValue('", ns("tableInitComplete"), "', json);",
+      "}"
+    )
     opts <- list(
       stateSave = FALSE,
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
@@ -49,14 +60,14 @@ tabServer <- function(id, filtered_data, selected) {
              visible = FALSE),
         list(targets = '_all', className = 'dt-body-nowrap')
       ),
-      colReorder = TRUE
+      colReorder = TRUE,
+      initComplete = JS(initComplete)
     )
-    js <- paste0(
+    callback <- paste0(
       "table.on('column-reorder', function(e, settings, details) {",
       "  Shiny.setInputValue('", ns("colOrder"), "', details.mapping, {priority: 'event'});",
       "});"
     )
-    disable_cols <- c(0, which(names(data) %in% c("PRIORITY", "NOTES") == FALSE))
 
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
@@ -67,15 +78,12 @@ tabServer <- function(id, filtered_data, selected) {
           selection = "none",
           escape = FALSE,
           extensions = "ColReorder",
-          callback = JS(js),
+          callback = JS(callback),
           options = opts,
-          editable = list(
-            target = "cell",
-            disable = list(columns = disable_cols)
-          )
+          editable = list(target = "cell", numeric = "none")
         ) %>%
           # Apply row background color based on "Color" column values
-          # TODO: fix
+          # TODO: don't overwrite clinvar colors
           formatStyle(columns = c(selected, "Color"), valueColumns = "Color",
                       backgroundColor = JS("value"), target = 'row')
       } else {
@@ -127,9 +135,8 @@ tabServer <- function(id, filtered_data, selected) {
         dataset <- data.table(filtered_data())
         dataset[, c("ClinVar", "GNOMADv4", "Color") := NULL]
       } else {
-        # TODO: handle
-        dataset <- data.table(fileData()[,names(fileData())])
-        dataset[, c("ClinVar", "GNOMADv4", "Color") := NULL]
+        cols_sub <- setdiff(sel(), c("ClinVar", "GNOMADv4", "Color", NA))
+        dataset <- data.table(filtered_data()[, cols_sub])
       }
 
       tryCatch({
@@ -162,51 +169,52 @@ tabServer <- function(id, filtered_data, selected) {
       colOrder(colOrder()[order + 1])
     })
 
-    observeEvent(input$selected_vars, # TODO: react to table rendering
+    observeEvent(c(input$selected_vars, input$tableInitComplete), {
       showCols(proxy, pos(), reset = TRUE)
-    )
+    })
 
     observeEvent(filtered_data(), {
-      data <- setup_data(filtered_data(), selected)
-      replaceData(proxy, data)
+      resetData(proxy, filtered_data(), selected)
     }, ignoreInit = TRUE)
 
     observeEvent(input$table_cell_edit, {
-      info <- input$table_cell_edit
+      edit <- input$table_cell_edit
+      req(edit)
 
-      # Retrieve the edited ID
-      edited_id <- data[info$row, "ID"]
+      data <- isolate(filtered_data())
+      clear <- FALSE
 
-      # Ensure the edit was in the PRIORITY column
-
-      # Get the full dataset, not just the currently selected columns
-      full_dataset <- isolate(filtered_data())
-
-      # Find the index of the row with the matching ID in the full dataset
-      row_index <- which(full_dataset$ID == edited_id)
-
-      if (length(row_index) == 1) {  # Ensure we have exactly one match
-
-        # Handle edits to the PRIORITY column
-        if (names(data)[info$col] == "PRIORITY") {
-
-          # Update the PRIORITY value in the full dataset
-          full_dataset[row_index, "PRIORITY"] <- as.numeric(info$value)
-
-          # Update the Color column based on PRIORITY value
-          full_dataset[row_index, "Color"] <- ifelse(full_dataset[row_index, "PRIORITY"] > 0, "#90EE90", "#FFCCCC")
-
-          # Handle edits to the NOTES column
-        } else if (names(data)[info$col] == "NOTES") {
-
-          # Update the NOTES value in the full dataset
-          full_dataset[row_index, "NOTES"] <- info$value
-
+      col <- cols()[edit$col+1]
+      if (col == "PRIORITY") {
+        v <- as.integer(edit$value)
+        if (is.na(v)) { # Not an integer
+          p <- 0
+          c <- "#FFFFFF"
+          if (data[edit$row, "PRIORITY"] == 0) {
+            clear <- TRUE
+          }
+        } else {
+          p <- v
+          if (v > 0) {
+            c <- "#90EE90"
+          } else if (v < 0) {
+            c <- "#FFCCCC"
+          } else {
+            c <- "#FFFFFF"
+          }
         }
-        # Re-assign the updated data to the reactive object, preserving all columns
-        filtered_data(full_dataset)
+        data[edit$row, "PRIORITY"] <- p
+        data[edit$row, "Color"] <- c
+      } else if (col == "NOTES") {
+        data[edit$row, "NOTES"] <- edit$value
       } else {
-        warning("ID not found or multiple matches.")
+        clear <- TRUE
+      }
+
+      if (clear) {
+        resetData(proxy, data, selected) # Undo edit
+      } else {
+        filtered_data(data)
       }
     })
   })
