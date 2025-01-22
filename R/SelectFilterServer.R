@@ -139,7 +139,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     initialisation <- reactiveVal(TRUE)
 
     metaServer(output, ns, pedigree)
-
+    
+    flagged_rows_reactive <- reactiveVal(data.table(ID = character(0), PRIORITY = numeric(0), NOTES = character(0)))
 
     observe({
       shinyjs::enable(ns("inher"))
@@ -246,356 +247,306 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     ##################### Filtering
 
     observeEvent(input$apply_filter, {
-      total_time <- system.time({
-        show_spinner()
-        print("Started filtering")
-
-
-
-        # Read selected filters
-        filter_time <- system.time({
-          inheritance_filter <- input$inher
-          pathogenicity_filter <- input$pathogenicity
-          clinvar_filter <- input$clinvar_checkboxes
-          annotation_filter <- input$conseq_checkboxes
-          revel_value <- input$revel
-          sift_filter <- input$sift
-          polyphen_filter <- input$polyphen
-          af_value <- input$af
-          # pass_variants_filter <- input$pass_variants
-          genotype_quality_value <- input$genotype_quality
-          allele_balance_value <- input$allele_balance
-          panelapp_filter <- input$panelapp
-          spliceai_filter <- input$spliceai_score
-          sv_types <- input$sv_features_checkboxes
-          sv_min_svlen <- input$min_svlen
-          sv_max_svlen <- input$max_svlen
-          sv_genotype_quality_value <- input$sv_genotype_quality
-          sv_pass_variants_filter <- input$sv_pass_variants
-          sv_relative_pos <- input$sv_relative_pos_checkboxes
-          sv_consequences <- input$sv_consequence_checkboxes
-          sv_allele_balance_value <- input$sv_allele_balance
-
-          filtered_ids <- dataset[, ID]
-          id_vars <- names(dataset)
-        })
-        cat(paste("Filter reading time:", format_time(filter_time),"\n"))
-
-        ## GLOBAL FILTERS (Inheritance and PanelApp)
-        # 1) by inheritance
-
-        inheritance_time <- system.time({
-          if (inheritance_filter != "") {
-            compare_allele_count <- function(col, values) {
-              values <- as.numeric(unlist(strsplit(values, "-")))
-              if (length(values) == 1) {
-                filtered_rows <- (col == values)
-              } else if (length(values) == 2) {
-                filtered_rows <- (col >= values[1] & col <= values[2])
-              } else {
-                filtered_rows <- rep(TRUE, length(col))
-              }
-              return(filtered_rows)
-            }
-
-            allele_count <- allele_tab()
-            names(allele_count) <- c("sample_id", "allele_count")
-            allele_count <- merge(pedigree, allele_count, by = "sample_id")
-            allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
-            #print(allele_count)
-
-            for (i in seq_len(nrow(allele_count))) {
-              col_name <- allele_count[i, col_name]
-              val <- allele_count[i, allele_count]
-              filtered_ids <- intersect(dataset[compare_allele_count(get(col_name),val),ID],filtered_ids)
-            }
-            if (inheritance_filter == "X-Linked Recessive") {
-              filtered_ids <- dataset[ID %in% filtered_ids & CHROM =="chrX",]
-              print(length(filtered_ids))
-            }
-          }
-        })
-        cat(paste("Inheritance time:", format_time(inheritance_time),"\n"))
-
-        # by PanelApp genes
-        panelapp_time <- system.time({
-          if (length(panelapp_filter) > 0) {
-            genes <- panel_app_genes[Level4 %in% panelapp_filter,.(PANEL_APP=Level4,GENE_SYMBOL=Entity_Name,INHERITANCE=Model_Of_Inheritance)]
-            genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
-            selected_vars <- c("ID","GENE_SYMBOL")
-            print(dim(genes))
-            print(dim(dataset[(ID %in% filtered_ids) & !is.na(GENE_SYMBOL),c(selected_vars),with=FALSE][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=setdiff(selected_vars,"GENE_SYMBOL")]))
-            if (nrow(dataset[(ID %in% filtered_ids) & !is.na(GENE_SYMBOL), c(selected_vars), with = FALSE]) > 0) {
-              genes <- merge(
-                dataset[(ID %in% filtered_ids) & !is.na(GENE_SYMBOL), c(selected_vars), with = FALSE][, c(GENE_SYMBOL = strsplit(GENE_SYMBOL, ",")), by = setdiff(selected_vars, "GENE_SYMBOL")],
-                genes, by = "GENE_SYMBOL"
-              )
-              filtered_ids <- intersect(filtered_ids,genes[,ID])
-            } else {
-              genes[,ID:=NA]
-              warning("The filtered dataset is empty. Merge operation will be skipped.")
-            }
-          }
-        })
-        cat(paste("PanelApp time:", format_time(panelapp_time),"\n"))
-
-        ## SNV-specific FILTERS (Pathogenicity, Annotation, in silico filters, call quality, frequency)
-        snv_filtered_ids <- dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel"),ID]
-        sv_filtered_ids <- dataset[(ID %in% filtered_ids) & (CATEGORY =="SV"),ID]
-
-        # Clinvar filter
-        clinvar_time <- system.time({
-          clinvar_override <- c()
-          if (length(clinvar_filter) > 0) {
-            clinvar_filter <- gsub("VUS", "uncertain", clinvar_filter)
-            clinvar_pattern <- paste(sapply(clinvar_filter, function(x) paste0("\\b", x, "\\b")), collapse = "|")
-            if ("Not available" %in% clinvar_filter) {
-              na_snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][is.na(CLINVAR),ID])
-              #print("Not available - 1")
-            }
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][grep(clinvar_pattern, str_replace(CLINVAR,"_"," "), ignore.case = TRUE),ID])
-            if ("Not available" %in% clinvar_filter) {
-              snv_filtered_ids <- c(snv_filtered_ids,na_snv_filtered_ids)
-              #print("Not available - 2")
-            }
-            override_patterns <- c()
-            if ("Pathogenic" %in% clinvar_filter) {
-              override_patterns <- c(override_patterns, "\\bPathogenic\\b")
-              #clinvar_override <- unique(c(dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel")][grep(paste0("\\b", "Pathogenic", "\\b"), str_replace(CLINVAR,"_"," "), ignore.case = TRUE),ID],clinvar_override))
-            }
-            if ("Likely pathogenic" %in% clinvar_filter) {
-              override_patterns <- c(override_patterns, "\\bLikely pathogenic\\b")
-              #clinvar_override <- unique(c(dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel")][grep(paste0("\\b", "Likely pathogenic", "\\b"), str_replace(CLINVAR,"_"," "), ignore.case = TRUE),ID],clinvar_override))
-            }
-            if ("uncertain" %in% clinvar_filter) {
-              override_patterns <- c(override_patterns, "\\buncertain\\b")
-              #clinvar_override <- unique(c(dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel")][grep(paste0("\\b", "uncertain", "\\b"), str_replace(CLINVAR,"_"," "), ignore.case = TRUE),ID],clinvar_override))
-            }
-            if (length(override_patterns) > 0) {
-              override_pattern <- paste(override_patterns, collapse = "|")
-              clinvar_override <- unique(dataset[ID %in% filtered_ids & CATEGORY == "SNV & Indel" & grepl(override_pattern, str_replace(CLINVAR, "_", " "), ignore.case = TRUE), ID])
-              if (length(clinvar_override) > 0) {
-                clinvar_override <- dataset[(ID %in% clinvar_override) & AF < 0.05,ID]
-              }
-            }
-          }
-        })
-        cat(paste("ClinVar time:", format_time(clinvar_time),"\n"))
-
-        # Annotation filter
-        annotation_time <- system.time({
-          if (length(annotation_filter) > 0) {
-            vep_search_terms <- vep_consequences[consequence %in% annotation_filter,term]
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][grep(paste(vep_search_terms, collapse = '|'), CONSEQUENCE, ignore.case = TRUE),ID])
-          }
-        })
-        cat(paste("Annotation time:", format_time(annotation_time),"\n"))
-
-        spliceai_time <- system.time({
-          # SpliceAI filter
-          spliceAI_override <- c()
-          if (spliceai_filter > 0) {
-            if (spliceai_filter >= 0.2) {
-              spliceAI_override <- unique(c(spliceAI_override,dataset[(ID %in% filtered_ids) & (CATEGORY =="SNV & Indel")][(Donor_Loss>spliceai_filter) | (Donor_Gain>spliceai_filter) | (Acceptor_Loss>spliceai_filter) | (Acceptor_Gain>spliceai_filter),ID]))
-            }
-          }
-        })
-        cat(paste("SpliceAI time:", format_time(spliceai_time),"\n"))
-
-        insilicofilters_time <- system.time({
-          # REVEL score
-          if (revel_value > 0) {
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][REVEL>=revel_value,ID])
-          }
-
-          # SIFT
-          if (length(sift_filter) > 0) {
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][grep(paste(sift_filter, collapse = '|'), SIFT, ignore.case = TRUE),ID])
-          }
-
-          # Polyphen
-          if (length(polyphen_filter) > 0) {
-            polyphen_search <- str_replace_all(polyphen_filter," ","_")
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[ID %in% snv_filtered_ids][grep(paste(polyphen_search, collapse = '|'), PolyPhen, ignore.case = TRUE),ID])
-          }
-        })
-        cat(paste("In Silico filters time:", format_time(insilicofilters_time),"\n"))
-
-        # Allele Frequency
-        if (af_value < 1) {
-          if (af_value > 0) {
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][AF<=af_value | is.na(AF),ID])
-          } else if (af_value == 0) {
-            snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][is.na(AF),ID])
-            print("AF:")
-            print(length(snv_filtered_ids))
-          }
-        }
-
-        # Call Quality
-        if (genotype_quality_value > 0) {
-          snv_filtered_ids <- intersect(snv_filtered_ids,dataset[(ID %in% snv_filtered_ids)][QUAL>=genotype_quality_value,ID])
-        }
-
-        # Call Quality
-        if (allele_balance_value > 0) {
-          ad_vars <- grep("^AD_", id_vars, value = TRUE)
-          vaf_vars <- gsub("AD","VAF",ad_vars)
-          if (input$affected_switch) {
-            vaf_vars  <- vaf_vars[grep(pedigree_data[status=="affected",code],vaf_vars)]
-          }
-          print(vaf_vars)
-          print(allele_balance_value)
-          vaf <- dataset[(ID %in% snv_filtered_ids),c("ID",vaf_vars),with=FALSE]
-          vaf[vaf<allele_balance_value] <- NA
-          vaf <- vaf[complete.cases(vaf)]
-          snv_filtered_ids <- intersect(snv_filtered_ids,vaf$ID)
-        }
-
-        ## SV-specific FILTERS
-
-        # SV type
-        sv_type_options <- c("Insertion"="INS", "Deletion"="DEL", "Duplication"="DUP", "Inversion"="INV","Translocation"="TRA")
-        if (length(sv_types) > 0) {
-          sv_type_selected <- sv_type_options[sv_types]
-          names(sv_type_selected) <- NULL
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_TYPE %in% sv_type_selected),ID])
-        }
-
-        # SV annotation
-        sv_relative_pos_patterns <- c("Exonic"="PREDICTED_LOF|PREDICTED_PARTIAL_EXON_DUP|PREDICTED_BREAKEND_EXONIC",
-                                      "Intronic"="PREDICTED_INTRONIC","UTR"="PREDICTED_UTR","Promoter"="PREDICTED_PROMOTER","Intergenic"="PREDICTED_INTERGENIC|PREDICTED_NEAREST_TSS")
-        if (length(sv_relative_pos) > 0) {
-          sv_relative_pos_selected <- sv_relative_pos_patterns[sv_relative_pos]
-          names(sv_relative_pos_selected) <- NULL
-          sv_relative_pos_selected <- paste(sv_relative_pos_selected,collapse = "|")
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (grepl(sv_relative_pos_selected,CONSEQUENCE)),ID])
-        }
-
-        sv_consequences_patterns <- c("Loss of function (LoF)"="PREDICTED_LOF|PREDICTED_MSV_EXON_OVERLAP",
-                                      "Copy Number Variation (CNV)"="PREDICTED_COPY_GAIN|PREDICTED_INTRAGENIC_EXON_DUP|PREDICTED_PARTIAL_EXON_DUP|PREDICTED_TSS_DUP|PREDICTED_DUP_PARTIAL|PREDICTED_MSV_EXON_OVERLAP",
-                                      "Whole gene inversion"="PREDICTED_INV_SPAN","Regulatory and Non-coding variants"="PREDICTED_NONCODING_SPAN|PREDICTED_NONCODING_BREAKPOINT")
-        if (length(sv_consequences) > 0) {
-          sv_consequences_selected <- sv_consequences_patterns[sv_consequences]
-          names(sv_consequences_selected) <- NULL
-          sv_consequences_selected <- paste(sv_consequences_selected,collapse = "|")
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (grepl(sv_consequences_selected,CONSEQUENCE)),ID])
-        }
-
-        # SV length
-        if (sv_min_svlen > 0) {
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_LENGTH >= sv_min_svlen),ID])
-        }
-        if (sv_max_svlen > 0) {
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (VAR_LENGTH <= sv_max_svlen),ID])
-        }
-
-        # SV Call Quality
-        if (sv_genotype_quality_value > 0) {
-          sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (QUAL>=sv_genotype_quality_value),ID])
-        }
-
-        # SV allele fraction
-        if (sv_allele_balance_value > 0) {
-          ad_vars <- grep("^AD_", id_vars, value = TRUE)
-          vaf_vars <- gsub("AD","VAF",ad_vars)
-          if (input$sv_affected_switch) {
-            vaf_vars  <- vaf_vars[grep(pedigree_data[status=="affected",code],vaf_vars)]
-          }
-          vaf <- dataset[(ID %in% sv_filtered_ids),c("ID",vaf_vars),with=FALSE]
-          vaf[vaf<allele_balance_value] <- NA
-          vaf <- vaf[complete.cases(vaf)]
-          sv_filtered_ids <- intersect(sv_filtered_ids,vaf$ID)
-        }
-
-        # SV Call filter
-        if (sv_pass_variants_filter != "") {
-          if (sv_pass_variants_filter == "PASS only variants") {
-            sv_filtered_ids <- intersect(sv_filtered_ids,dataset[(ID %in% sv_filtered_ids) & (FILTER=="PASS"),ID])
-          }
-        }
-
-        finaltable_time <- system.time({
-          final_filtered_ids <- unique(c(snv_filtered_ids,sv_filtered_ids,clinvar_override,spliceAI_override))
-
-          # Prepare filtered dataset to send over to Variants tab
-          # Variables to take care of are PANEL_APP, PRIORITY, COLOR, HPO_TERMS, HPO_COUNT
-          filtered_dataset <- data.table(PRIORITY = 0,NOTES="", dataset[ID %in% final_filtered_ids])
-
-          if (length(panelapp_filter) > 0) {
-
-            if (nrow(filtered_dataset) > 0) {
-              print("here")
-              filtered_dataset <- merge(filtered_dataset,genes[,.(ID,PANEL_APP,INHERITANCE)],by="ID")
-            } else {
-              filtered_dataset[,PANEL_APP:=NA]
-              filtered_dataset[,INHERITANCE:=NA]
-            }
-
-            filtered_dataset[, `:=`(PANEL_APP = paste(unique(PANEL_APP), collapse = ";"),
-                                    INHERITANCE = paste(unique(INHERITANCE), collapse = ";")), by = ID]
-            filtered_dataset <- unique(filtered_dataset)
+      
+      format_time <- function(time) {
+        paste(round(time["elapsed"], 3), "seconds")
+      }
+      
+      # Define filters
+      snv_filters <- list(
+        clinvar_filter = input$clinvar_checkboxes,
+        af_value = as.numeric(input$af),
+        annotation_filter = input$conseq_checkboxes,
+        revel_value = input$revel,
+        sift_filter = input$sift,
+        polyphen_filter = input$polyphen,
+        spliceai_filter = input$spliceai_score,
+        inheritance_filter = input$inher,
+        panelapp_filter = input$panelapp,
+        genotype_quality_value = input$genotype_quality,
+        allele_balance_value = input$allele_balance,
+        hpo_terms_list = phenos()
+      )
+      
+      # Define the dynamic filter function
+      snv_filter_dataset <- function(data, filters) {
+        
+        
+        # Helper function
+        compare_allele_count <- function(col, values) {
+          values <- as.numeric(unlist(strsplit(values, "-")))
+          if (length(values) == 1) {
+            filtered_rows <- (col == values)
+          } else if (length(values) == 2) {
+            filtered_rows <- (col >= values[1] & col <= values[2])
           } else {
-            filtered_dataset[,PANEL_APP:=NA]
-            filtered_dataset[,INHERITANCE:=NA]
+            filtered_rows <- rep(TRUE, length(col))
           }
-        })
-        cat(paste("Final filtered table time:", format_time(finaltable_time),"\n"))
+          return(filtered_rows)
+        }
+        
+        # Initialise the filter expression
+        filter_expression <- "TRUE"  # Start with TRUE to simplify appending conditions
+        
+        global_filters_expression <- "TRUE"
+        
+        # Inheritance filter
+        if (!is.null(filters$inheritance_filter) && filters$inheritance_filter != "") {
+          allele_count <- allele_tab()
+          names(allele_count) <- c("sample_id", "allele_count")
+          allele_count <- merge(pedigree, allele_count, by = "sample_id")
+          allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
+          
+          inheritance_conditions <- vector("character")
+          
+          for (i in seq_len(nrow(allele_count))) {
+            col_name <- allele_count[i, col_name]
+            val <- allele_count[i, allele_count]
+            condition <- sprintf("compare_allele_count(get('%s'), '%s')",col_name,val)
+            inheritance_conditions <- c(inheritance_conditions, condition)
+          }
+          
+          # Combine inheritance conditions into a single OR expression
+          if (length(inheritance_conditions) > 0) {
+            inheritance_expression <- paste(inheritance_conditions, collapse = " & ")
+            filter_expression <- paste(filter_expression, inheritance_expression, sep = " & ")
+            global_filters_expression <- paste(global_filters_expression, inheritance_expression, sep = " & ")
+          }
+        }
+        
+        # Panel app gene lists
+        if (length(filters$panelapp_filter) > 0) {
+          genes <- panel_app_genes[Level4 %in% filters$panelapp_filter,.(PANEL_APP=Level4,GENE_SYMBOL=Entity_Name,INHERITANCE=Model_Of_Inheritance)]
+          genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
+          genes_search <- genes[,GENE_SYMBOL]
+          panel_app_condition <- "GENE_SYMBOL %in% genes_search"
+          filter_expression <- paste(filter_expression,panel_app_condition, sep = " & ")
+          global_filters_expression <- paste(global_filters_expression, panel_app_condition, sep = " & ")
+          
+        }
+        
+        # VEP annotation filter
+        if (length(filters$annotation_filter) > 0) {
+          vep_search_terms <- vep_consequences[consequence %in% filters$annotation_filter, term]
+          vep_condition <- sprintf("grepl('%s', CONSEQUENCE, ignore.case = TRUE)", 
+                                   paste(vep_search_terms, collapse = "|"))
+          filter_expression <- paste(filter_expression, vep_condition, sep = " & ")
+        }
+        
+        # Allele frequency (AF) filter
+        if (!is.null(filters$af_value) && filters$af_value < 1) {
+          af_condition <- sprintf("(is.na(AF) | AF <= %f)", filters$af_value)
+          filter_expression <- paste(filter_expression, af_condition, sep = " & ")
+        }
+        
+        # Call Quality filter
+        if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0) {
+          quality_condition <- sprintf("QUAL >= %f", filters$genotype_quality_value)
+          filter_expression <- paste(filter_expression, quality_condition, sep = " & ")
+        }
+        
+        # Allele Balance filter
+        if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0) {
+          vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
+          
+          if (!is.null(filters$affected_switch) && filters$affected_switch) {
+            vaf_vars <- vaf_vars[grep(paste0(pedigree_data[status == "affected", code], collapse = "|"), vaf_vars)]
+          }
+          
+          allele_balance_conditions <- sapply(vaf_vars, function(var) {
+            sprintf("get('%s') >= %f", var, filters$allele_balance_value)
+          })
+          
+          allele_balance_expression <- paste(allele_balance_conditions, collapse = " & ")
+          filter_expression <- paste(filter_expression, allele_balance_expression, sep = " & ")
+        }
+        
+        # REVEL score
+        if (!is.null(filters$revel_value) && filters$revel_value > 0) {
+          revel_condition <- sprintf("REVEL >= %f", filters$revel_value)
+          filter_expression <- paste(filter_expression, revel_condition, sep = " & ")
+        }
+        
+        # SIFT filter
+        if (!is.null(filters$sift_filter) && length(filters$sift_filter) > 0) {
+          sift_condition <- sprintf("grepl('%s', SIFT, ignore.case = TRUE)", 
+                                    paste(filters$sift_filter, collapse = "|"))
+          filter_expression <- paste(filter_expression, sift_condition, sep = " & ")
+        }
+        
+        # PolyPhen filter
+        if (!is.null(filters$polyphen_filter) && length(filters$polyphen_filter) > 0) {
+          polyphen_search <- gsub(" ", "_", filters$polyphen_filter)
+          polyphen_condition <- sprintf("grepl('%s', PolyPhen, ignore.case = TRUE)", 
+                                        paste(polyphen_search, collapse = "|"))
+          filter_expression <- paste(filter_expression, polyphen_condition, sep = " & ")
+        }
+        
+        # ClinVar filter and override
+        clinvar_override_condition <- NULL
+        if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
+          # Main ClinVar condition
+          clinvar_filter_updated <- gsub("VUS", "uncertain", filters$clinvar_filter)
+          clinvar_pattern <- paste(sapply(clinvar_filter_updated, function(x) paste0("\\\\b", x, "\\\\b")), collapse = "|")
+          
+          # Add condition for "Not available" (i.e., NA values in CLINVAR)
+          if ("Not available" %in% filters$clinvar_filter) {
+            clinvar_condition <- sprintf("(%s | is.na(CLINVAR))", 
+                                         paste0("grepl('", clinvar_pattern, "', CLINVAR, ignore.case = TRUE)"))
+          } else {
+            clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+          }
+          #clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+          filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
+          
+          # ClinVar override for specific terms
+          override_patterns <- c()
+          if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\bPathogenic\\\\b\"")
+          if ("Likely pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\bLikely pathogenic\\\\b\"")
+          if ("uncertain" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\buncertain\\\\b\"")
+          
+          if (length(override_patterns) > 0) {
+            override_pattern <- paste(override_patterns, collapse = "|")
+            clinvar_override_condition <- sprintf(
+              "(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < 0.05))",
+              override_pattern
+            )
+          }
+        }
+        
+        # SpliceAI override
+        spliceai_override_condition <- NULL
+        if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
+          spliceai_override_condition <- sprintf(
+            "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f)",
+            filters$spliceai_filter,
+            filters$spliceai_filter,
+            filters$spliceai_filter,
+            filters$spliceai_filter
+          )
+        }
+        
+        
+        all_conditions <- list(
+          if (!is.null(filters$inheritance_filter) && filters$inheritance_filter == "X-Linked Recessive") {
+            sprintf("(%s & CHROM == 'chrX')", filter_expression)
+          } else {
+            sprintf("(%s)", filter_expression)
+          },
+          # Add SpliceAI override with conditional CHROM filter
+          if (!is.null(spliceai_override_condition)) {
+            if (!is.null(filters$inheritance_filter) && filters$inheritance_filter == "X-Linked Recessive") {
+              sprintf("(%s & %s & CHROM == 'chrX')", global_filters_expression, spliceai_override_condition)
+            } else {
+              sprintf("(%s & %s)", global_filters_expression, spliceai_override_condition)
+            }
+          } else {
+            NULL
+          },
+          
+          # Add ClinVar override with conditional CHROM filter
+          if (!is.null(clinvar_override_condition)) {
+            if (!is.null(filters$inheritance_filter) && filters$inheritance_filter == "X-Linked Recessive") {
+              sprintf("(%s & %s & CHROM == 'chrX')", global_filters_expression, clinvar_override_condition)
+            } else {
+              sprintf("(%s & %s)", global_filters_expression, clinvar_override_condition)
+            }
+          } else {
+            NULL
+          }
+        )
+        #combined_expression <- paste(na.omit(all_conditions), collapse = " | ")
+        combined_expression <- paste(Filter(Negate(is.null), all_conditions), collapse = " | ")
+        print(combined_expression)
+        
+        # Special case for X-Linked Recessive
+        if (filters$inheritance_filter == "X-Linked Recessive") {
+          combined_expression <- sprintf("(%s & CHROM == 'chrX')",  combined_expression)
+        }
+        
+        # Evaluate the combined expression on the data.table
+        filtered_data <- data[eval(parse(text = combined_expression))]
 
-        # Check HPO terms
-        hpo_terms_list <- phenos()
-        if (length(hpo_terms_list) > 0) {
-          split_hpo_terms_list <- unlist(strsplit(hpo_terms_list,"; "))
-          hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list][,.(HPO_ID=hpo_id,GENE_SYMBOL=gene_symbol)]
-          hpo_terms_data <- unique(merge(filtered_dataset[,.(ID,GENE_SYMBOL)][, c(GENE_SYMBOL=strsplit(GENE_SYMBOL, ",")), by=ID],hpo_terms_data,by="GENE_SYMBOL")[,.(ID,HPO_ID)])
-          hpo_terms_data <- hpo_terms_data[,.(HPO_ID=paste(HPO_ID,collapse=";")),by=ID]
-          hpo_terms_data[,HPO_COUNT:=str_count(HPO_ID,"HP:")]
-          filtered_dataset <- merge(filtered_dataset,hpo_terms_data,by="ID",all.x =TRUE)
+        
+        # Add Panel app information
+        if (length(filters$panelapp_filter) > 0) {
+          setkey(filtered_data, GENE_SYMBOL)
+          setkey(genes, GENE_SYMBOL)
+          filtered_data <- merge(filtered_data,genes,by = "GENE_SYMBOL",all.x = TRUE)
         } else {
-          filtered_dataset[,HPO_ID:=NA]
-          filtered_dataset[,HPO_COUNT:=0]
+          filtered_data[,PANEL_APP:=NA]
+          filtered_data[,INHERITANCE:=NA]
+        }
+        
+
+        # Add HPO information
+        if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
+          split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list,"; "))
+          hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list & gene_symbol %in% filtered_data$GENE_SYMBOL][,.(HPO_ID=hpo_id,GENE_SYMBOL=gene_symbol)]
+          hpo_terms_summary <- hpo_terms_data[, .(HPO_ID = paste(HPO_ID, collapse = ";"), HPO_COUNT = .N), by = GENE_SYMBOL]
+          setkey(hpo_terms_summary, GENE_SYMBOL)
+          filtered_data <- merge(filtered_data,hpo_terms_summary,by = "GENE_SYMBOL",all.x = TRUE)
+          filtered_data[is.na(HPO_COUNT), HPO_COUNT := 0]
+        } else {
+          filtered_data[,HPO_ID:=NA]
+          filtered_data[,HPO_COUNT:=0]
         }
 
-        # I want color to be the last variable I set
-        filtered_dataset <- data.table(filtered_dataset,Color="#FFFFFF")
-        filtered_dataset[CATEGORY=="SNV & Indel" & is.na(AF),AF:=0]
-        if (length(clinvar_override) > 0 | length(spliceAI_override) > 0) {
-          filtered_dataset[ID %in% clinvar_override,Color:="#FFA50099"]
-          filtered_dataset[ID %in% spliceAI_override,Color:="#FFFF0099"]
-        }
-
-        if (inheritance_filter == "Compound Heterozygous") {
-          selected_cols <- c("ID", "GENE_SYMBOL", grep("^alt_allele_count", names(filtered_dataset), value = TRUE), "GT_1")
-          selected_data <- filtered_dataset[, .SD, .SDcols = selected_cols]
-          split_gene <- selected_data[, tstrsplit(GENE_SYMBOL, ",", fixed = TRUE)]
-          split_gene <- cbind(selected_data[, setdiff(selected_cols, "GENE_SYMBOL"), with = FALSE], split_gene)
-          split_gene <- melt(split_gene, id.vars = setdiff(selected_cols, "GENE_SYMBOL"), value.name = "GENE_SYMBOL", na.rm = TRUE)
-          if (all(c("alt_allele_count_2", "alt_allele_count_3") %in% names(filtered_dataset))) {
-            split_gene <- split_gene[(alt_allele_count_1 == 1)]
-            compound_hets <- split_gene[, .(
-              VAR_COUNT = .N,
-              SUM_1 = sum(as.integer(alt_allele_count_1)),
-              SUM_2 = sum(as.integer(alt_allele_count_2)),
-              SUM_3 = sum(as.integer(alt_allele_count_3))
-            ), by = GENE_SYMBOL]
-            filtered_dataset <- filtered_dataset[ID %in% split_gene[GENE_SYMBOL %in% compound_hets[VAR_COUNT > 1 & SUM_2 > 0 & SUM_3 > 0, GENE_SYMBOL], ID]]
-          } else {
-            het_variants <- split_gene[GT_1 %in% c("0|1", "1|0")]
-            phased_variants <- het_variants[, .(
-              HAPLOTYPE_0 = sum(GT_1 == "0|1"),
-              HAPLOTYPE_1 = sum(GT_1 == "1|0")
-            ), by = GENE_SYMBOL]
-            compound_hets <- phased_variants[HAPLOTYPE_0 > 0 & HAPLOTYPE_1 > 0]
-            filtered_dataset <- filtered_dataset[ID %in% het_variants[GENE_SYMBOL %in% compound_hets$GENE_SYMBOL, ID]]
-          }
-        }
-
-        filtered_table_output(as.data.frame(filtered_dataset))
-        hide_spinner()
+        filtered_data[,Color:="#FFFFFF"]
+        #filtered_data[eval(parse(text = clinvar_override_condition)),Color:="#FFA50099"]
+        #filtered_data[eval(parse(text = spliceai_override_condition)),Color:="#FFFF0099"]
+        return(filtered_data)
+      }
+      
+      
+      total_time <- system.time({
+        snv_filtered_data <- snv_filter_dataset(dataset[CATEGORY=="SNV & Indel"], snv_filters)
       })
       cat(paste("Total execution time:", format_time(total_time), "\n"))
-      cat("\n")
-    })
+      
+
+      # Handle PRIORITY and NOTES
+      filtered_data <- data.table(filtered_table_output())
+      
+      if (!is.null(filtered_data) && all(c("PRIORITY", "NOTES") %in% colnames(filtered_data))) {
+        # Extract flagged rows
+        current_flagged_rows <- filtered_data[,
+          .(ID, CURRENT_PRIORITY=PRIORITY,CURENT_NOTES=NOTES)
+        ]
+        
+        # Check for changes in flagged rows
+        previous_flagged_rows <- flagged_rows_reactive()
+        if (!is.null(previous_flagged_rows)) {
+          # Identify new or updated rows
+          merged_flagged_rows <- merge(
+            previous_flagged_rows, current_flagged_rows,
+            by = "ID", all = TRUE)
+        }
+        current_flagged_rows <- merged_flagged_rows[,.(ID,
+            PRIORITY = fifelse(is.na(PRIORITY) | (PRIORITY != CURRENT_PRIORITY & !is.na(CURRENT_PRIORITY)), CURRENT_PRIORITY, PRIORITY),
+            NOTES = fifelse(is.na(NOTES) | (NOTES != CURENT_NOTES & !is.na(CURENT_NOTES)), CURENT_NOTES, NOTES))]
+        
+        # Update flagged rows reactive value
+        flagged_rows_reactive(copy(current_flagged_rows))
+        
+        # Merge flagged rows back into the filtered data
+        snv_filtered_data <- merge(current_flagged_rows, snv_filtered_data, by = "ID", all.y = TRUE)
+        snv_filtered_data[is.na(PRIORITY), PRIORITY := 0]
+        snv_filtered_data[PRIORITY > 0, Color := "#90EE90"]
+        snv_filtered_data[PRIORITY < 0, Color := "#FFCCCC"]
+      } else {
+        # Fallback if no PRIORITY or NOTES columns exist
+        snv_filtered_data <- data.table(PRIORITY = 0, NOTES = "", snv_filtered_data)
+      }
+      
+      #print(dim(snv_filtered_data))
+      
+      filtered_table_output(copy(snv_filtered_data))
+      
+      #print("Table was filtered and updated!")
+
+      
+    }) 
 
     return(filtered_table_output)
 

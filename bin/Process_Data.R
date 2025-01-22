@@ -9,8 +9,11 @@ if (length(args) != 2) {
   stop("usage: ./Process_Data.R <config> <out.RData>")
 }
 
-config_path <- args[1]
-rdata_output <- args[2]
+#config_path <- args[1]
+#rdata_output <- args[2]
+
+config_path <- "/g/data/kr68/andre/puzzleapp_test/LRS00002-00-PB-01.config.yaml"
+rdata_output <- "/g/data/kr68/andre/puzzleapp_test/LRS00002-00-PB-01.rdata"
 
 if (!file.exists(config_path)) {
   stop(paste("Configuration file not found at:", config_path))
@@ -65,7 +68,7 @@ if (any(!unlist(valid_coverage_paths))) {
 
     return(coverage_dt)
   }))
-  coverage_data <- coverage_data[,.(CHROM=chromosome,AVERAGE_COVERAGE=average_depth,SAMPLE=sample_id)]
+  coverage_data <- coverage_data[,.(CHROM=chrom,AVERAGE_COVERAGE=mean,SAMPLE=sample_id)]
   coverage_data <- coverage_data[!str_detect(CHROM,"_")]
 }
 
@@ -290,6 +293,150 @@ process_snv_data <- function(snvs_vcf, pedigree_data) {
   cat("SNV data processed.\n")
   return(snvs_data_melt)
 }
+
+################################################################################
+
+# Function to process sv data with error and trio handling
+process_sv_data <- function(svs_vcf, pedigree_data) {
+  cat("Processing sv VCF: ", svs_vcf, "\n")
+  
+  # Error handling: Check if the VCF file exists
+  if (!file.exists(svs_vcf)) {
+    stop(paste("sv VCF file not found:", svs_vcf))
+  }
+  
+  # Try to read the VCF file, catch errors
+  tryCatch({
+    svs_data <- fread(cmd = paste("gunzip -c", svs_vcf), sep = "\t", skip = "#CHROM", header = TRUE)
+  }, error = function(e) {
+    stop("Error reading sv VCF file:", e)
+  })
+  
+    # Read the VCF file header to extract CSQ format
+  vcf_header <- tryCatch({
+    fread(cmd = paste("zgrep '^##' ", svs_vcf), sep = "\n", header = FALSE)
+  }, error = function(e) {
+    stop("Error reading VCF header:", e)
+  })
+
+  # Extract the CSQ format from the header
+  csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]
+  if (nrow(csq_format) == 0) {
+    stop("CSQ format not found in VCF header.")
+  }
+
+  csq_columns <- str_match(csq_format$V1, "Format: (.*)>")[, 2]
+  csq_columns <- gsub('"$', '', csq_columns)
+  csq_columns <- unlist(strsplit(csq_columns, "\\|"))
+
+  # Error handling: Ensure the CSQ columns are properly extracted
+  if (length(csq_columns) == 0) {
+    stop("Error extracting CSQ columns from the VCF header.")
+  }
+
+  # Remove duplicate rows from sv data
+  svs_data <- unique(svs_data)
+  
+  # Trio handling: Check if the trio samples are present in the VCF file
+  trio <- pedigree_data$sample_id
+  missing_samples <- setdiff(trio, names(svs_data))
+  if (length(missing_samples) > 0) {
+    stop(paste("Missing trio samples in VCF:", paste(missing_samples, collapse = ", ")))
+  }
+  
+  # Sort the trio samples
+  trio <- sort(trio)
+  
+  # Remove the "#" character from column names
+  setnames(svs_data, old = names(svs_data), new = gsub("#", "", names(svs_data)))
+  svs_data[, ID := paste(CHROM, POS, REF, ALT, sep = "_")]
+  
+  # Melt the data.table based on the trio samples
+  variables <- names(svs_data)
+  svs_data_melt <- melt(svs_data, id.vars = variables[!(variables %in% trio)], variable.name = "Sample", value.name = "Value")
+  
+  # Error handling: Ensure FORMAT column exists before proceeding
+  if (!"FORMAT" %in% names(svs_data_melt)) {
+    stop("FORMAT column not found in the VCF file.")
+  }
+  
+  # Measure the number of fields in each row of the FORMAT column
+  svs_data_melt[, num_fields := lengths(strsplit(FORMAT, ":"))]
+  max_fields <- max(svs_data_melt$num_fields)
+  
+  # Adjust the FORMAT and Value columns for missing fields
+  svs_data_melt[, FORMAT := ifelse(max_fields - num_fields > 0,
+                                    paste0(FORMAT, strrep(":NA", max_fields - num_fields)),
+                                    FORMAT)]
+  svs_data_melt[, Value := ifelse(max_fields - num_fields > 0,
+                                   paste0(Value, strrep(":NA", max_fields - num_fields)),
+                                   Value)]
+  
+  # Split the FORMAT and Value columns and merge back into the data.table
+  format_splits <- svs_data_melt[, tstrsplit(FORMAT, ":", fixed = TRUE)]
+  format_splits <- melt(cbind(svs_data_melt[, .(ID, Sample)], format_splits), id.vars = c("ID", "Sample"))[, .(ID, Sample, FORMAT = value)]
+  value_splits <- svs_data_melt[, tstrsplit(Value, ":", fixed = TRUE)]
+  value_splits <- melt(cbind(svs_data_melt[, .(ID, Sample)], value_splits), id.vars = c("ID", "Sample"))[, .(ID, Sample, Value = value)]
+  svs_data_melt <- merge(svs_data_melt[, setdiff(names(svs_data_melt), c("FORMAT", "Value")), with = FALSE],
+                          cbind(format_splits, value_splits[, .(Value)]), by = c("ID", "Sample"))
+  
+  svs_data_melt <- svs_data_melt[FORMAT != "NA"]
+  svs_data_melt[, num_fields := NULL]
+  
+  # Memory cleanup
+  rm(format_splits, value_splits, svs_data)
+  gc()
+  
+  # Create a data.table for the trio sample codes
+  trio_dt <- data.table(Sample = trio, Code = seq(1, length(trio)))
+  
+  # Merge consequence_data_melt with the trio sample codes
+  svs_data_melt <- merge(svs_data_melt, trio_dt, by = "Sample")
+  
+  # Filter rows to keep only GT, AD, and DP fields
+  svs_data_melt <- svs_data_melt[FORMAT %in% c("GT", "AD", "DP")]
+  
+  # Process allele depth (AD) to extract the number of reads supporting the alternate allele
+  svs_data_melt[FORMAT == "AD", Value := tstrsplit(Value, ",", fixed = TRUE)[2]]
+  
+  # Convert FORMAT to character if it's not already
+  svs_data_melt[, FORMAT := as.character(FORMAT)]
+  
+  # Add sample codes to the FORMAT column for trio-specific values
+  svs_data_melt[, FORMAT := paste0(FORMAT, "_", Code)]
+  
+  # Cast the melted data back to wide format
+  formula <- paste(names(svs_data_melt)[!names(svs_data_melt) %in% c("FORMAT", "Value", "Sample", "Code")], collapse = " + ")
+  formula <- sprintf("%s ~ FORMAT", formula)
+  svs_data_melt <- data.table(dcast(svs_data_melt, formula, value.var = "Value"))
+  
+  id_vars <- names(svs_data_melt)
+  ad_vars <- grep("^AD_", id_vars, value = TRUE)
+  dp_vars <- grep("^DP_", id_vars, value = TRUE)
+  vaf_vars <- gsub("AD","VAF",ad_vars)
+  # Calculate the VAF values and assign to the data.table
+  for (i in seq_along(ad_vars)) {
+    svs_data_melt[, (vaf_vars[i]) := round(as.integer(get(ad_vars[i])) / as.integer(get(dp_vars[i])),2)]
+  }
+  
+  # Add variant annotation and GNOMAD links
+  svs_data_melt[, CSQ := str_extract(INFO, "CSQ=[^;]+")]
+  svs_data_melt[, CSQ := gsub("^CSQ=", "", CSQ)]
+  csq_split_data <- svs_data_melt[, tstrsplit(CSQ, "|", fixed = TRUE)]
+  # Check if the number of columns matches csq_columns
+  if (ncol(csq_split_data) < length(csq_columns)) {
+    # Add empty columns to match csq_columns
+    missing_cols <- length(csq_columns) - ncol(csq_split_data)
+    for (i in 1:missing_cols) {
+      csq_split_data[, paste0("V", ncol(csq_split_data) + 1) := ifelse(is.na(V1), as.character(NA), "")]
+    }
+  }
+  setnames(csq_split_data, csq_columns)
+  svs_data_melt <- cbind(svs_data_melt, csq_split_data)
+
+}
+
+process_sv_data(svs_vcf,pedigree_data)
 
 ################################################################################
 
