@@ -71,6 +71,7 @@ tabServer <- function(id, filtered_data, selected) {
 
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
+      data <- setupData(isolate(filtered_data()), selected)
       if (!is.null(data) && ncol(data) > 0) {
         DT::datatable(
           data,

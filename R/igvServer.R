@@ -18,10 +18,10 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       })
       do.call(c, gr_list)
     }
-    
+
     # Store the current region for use
     current_region <- reactiveVal(NULL)
-    
+
     observe({
       if (is.null(current_region())) {
         genomeOptions <- parseAndValidateGenomeSpec(
@@ -35,20 +35,20 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         })
       }
     })
-    
+
     observeEvent(input$coords_button, {
       if (input$igv_var_id %in% dataset$ID) {
-        
+
         x <- dataset[dataset$ID == input$igv_var_id, ]
         chrom <- x$CHROM
         pos <- x$POS
         len <- x$VAR_LENGTH
         flanking <- input$igv_flanking
         max_window <- input$igv_max_window
-        
+
         start <- pos - flanking
         end <- pos + len + flanking
-        
+
         if ((end - start) > max_window) {
           split_start <- paste0(chrom, ":", start, "-", (start + max_window))
           split_end <- paste0(chrom, ":", (end - max_window), "-", end)
@@ -73,7 +73,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         current_region(coords)
       }
     })
-    
+
     # Observe changes to `current_region` to load VCF tracks
     observeEvent(current_region(), {
       region_of_interest <- current_region()
@@ -89,7 +89,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         })
       }
     })
-    
+
     # Utility function to load BAM track
     loadBAMTrack <- function(kinship_label, track_name) {
       region_of_interest <- current_region()
