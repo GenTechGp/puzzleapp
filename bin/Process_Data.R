@@ -9,11 +9,9 @@ if (length(args) != 2) {
   stop("usage: ./Process_Data.R <config> <out.RData>")
 }
 
-#config_path <- args[1]
-#rdata_output <- args[2]
+config_path <- args[1]
+rdata_output <- args[2]
 
-config_path <- "/g/data/kr68/andre/puzzleapp_test/LRS00002-00-PB-01.config.yaml"
-rdata_output <- "/g/data/kr68/andre/puzzleapp_test/LRS00002-00-PB-01.rdata"
 
 if (!file.exists(config_path)) {
   stop(paste("Configuration file not found at:", config_path))
@@ -65,6 +63,12 @@ if (any(!unlist(valid_coverage_paths))) {
     # Read the coverage data and add a new column for the sample ID
     coverage_dt <- fread(coverage_path, header = TRUE)
     coverage_dt[, sample_id := sample_id]  # Add sample ID column
+    
+    # Add sample_id only if it contains "-RF-"
+    if (grepl("-RF-", sample_id)) {
+      coverage_dt <- coverage_dt[grepl("_region$", chrom)]
+      coverage_dt[, chrom := sub("_region$", "", chrom)]
+    }
 
     return(coverage_dt)
   }))
@@ -298,18 +302,18 @@ process_snv_data <- function(snvs_vcf, pedigree_data) {
 
 # Function to process sv data with error and trio handling
 process_sv_data <- function(svs_vcf, pedigree_data) {
-  cat("Processing sv VCF: ", svs_vcf, "\n")
+  cat("Processing SV VCF: ", svs_vcf, "\n")
   
   # Error handling: Check if the VCF file exists
   if (!file.exists(svs_vcf)) {
-    stop(paste("sv VCF file not found:", svs_vcf))
+    stop(paste("SV VCF file not found:", svs_vcf))
   }
   
   # Try to read the VCF file, catch errors
   tryCatch({
     svs_data <- fread(cmd = paste("gunzip -c", svs_vcf), sep = "\t", skip = "#CHROM", header = TRUE)
   }, error = function(e) {
-    stop("Error reading sv VCF file:", e)
+    stop("Error reading SV VCF file:", e)
   })
   
     # Read the VCF file header to extract CSQ format
@@ -394,10 +398,10 @@ process_sv_data <- function(svs_vcf, pedigree_data) {
   svs_data_melt <- merge(svs_data_melt, trio_dt, by = "Sample")
   
   # Filter rows to keep only GT, AD, and DP fields
-  svs_data_melt <- svs_data_melt[FORMAT %in% c("GT", "AD", "DP")]
+  svs_data_melt <- svs_data_melt[FORMAT %in% c("GT", "DR", "DV")]
   
   # Process allele depth (AD) to extract the number of reads supporting the alternate allele
-  svs_data_melt[FORMAT == "AD", Value := tstrsplit(Value, ",", fixed = TRUE)[2]]
+  #svs_data_melt[FORMAT == "AD", Value := tstrsplit(Value, ",", fixed = TRUE)[2]]
   
   # Convert FORMAT to character if it's not already
   svs_data_melt[, FORMAT := as.character(FORMAT)]
@@ -411,12 +415,17 @@ process_sv_data <- function(svs_vcf, pedigree_data) {
   svs_data_melt <- data.table(dcast(svs_data_melt, formula, value.var = "Value"))
   
   id_vars <- names(svs_data_melt)
-  ad_vars <- grep("^AD_", id_vars, value = TRUE)
-  dp_vars <- grep("^DP_", id_vars, value = TRUE)
+  dv_vars <- grep("^DV_", id_vars, value = TRUE)
+  dr_vars <- grep("^DR_", id_vars, value = TRUE)
+  dp_vars <- gsub("DR","DP",dr_vars)
+  ad_vars <- gsub("DR","AD",dr_vars)
   vaf_vars <- gsub("AD","VAF",ad_vars)
   # Calculate the VAF values and assign to the data.table
   for (i in seq_along(ad_vars)) {
-    svs_data_melt[, (vaf_vars[i]) := round(as.integer(get(ad_vars[i])) / as.integer(get(dp_vars[i])),2)]
+    svs_data_melt[, (ad_vars[i]) := as.integer(get(dv_vars[i]))]
+    svs_data_melt[, (dp_vars[i]) := round((as.integer(get(dv_vars[i])) + as.integer(get(dr_vars[i]))), 2)]
+    svs_data_melt[, (vaf_vars[i]) := round(as.integer(get(dv_vars[i])) / 
+                                             (as.integer(get(ad_vars[i])) + as.integer(get(dr_vars[i]))), 2)]
   }
   
   # Add variant annotation and GNOMAD links
@@ -433,15 +442,46 @@ process_sv_data <- function(svs_vcf, pedigree_data) {
   }
   setnames(csq_split_data, csq_columns)
   svs_data_melt <- cbind(svs_data_melt, csq_split_data)
+  
+  svs_data_melt[,SpliceAI_pred:=NA]
+  svs_data_melt[, SVTYPE := sub(".*SVTYPE=([^;]*);.*", "\\1", INFO)]
+  svs_data_melt[, SVLEN := as.numeric(sub(".*SVLEN=([^;]*);.*", "\\1", INFO))]
+  
+  num_samples <- dim(pedigree_data)[1]
+  # Generate the column names for AD, DP, VAF, and GT
+  ad_cols <- paste0("AD_", 1:num_samples)
+  dp_cols <- paste0("DP_", 1:num_samples)
+  vaf_cols <- paste0("VAF_", 1:num_samples)
+  gt_cols <- paste0("GT_", 1:num_samples)
+  
+  
+  svs_data_melt <- cbind(svs_data_melt[,.(ID,CATEGORY="SV",VAR_TYPE=SVTYPE,CHROM,POS,
+                                            VAR_LENGTH=abs(SVLEN),REF,ALT,QUAL,FILTER,GENE_ID=Gene,GENE_SYMBOL=SYMBOL,TRANSCRIPT=Feature,HGVSg,HGVSc,HGVSp,
+                                            CONSEQUENCE=Consequence,CLINVAR=CLIN_SIG,AF=as.numeric(gnomAD_sv_AF),N_HOM_ALT=as.numeric(gnomAD_sv_N_HOMALT),SIFT,PolyPhen,REVEL=NA,am_class=NA,am_pathogenicity=NA,CADD_PHRED,CADD_RAW,SpliceAI_pred=NA,Donor_Loss=NA,Donor_Gain=NA,Acceptor_Loss=NA,Acceptor_Gain=NA)],
+                          svs_data_melt[,c(ad_cols,dp_cols,vaf_cols,gt_cols),with=FALSE])
+  
+  svs_data_melt[,CLINVAR:=str_replace_all(CLINVAR,"&",",")]
+  svs_data_melt[CLINVAR=="",CLINVAR:=NA]
+  
+  # Count the number of alt alleles
+  for (col_name in names(svs_data_melt)[grepl("GT_",names(svs_data_melt))]) {
+    new_col_name <- paste0("alt_allele_count_", tstrsplit(col_name,"_",fixed=TRUE)[[2]])
+    svs_data_melt[, (new_col_name) := rowSums(sapply(.SD, function(x) 2 - (str_count(x, "0")+str_count(x, "\\.")))), .SDcols = col_name]
+  }
+  
+  # Final output
+  cat("SNV data processed.\n")
+  return(svs_data_melt)
 
 }
 
-process_sv_data(svs_vcf,pedigree_data)
+
 
 ################################################################################
 
 # Main execution
 snv_data <- process_snv_data(snvs_vcf,pedigree_data)
+sv_data <- process_sv_data(svs_vcf,pedigree_data)
 
 # Define sample id
 sample <- pedigree_data[1,sample_id]
@@ -465,7 +505,7 @@ vep_consequences <- fread(vep_consequences,header=TRUE)
 phenotype_data <- fread(phenotype_data,header=TRUE)
 
 # Save specific objects into an .RData file
-processed_data <- rbind(snv_data)
+processed_data <- rbind(snv_data,sv_data)
 
 save(sample, processed_data, pedigree_data, panel_app_genes, coverage_data, somalier,
      vep_consequences, preselected_vars, panel_app, panel_app_vars, snvs_vcf, svs_vcf, bam_files, phenotype_data, file = rdata_output)
