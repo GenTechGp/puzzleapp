@@ -1,7 +1,10 @@
 # Metadata
-
 metaUI <- function(ns) {
-  tableOutput(ns("meta"))
+  ui <- div(
+    tableOutput(ns("meta"))
+  )
+  
+  collapseUI("meta_collapse", "Metadata", "primary", ui)
 }
 
 # Global Options
@@ -10,7 +13,7 @@ inherOptsUI <- function(ns) {
   choices <- c("", "Homozygous Recessive", "X-Linked Recessive",
                "Compound Heterozygous", "Dominant/De Novo", "Custom")
   collapseUI("inheritance_collapse", "Inheritance", "info",
-    selectInput(ns("inher"), "Select Inheritance:", choices, ""),
+    selectInput(ns("inher"), "Mode of inheritance:", choices, ""),
     tableOutput(ns("allele"))
   )
 }
@@ -39,7 +42,7 @@ geneOptsUI <- function(ns, panel_app_genes) {
   locs <- c("", unique(panel_app_genes$Level4))
 
   ui <- div(
-    selectInput(ns("panelapp"), "Select Location:", locs, "", TRUE),
+    selectInput(ns("panelapp"), "Gene list:", locs, "", TRUE),
     fluidRow(
       column(3,
         panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")
@@ -92,7 +95,7 @@ snvPathoUI <- function(ns) {
                     "Benign", "Likely benign", "Not available")
 
   ui <- div(
-    selectInput(ns("pathogenicity"), "Select Clinvar:",
+    selectInput(ns("pathogenicity"), "Clinvar:",
                 c("", "Pathogenic/Likely pathogenic", "Not benign"), ""),
     prettyCheckboxGroup(ns("clinvar_checkboxes"), NULL, clinvar_opts,
                         selected = NULL)
@@ -108,7 +111,7 @@ snvAnnotUI <- function(ns) {
                    "Intron variant", "Other")
 
   ui <- div(
-    selectInput(ns("annotation"), "Select Annotation:",
+    selectInput(ns("annotation"), "Functional consequence:",
                 c("", "High impact", "Moderate to high impact"), ""),
     prettyCheckboxGroup(ns("conseq_checkboxes"), NULL, conseq_opts,
                         selected = NULL),
@@ -120,10 +123,11 @@ snvAnnotUI <- function(ns) {
 
 snvInsilicoUI <- function(ns) {
   ui <- div(
-    numericInput(ns("revel"), "Enter Revel:", 0, 0, 1, 0.05),
-    selectInput(ns("sift"), "Select Sift:", c("", "Deleterious", "Tolerated"),
+    numericInput(ns("revel"), "Revel score:", 0, 0, 1, 0.05),
+    numericInput(ns("alpha_missense"), "AlphaMissense score:", 0, 0, 1, 0.05),
+    selectInput(ns("sift"), "Sift:", c("", "Deleterious", "Tolerated"),
                 "", TRUE),
-    selectInput(ns("polyphen"), "Select Polyphen:",
+    selectInput(ns("polyphen"), "Polyphen:",
                 c("", "Probably damaging", "Possibly damaging", "Benign"), "",
                 TRUE)
   )
@@ -159,13 +163,11 @@ snvFreqUI <- function(ns) {
 snvOptsUI <- function(ns) {
   ui <- div(
     fluidRow(
-      column(4, snvAnnotUI(ns)),
-      column(4, snvPathoUI(ns)),
-      column(4, snvInsilicoUI(ns))
-    ),
-    fluidRow(
-      column(4, snvQualityUI(ns)),
-      column(4, snvFreqUI(ns))
+      column(3, snvAnnotUI(ns)),
+      column(2, snvPathoUI(ns)),
+      column(2, snvInsilicoUI(ns)),
+      column(2, snvQualityUI(ns)),
+      column(2, snvFreqUI(ns))
     )
   )
 
@@ -204,7 +206,7 @@ svConseqUI <- function(ns) {
 
 svQualityUI <- function(ns) {
   ui <- div(
-    selectInput(ns("sv_pass_variants"), "Select Variant:",
+    selectInput(ns("sv_pass_variants"), "Filter:",
                 c("","PASS only variants","All variants"), ""),
     sliderInput(ns("sv_genotype_quality"), "Genotype quality:", 0, 100, 0,
                 ticks = FALSE),
@@ -218,9 +220,9 @@ svQualityUI <- function(ns) {
 
 svOptsUI <- function(ns) {
   ui <- fluidRow(
-    column(4, svFeatsUI(ns)),
-    column(4, svConseqUI(ns)),
-    column(4, svQualityUI(ns))
+    column(2, svFeatsUI(ns)),
+    column(3, svConseqUI(ns)),
+    column(2, svQualityUI(ns))
   )
 
   collapseUI("svs_collapse", "SVs", "primary", ui)
