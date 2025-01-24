@@ -397,9 +397,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
           # ClinVar override for specific terms
           override_patterns <- c()
-          if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\bPathogenic\\\\b\"")
-          if ("Likely pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\bLikely pathogenic\\\\b\"")
-          if ("uncertain" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\"\\\\buncertain\\\\b\"")
+          if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bPathogenic\\\\b")
+          if ("Likely pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely pathogenic\\\\b")
+          if ("uncertain" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\buncertain\\\\b")
 
           if (length(override_patterns) > 0) {
             override_pattern <- paste(override_patterns, collapse = "|")
@@ -489,8 +489,15 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         }
 
         filtered_data[,Color:="#FFFFFF"]
-        #filtered_data[eval(parse(text = clinvar_override_condition)),Color:="#FFA50099"]
-        #filtered_data[eval(parse(text = spliceai_override_condition)),Color:="#FFFF0099"]
+        
+        if (!is.null(clinvar_override_condition)) {
+          filtered_data[eval(parse(text = clinvar_override_condition)),Color:="#FFA50099"]
+        }
+        
+        if (!is.null(spliceai_override_condition)) {
+          filtered_data[eval(parse(text = spliceai_override_condition)),Color:="#FFFF0099"]
+        }
+
         return(filtered_data)
       }
 
