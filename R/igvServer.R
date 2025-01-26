@@ -75,18 +75,15 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
     })
 
     # Observe changes to `current_region` to load VCF tracks
-    observeEvent(current_region(), {
+    observeEvent(input$igvReady, {
       region_of_interest <- current_region()
       if (!is.null(region_of_interest)) {
-        # Introduce a delay to ensure IGV viewer is fully initialised
-        shinyjs::delay(2000, {
-          region.GRanges <- parseRegions(region_of_interest)
-          vcf1 <- readVcf(snps_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
-          loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf1)
-          vcf2 <- readVcf(svs_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
-          loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf2)
-          lapply(pedigree_data$kinship, function(x) loadBAMTrack(x, sprintf("%s BAM",x)))
-        })
+        region.GRanges <- parseRegions(region_of_interest)
+        vcf1 <- readVcf(snps_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
+        loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf1)
+        vcf2 <- readVcf(svs_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
+        loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf2)
+        lapply(pedigree_data$kinship, function(x) loadBAMTrack(x, sprintf("%s BAM",x)))
       }
     })
 
