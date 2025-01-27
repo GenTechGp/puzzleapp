@@ -18,6 +18,23 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       })
       do.call(c, gr_list)
     }
+    
+    # Helper function to update the IGV viewer
+    updateIgvViewer <- function(region_of_interest, assembly) {
+      if (!is.null(region_of_interest) && region_of_interest != "") {
+        genomeOptions <- parseAndValidateGenomeSpec(
+          genomeName = assembly,
+          initialLocus = region_of_interest,
+          stockGenome = TRUE,
+          dataMode = "localFiles"
+        )
+        output$igvShiny_0 <- renderIgvShiny({
+          cat("--- starting renderIgvShiny\n")
+          igvShiny(genomeOptions, displayMode = "SQUISHED")
+        })
+      }
+      current_region(region_of_interest)
+    }
 
     # Store the current region for use
     current_region <- reactiveVal(NULL)
@@ -26,7 +43,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       if (is.null(current_region())) {
         genomeOptions <- parseAndValidateGenomeSpec(
           genomeName = assembly,
-          initialLocus = "all", 
+          initialLocus = "all",
           stockGenome = TRUE,
           dataMode = "localFiles"
         )
@@ -37,6 +54,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
     })
 
     observeEvent(input$coords_button, {
+      print(input$igv_var_id)
       if (input$igv_var_id %in% dataset$ID) {
 
         x <- dataset[dataset$ID == input$igv_var_id, ]
@@ -57,22 +75,53 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
           coords <- paste0(chrom, ":", start, "-", end)
         }
         updateTextInput(session, inputId = "genome_coords", value = coords)
-        region_of_interest <- coords
-        if (!is.null(region_of_interest) && region_of_interest != "") {
-          genomeOptions <- parseAndValidateGenomeSpec(
-            genomeName = assembly,
-            initialLocus = region_of_interest,
-            stockGenome = TRUE,
-            dataMode = "localFiles"
-          )
-          output$igvShiny_0 <- renderIgvShiny({
-            cat("--- starting renderIgvShiny\n")
-            igvShiny(genomeOptions, displayMode = "SQUISHED")
-          })
-        }
-        current_region(coords)
+      } else {
+        shinyalert(
+          title = "Invalid Input",
+          text = "There is no variant with the provided ID.",
+          type = "error"
+        )
       }
     })
+    
+    # Reactive expression for condition
+    shouldUpdateRegion <- reactive({
+      current <- current_region()
+      coords <- input$genome_coords
+      if (is.null(current)) {
+        !is.null(coords) && coords != ""
+      } else {
+        !is.null(coords) && coords != "" && coords != current
+      }
+    })
+    
+    # Validate genome coordinates and update IGV viewer
+     observeEvent(input$genome_coords, {
+       if (shouldUpdateRegion()) {
+          coords <- trimws(input$genome_coords)
+          pattern <- "^(chr[0-9XY]+)([:-]|\\s)([0-9]+)(([-]|\\s)([0-9]+))?$"
+          if (grepl(pattern, coords)) {
+            matches <- regmatches(coords, regexec(pattern, coords))[[1]]
+            chr <- matches[2]
+            start <- as.numeric(matches[4])
+            if (matches[7] != "") {
+              end <- as.numeric(matches[7])
+            } else {
+              start <- as.numeric(matches[4]) - 20
+              end <- as.numeric(matches[4]) + 20
+            }
+            region_of_interest <- paste0(chr, ":", start, "-", end)
+            updateIgvViewer(region_of_interest, assembly)
+          } else {
+            shinyalert(
+              title = "Invalid Input",
+              text = "Invalid genome coordinates format. Use chr:start-end or chr start end.",
+              type = "error"
+            )
+          }
+       }
+     })
+    
 
     # Observe changes to `current_region` to load VCF tracks
     observeEvent(input$igvReady, {
