@@ -488,14 +488,17 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           filtered_data[,HPO_COUNT:=0]
         }
 
-        filtered_data[,Color:="#FFFFFF"]
+        filtered_data[, clinvar_override := FALSE]
+        filtered_data[, spliceai_override := FALSE]
         
         if (!is.null(clinvar_override_condition)) {
-          filtered_data[eval(parse(text = clinvar_override_condition)),Color:="#FFA50099"]
+          filtered_data[eval(parse(text = clinvar_override_condition)),
+                        clinvar_override := TRUE]
         }
         
         if (!is.null(spliceai_override_condition)) {
-          filtered_data[eval(parse(text = spliceai_override_condition)),Color:="#FFFF0099"]
+          filtered_data[eval(parse(text = spliceai_override_condition)),
+                        spliceai_override := TRUE]
         }
 
         return(filtered_data)
@@ -535,8 +538,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         # Merge flagged rows back into the filtered data
         snv_filtered_data <- merge(current_flagged_rows, snv_filtered_data, by = "ID", all.y = TRUE)
         snv_filtered_data[is.na(PRIORITY), PRIORITY := 0]
-        snv_filtered_data[PRIORITY > 0, Color := "#90EE90"]
-        snv_filtered_data[PRIORITY < 0, Color := "#FFCCCC"]
+        snv_filtered_data[PRIORITY > 0, PRIORITYFlag := TRUE]
+        snv_filtered_data[PRIORITY < 0, PRIORITYFlag := FALSE]
       } else {
         # Fallback if no PRIORITY or NOTES columns exist
         snv_filtered_data <- data.table(PRIORITY = 0, NOTES = "", snv_filtered_data)
