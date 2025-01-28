@@ -14,9 +14,13 @@ setupData <- function(data, selected) {
     coladd("PANEL_APP", NA) %>%
     coladd("HPO_ID", NA) %>%
     coladd("HPO_COUNT", 0) %>%
-    coladd("Color", "#FFFFFF")
-  # Order selected columns first, then the rest and Color at the end
-  data[, c(selected, setdiff(sort(names(data)), c(selected, "Color")), "Color")]
+    coladd("spliceai_override", FALSE) %>%
+    coladd("clinvar_override", FALSE) %>%
+    coladd("PRIORITYFlag", NA)
+  # Order selected columns first, then the rest with the tail at the end
+  tail <- c("spliceai_override", "clinvar_override", "PRIORITYFlag")
+  cols <- c(selected, setdiff(sort(names(data)), c(selected, tail)), tail)
+  data[, cols]
 }
 
 resetData <- function(proxy, data, selected) {
@@ -83,10 +87,17 @@ tabServer <- function(id, filtered_data, selected) {
           options = opts,
           editable = list(target = "cell", numeric = "none")
         ) %>%
-          # Apply row background color based on "Color" column values
-          # TODO: don't overwrite clinvar colors
-          formatStyle(columns = c(selected, "Color"), valueColumns = "Color",
-                      backgroundColor = JS("value"), target = 'row')
+          # Apply row background color
+          formatStyle("spliceai_override",
+                      backgroundColor = styleEqual(TRUE, "#FFFF0099"),
+                      target = 'row') %>%
+          formatStyle("clinvar_override",
+                      backgroundColor = styleEqual(TRUE, "#FFA50099"),
+                      target = 'row') %>%
+          formatStyle("PRIORITYFlag",
+                      backgroundColor = styleEqual(c(TRUE, FALSE),
+                                                   c("#90EE90", "#FFCCCC")),
+                      target = 'row')
       } else {
         # Display message if data is null or empty
         DT::datatable(
@@ -134,9 +145,9 @@ tabServer <- function(id, filtered_data, selected) {
 
       if (scope == "all") {
         dataset <- data.table(filtered_data())
-        dataset[, c("ClinVar", "GNOMADv4", "Color") := NULL]
+        dataset[, c("ClinVar", "GNOMADv4", "PRIORITYFlag") := NULL]
       } else {
-        cols_sub <- setdiff(sel(), c("ClinVar", "GNOMADv4", "Color", NA))
+        cols_sub <- setdiff(sel(), c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA))
         dataset <- data.table(filtered_data()[, cols_sub])
       }
 
@@ -186,26 +197,28 @@ tabServer <- function(id, filtered_data, selected) {
       clear <- FALSE
 
       col <- cols()[edit$col+1]
-      if (col == "PRIORITY") {
+      if (is.na(col)) {
+        clear <- TRUE
+      } else if (col == "PRIORITY") {
         v <- as.integer(edit$value)
         if (is.na(v)) { # Not an integer
           p <- 0
-          c <- "#FFFFFF"
+          c <- NA
           if (data[edit$row, "PRIORITY"] == 0) {
             clear <- TRUE
           }
         } else {
           p <- v
           if (v > 0) {
-            c <- "#90EE90"
+            c <- TRUE
           } else if (v < 0) {
-            c <- "#FFCCCC"
+            c <- FALSE
           } else {
-            c <- "#FFFFFF"
+            c <- NA
           }
         }
         data[edit$row, "PRIORITY"] <- p
-        data[edit$row, "Color"] <- c
+        data[edit$row, "PRIORITYFlag"] <- c
       } else if (col == "NOTES") {
         data[edit$row, "NOTES"] <- edit$value
       } else {
