@@ -17,8 +17,8 @@ tabFileSavingUI <- function(ns, outdir) {
   )
 }
 
-tabSelectUI <- function(ns, vars, selected) {
-  ui <- checkboxGroupInput(ns("selected_vars"), NULL, vars, selected)
+tabSelectUI <- function(ns) {
+  ui <- uiOutput(ns("dynamic_select_vars"))
   collapseUI("select_collapse", "Select variables", "info", ui)
 }
 
@@ -30,7 +30,7 @@ tabSidebarUI <- function(ns, outdir, show_file_saving, vars, selected) {
 
   sidebarPanel(width = 2,
     save_ui,
-    tabSelectUI(ns, vars, selected)
+    tabSelectUI(ns)
   )
 }
 

@@ -6,36 +6,6 @@ project_dir <- getwd()
 
 set.seed(123)
 
-if (!is.null(panel_app)) {
-  panel_app_ui <- names(panel_app)
-} else {
-  panel_app_ui <- c(
-    "Entity_Name", "Entity_type", "Gene_Symbol",
-    "Sources", "Level4", "Level3",
-    "Level2", "Model_Of_Inheritance", "Phenotypes",
-    "Omim", "Orphanet", "HPO",
-    "Publications", "Description", "Flagged",
-    "GEL_Status", "UserRatings_Green_amber_red", "version",
-    "ready", "Mode_of_pathogenicity", "EnsemblId_GRch37",
-    "EnsemblId_GRch38", "HGNC", "Position_Chromosome",
-    "Position_GRCh37_Start", "Position_GRCh37_End", "Position_GRCh38_Start",
-    "Position_GRCh38_End", "STR_Repeated_Sequence", "STR_Normal_Repeats",
-    "STR_Pathogenic_Repeats", "Region_Haploinsufficiency_Score", "Region_Triplosensitivity_Score",
-    "Region_Required_Overlap_Percentage", "Region_Variant_Type", "Region_Verbose_Name"
-  )
-}
-
-vtabvars <- c(
-  "PRIORITY", "NOTES", 
-  if (exists("processed_data", envir = .GlobalEnv)) names(processed_data) else character(0), 
-  "HPO_ID", "HPO_COUNT", "PANEL_APP", "INHERITANCE"
-)
-
-vtabsel <- c(
-  "PRIORITY", "NOTES", 
-  if (exists("preselected_vars", envir = .GlobalEnv)) preselected_vars else character(0)
-)
-
 # Define UI
 ui <- fluidPage(
   tags$head(
@@ -101,18 +71,20 @@ server <- function(input, output, session) {
   homeServer("tab0")
   
   if (data_status$success) {
-    print("inside")
     filtered_data <- selectFiltersServer("tab1",
                                          processed_data, pedigree_data,
                                          panel_app_genes, vep_consequences,
                                          phenotype_data)
-    tabServer("tab2", filtered_data, vtabsel)
+    vtabsel <- c("PRIORITY", "NOTES","ID","CHROM","POS","GT_1") 
+    tabServer("tab2", filtered_data, vtabsel,TRUE)
     igvServer("tab3", processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
               pedigree_data$kinship)
     panel_app_output <- reactiveVal(as.data.frame(panel_app))
-    tabServer("tab4", panel_app_output, panel_app_vars)
+    panel_app_vars <- c("Gene_Symbol","Sources","Level4","Level2","Model_Of_Inheritance")
+    tabServer("tab4", panel_app_output, panel_app_vars, FALSE)
+    phenotype_vars <- c("hpo_id","hpo_name","ncbi_gene_id","gene_symbol","disease_id")
     phenotype_data_output <- reactiveVal(as.data.frame(phenotype_data))
-    tabServer("tab5", phenotype_data_output, names(phenotype_data))
+    tabServer("tab5", phenotype_data_output, phenotype_vars, FALSE)
     qcPlotsServer("tab6", coverage_data, processed_data,
                   pedigree_data, somalier)
   }
