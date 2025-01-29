@@ -9,9 +9,6 @@ homeUI <- function(id) {
     ),
     fluidRow(
       actionButton(ns("load_sample"), "Load Sample", class = "btn-primary")
-    ),
-    br(),
-    br(),
-    uiOutput(ns("session_info"))
+    )
   )
 }
