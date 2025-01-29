@@ -248,6 +248,9 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     observeEvent(input$apply_filter, {
 
+      showNotification("Filtering...", duration = NULL, id = ns("notify_filter"),
+                       type = "message")
+
       # Define filters
       snv_filters <- list(
         clinvar_filter = input$clinvar_checkboxes,
@@ -545,16 +548,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         snv_filtered_data <- data.table(PRIORITY = 0, NOTES = "", snv_filtered_data)
       }
 
-      #print(dim(snv_filtered_data))
-
       filtered_table_output(copy(snv_filtered_data))
 
-      #print("Table was filtered and updated!")
-
-
+      removeNotification(ns("notify_filter"))
     }) 
 
     return(filtered_table_output)
-
   })
 }

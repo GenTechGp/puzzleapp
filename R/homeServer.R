@@ -29,8 +29,9 @@ homeServer <- function(id) {
         clearSampleObjects()
         
         # Load the new sample
-        showNotification("Loading sample...", type = "message")
+        showNotification("Loading sample...", id = ns("notify_load"), type = "message")
         load(sample_path, envir = .GlobalEnv) # Adjust file name/path as needed
+        removeNotification(ns("notify_load"))
         showNotification("Sample loaded successfully!", type = "message")
         
         vtabvars <- c(
