@@ -56,40 +56,6 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
                        "HPO_ID", "HPO_COUNT", "spliceai_override", 
                        "clinvar_override", "PRIORITYFlag")
 
-    #available_vars_reactive <- reactiveVal(names(data))
-    available_vars_reactive <- reactiveVal({
-      if (!is.null(data)) {
-        if (show_file_saving) {
-          names(data)  # Use all columns
-        } else {
-          setdiff(names(data), excluded_vars)  # Remove excluded columns
-        }
-      } else {
-        NULL  # Handle case where data is NULL
-      }
-    })
-    selected_vars_reactive <- reactiveVal(selected)
-
-    output$dynamic_select_vars <- renderUI({
-      vars <- available_vars_reactive()
-      if (!is.null(vars)) {
-        checkboxGroupInput(ns("selected_vars"), "Select Variables", choices = vars, selected = selected)
-      }
-    })
-
-    # Dynamically update the checkboxGroupInput UI when available_vars_reactive changes
-    observe({
-      vars <- available_vars_reactive()
-      if (!is.null(vars)) {
-        updateCheckboxGroupInput(session, ns("selected_vars"), choices = vars, selected = selected_vars_reactive())
-      }
-    })
-
-    # Update selected_vars_reactive when user selects variables
-    observeEvent(input$selected_vars, {
-      selected_vars_reactive(input$selected_vars)
-    })
-
     initComplete <- paste0(
       "function(settings, json) {",
       "  Shiny.setInputValue('", ns("tableInitComplete"), "', json);",
@@ -117,6 +83,9 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
       data <- setupData(isolate(filtered_data()), selected)
+      if (show_file_saving == FALSE) {
+        opts$buttons[[1]]$columns <- which(!(names(data) %in% excluded_vars))
+      }
       if (!is.null(data) && ncol(data) > 0) {
         DT::datatable(
           data,
