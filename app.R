@@ -39,7 +39,7 @@ ui <- fluidPage(
     tabPanel("Home", homeUI("tab0")),
     tabPanel("Filters", selectFiltersUI("tab1", panel_app_genes)),
     tabUI("tab2", "Variants", outdir, TRUE),
-    igvUI("tab3", "IGV", pedigree_data$kinship),
+    igvUI("tab3", "IGV"),
     tabUI("tab4", "PanelApp", outdir, FALSE),
     tabUI("tab5", "Phenotype", outdir, FALSE),
     qcPlotsUI("tab6", "QC Plots")

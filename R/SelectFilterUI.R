@@ -7,6 +7,13 @@ metaUI <- function(ns) {
   collapseUI("meta_collapse", "Metadata", "primary", ui)
 }
 
+# Saved searches
+preSavedSearchesUI <- function(ns) {
+  collapseUI("pre_saved_searches_collapse", "Saved searches", "info",
+             selectizeInput(ns("pre_saved_search"), "SNVs & Indels pre-saved search:", choices = NULL, selected=NULL)
+  )
+}
+
 # Global Options
 
 inherOptsUI <- function(ns) {
@@ -81,6 +88,7 @@ phenoUI <- function(ns) {
 globalOptsUI <- function(ns, panel_app_genes) {
   collapseUI("global_options_collapse", "Global options", "primary",
     div(
+      preSavedSearchesUI(ns),
       inherOptsUI(ns),
       geneOptsUI(ns, panel_app_genes),
       phenoUI(ns)
@@ -137,8 +145,8 @@ snvInsilicoUI <- function(ns) {
 
 snvQualityUI <- function(ns) {
   ui <- div(
-    # selectInput(ns("pass_variants"), "Select Variant:",
-    #             c("", "PASS only variants", "All variants"), ""),
+    selectInput(ns("pass_variants"), "Select Variant:",
+                c("", "PASS only variants", "All variants"), ""),
     sliderInput(ns("genotype_quality"), "Genotype quality:", 0, 100, 0,
                 ticks = FALSE),
     sliderInput(ns("allele_balance"), "Minimum Allele fraction:", 0, 1, 0,

@@ -13,6 +13,42 @@ metaServer <- function(output, ns, pedigree) {
   output$meta <- renderTable(peditab, sanitize.text.function = function(x) x)
 }
 
+read_search_files <- function(directory, type=NULL) {
+  
+  file_pattern <- if (!is.null(type)) {
+    paste0(".*\\.", type, "_search.tsv$")
+  } else {
+    ".*_search\\.tsv$"
+  }
+  
+  # List all TSV files in the directory
+  files <- list.files(directory, pattern = file_pattern, full.names = TRUE)
+  
+  # Initialize an empty list to store results
+  search_data <- list()
+  
+  # Iterate over each file
+  for (file in files) {
+    # Read the file into a dataframe
+    df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+    
+    # Convert the data to a named list
+    file_data <- setNames(as.list(df$Value), df$Key)
+    
+    # Extract the Label field as the key
+    label <- file_data[["Label"]]
+    
+    if (!is.null(label)) {
+      # Store the data inside the main list, using label as key
+      search_data[[label]] <- file_data
+    } else {
+      warning(sprintf("Skipping file %s as it has no 'Label' field", file))
+    }
+  }
+  
+  return(search_data)
+}
+
 alleleCount <- function(inher, status, sex) {
   if (inher == "Homozygous Recessive") {
     if (status == "affected")
@@ -145,11 +181,96 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     observe({
       shinyjs::enable(ns("inher"))
       shinyjs::enable(ns("pathogenicity"))
-
+      shinyjs::enable(ns("pre_saved_search"))
       shinyjs::enable(ns("apply_filter"))
     })
 
     alleleServer(input, output, ns, pedigree, allele_tab)
+    
+    # Load available searches on startup
+    available_searches <- reactive({
+      read_search_files("/g/data/kr68/andre/puzzleapp/data","snv")
+    })
+    
+    # Update UI dropdown with available searches
+    observe({
+      choices <- c("", names(available_searches()))
+      updateSelectizeInput(session, "pre_saved_search",
+                        choices = choices, selected = "")
+    })
+    
+    observeEvent(input$pre_saved_search, {
+      
+      print(input$pre_saved_search)
+      
+      selected_search <- input$pre_saved_search
+      
+      # If no search is selected, return
+      if (is.null(selected_search) || selected_search == "") {
+        return()
+      }
+      
+      # Retrieve the corresponding search settings
+      search_params <- available_searches()[[selected_search]]
+      
+      # Debugging print
+      print(paste("Loading pre-saved search:", selected_search))
+      
+      # Update Mode of Inheritance
+      if (!is.null(search_params$Inheritance)) {
+        updateSelectInput(session, "inher", selected = search_params$Inheritance)
+      }
+      
+      # Update Annotation Filters
+      if (!is.null(search_params$Annotation)) {
+        updatePrettyCheckboxGroup(session, "conseq_checkboxes", 
+                                  selected = unlist(strsplit(search_params$Annotation, ";")))
+      }
+      
+      # Update Pathogenicity
+      if (!is.null(search_params$Pathogenicity)) {
+        updatePrettyCheckboxGroup(session, "clinvar_checkboxes", 
+                                  selected = unlist(strsplit(search_params$Pathogenicity, ";")))
+      }
+      
+      # Update SpliceAI Score
+      if (!is.null(search_params$`SpliceAI score`)) {
+        updateNumericInput(session, "spliceai_score", 
+                           value = as.numeric(search_params$`SpliceAI score`))
+      }
+      
+      # Update gnomAD AF
+      if (!is.null(search_params$`gnomADv4 AF`)) {
+        updateSelectInput(session, "af", 
+                          selected = as.numeric(search_params$`gnomADv4 AF`))
+      }
+      
+      # Update Affected Only Checkbox
+      if (!is.null(search_params$`Affected only`)) {
+        updateMaterialSwitch(session, "affected_switch", 
+                             value = as.logical(search_params$`Affected only`))
+      }
+      
+      # Update Allele Balance
+      if (!is.null(search_params$`Allele balance`)) {
+        updateSliderInput(session, "allele_balance", 
+                          value = as.numeric(search_params$`Allele balance`))
+      }
+      
+      # Update Genotype Quality
+      if (!is.null(search_params$`Genotype quality`)) {
+        updateSliderInput(session, "genotype_quality", 
+                          value = as.numeric(search_params$`Genotype quality`))
+      }
+      
+      # Update Filter Value (PASS only vs Show all)
+      if (!is.null(search_params$`Filter value`)) {
+        updateSelectInput(session, "pass_variants", 
+                          selected = search_params$`Filter value`)
+      }
+      
+    })
+    
 
     observeEvent(input$pathogenicity, {
       if (input$pathogenicity == "Pathogenic/Likely pathogenic") {

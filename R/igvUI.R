@@ -1,4 +1,4 @@
-igvSidebarUI <- function(ns, kinship) {
+igvSidebarUI <- function(ns) {
   sidebarPanel(
     textInput(ns("igv_var_id"), "Variant ID:", value = ""),
     numericInput(ns("igv_max_window"), "Max window size:", 10000, 0),
@@ -19,11 +19,11 @@ igvSidebarUI <- function(ns, kinship) {
   )
 }
 
-igvUI <- function(id, tab_label, kinship) {
+igvUI <- function(id, tab_label) {
   ns <- NS(id)
   tabPanel(tab_label,
     sidebarLayout(
-      igvSidebarUI(ns, kinship),
+      igvSidebarUI(ns),
       mainPanel(igvShinyOutput(ns("igvShiny_0")), width = 10)
     )
   )
