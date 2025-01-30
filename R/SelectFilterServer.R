@@ -187,9 +187,12 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
 
     alleleServer(input, output, ns, pedigree, allele_tab)
     
+    app_dir <- getwd()
+    data_dir <- paste0(app_dir, "/data")
+
     # Load available searches on startup
     available_searches <- reactive({
-      read_search_files("/g/data/kr68/andre/puzzleapp/data","snv")
+      read_search_files(data_dir, "snv")
     })
     
     # Update UI dropdown with available searches
