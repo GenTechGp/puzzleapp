@@ -84,7 +84,7 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
       # Check if data is valid and has columns
       data <- setupData(isolate(filtered_data()), selected)
       if (show_file_saving == FALSE) {
-        opts$buttons[[1]]$columns <- which(!(names(data) %in% excluded_vars))
+        opts$buttons[[1]]$columns <- c(0, which(!(names(data) %in% excluded_vars)))
       }
       if (!is.null(data) && ncol(data) > 0) {
         DT::datatable(
