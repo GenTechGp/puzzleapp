@@ -65,7 +65,9 @@ tabServer <- function(id, filtered_data, selected) {
         list(targets = '_all', className = 'dt-body-nowrap')
       ),
       colReorder = TRUE,
-      initComplete = JS(initComplete)
+      initComplete = JS(initComplete),
+      dom = 'Bfrtip',
+      buttons = list(list(extend = 'colvis', text = 'Select Variables'))
     )
     callback <- paste0(
       "table.on('column-reorder', function(e, settings, details) {",
@@ -82,7 +84,7 @@ tabServer <- function(id, filtered_data, selected) {
           filter = list(position = "top", clear = TRUE),
           selection = "none",
           escape = FALSE,
-          extensions = "ColReorder",
+          extensions = c("ColReorder", "Buttons"),
           callback = JS(callback),
           options = opts,
           editable = list(target = "cell", numeric = "none")
@@ -147,6 +149,7 @@ tabServer <- function(id, filtered_data, selected) {
         dataset <- data.table(filtered_data())
         dataset[, c("ClinVar", "GNOMADv4", "PRIORITYFlag") := NULL]
       } else {
+        # TODO: use colvis
         cols_sub <- setdiff(sel(), c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA))
         dataset <- data.table(filtered_data()[, cols_sub])
       }
@@ -171,18 +174,12 @@ tabServer <- function(id, filtered_data, selected) {
     # 0 and NA represent the row index column
     colOrder <- reactiveVal(0:ncol(data))
     cols <- reactive(c(NA, names(data))[colOrder() + 1])
-    sel <- reactive(c(NA, input$selected_vars))
-    pos <- reactive(which(cols() %in% sel()) - 1)
 
     observeEvent(input$colOrder, {
       order <- input$colOrder
       focus <- order[order != 0:ncol(data)]
       order[order != 0:ncol(data)] <- swap_order(focus)
       colOrder(colOrder()[order + 1])
-    })
-
-    observeEvent(c(input$selected_vars, input$tableInitComplete), {
-      showCols(proxy, pos(), reset = TRUE)
     })
 
     observeEvent(filtered_data(), {

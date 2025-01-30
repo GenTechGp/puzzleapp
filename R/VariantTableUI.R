@@ -12,30 +12,12 @@ tabFileSavingUI <- function(ns, outdir) {
     selectInput(ns("filetype"), "File format:", fmts, "tsv"),
     selectInput(ns("out_scope"), "Scope:", scopes, "all"),
     textInput(ns("out_filename"), "File name prefix:", value = default_file),
-    actionButton(ns("save_file"), "save"),
-    hr()
-  )
-}
-
-tabSelectUI <- function(ns, vars, selected) {
-  ui <- checkboxGroupInput(ns("selected_vars"), NULL, vars, selected)
-  collapseUI("select_collapse", "Select variables", "info", ui)
-}
-
-tabSidebarUI <- function(ns, outdir, show_file_saving, vars, selected) {
-  if (show_file_saving == TRUE)
-    save_ui <- tabFileSavingUI(ns, outdir)
-  else
-    save_ui <- NULL
-
-  sidebarPanel(width = 2,
-    save_ui,
-    tabSelectUI(ns, vars, selected)
+    actionButton(ns("save_file"), "save")
   )
 }
 
 tabMainUI <- function(ns) {
-  mainPanel(width = 10,
+  div(
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "datatable.css")
     ),
@@ -43,13 +25,21 @@ tabMainUI <- function(ns) {
   )
 }
 
-tabUI <- function(id, tab_label, outdir, show_file_saving, vars, selected) {
+tabPanelUI <- function(ns, outdir, show_file_saving) {
+  if (show_file_saving == TRUE) {
+    sidebarLayout(
+      sidebarPanel(width = 2, tabFileSavingUI(ns, outdir)),
+      mainPanel(width = 10, tabMainUI(ns))
+    )
+  } else {
+    tabMainUI(ns)
+  }
+}
+
+tabUI <- function(id, tab_label, outdir, show_file_saving) {
   ns <- NS(id)
   tabPanel(tab_label,
-    sidebarLayout(
-      tabSidebarUI(ns, outdir, show_file_saving, vars, selected),
-      tabMainUI(ns)
-    ),
+    tabPanelUI(ns, outdir, show_file_saving),
     tags$head(
       tags$link(rel = "stylesheet", type = "text/css", href = "table.css")
     )
