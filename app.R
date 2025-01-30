@@ -42,9 +42,7 @@ ui <- fluidPage(
     igvUI("tab3", "IGV", pedigree_data$kinship),
     tabUI("tab4", "PanelApp", outdir, FALSE, names(panel_app), panel_app_vars),
     tabUI("tab5", "Phenotype", outdir, FALSE, names(phenotype_data), names(phenotype_data)),
-    qcPlotsUI("tab6", "QC Plots", !is.null(coverage_data),
-              !is.null(somalier),
-              !is.null(processed_data))
+    qcPlotsUI("tab6", "QC Plots")
   )
 )
 
