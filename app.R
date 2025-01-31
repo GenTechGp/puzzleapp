@@ -2,7 +2,6 @@ outdir <- Sys.getenv("OUTDIR")
 if (outdir == "")
   outdir <- "."
 tracks_dir <- sprintf("%s/tracks", outdir)
-project_dir <- getwd()
 
 set.seed(123)
 
@@ -54,10 +53,10 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("Home", homeUI("tab0")),
     tabPanel("Filters", selectFiltersUI("tab1", panel_app_genes)),
-    tabUI("tab2", "Variants", outdir, TRUE),
+    tabUI("tab2", "Variants"),
     igvUI("tab3", "IGV"),
-    tabUI("tab4", "PanelApp", outdir, FALSE),
-    tabUI("tab5", "Phenotype", outdir, FALSE),
+    tabUI("tab4", "PanelApp"),
+    tabUI("tab5", "Phenotype"),
     qcPlotsUI("tab6", "QC Plots")
   )
 )
@@ -89,16 +88,22 @@ server <- function(input, output, session) {
                                          processed_data, pedigree_data,
                                          panel_app_genes, vep_consequences,
                                          phenotype_data)
-    vtabsel <- c("PRIORITY", "NOTES","ID","CHROM","POS","GT_1") 
-    tabServer("tab2", filtered_data, vtabsel,TRUE)
+    vtabsel <- c("PRIORITY", "NOTES", "ID", "CHROM", "POS", "GT_1")
+    exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
+                 "HPO_ID", "HPO_COUNT", "spliceai_override",
+                 "clinvar_override", "PRIORITYFlag")
+    tabServer("tab2", filtered_data, vtabsel, outdir)
     igvServer("tab3", processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
               pedigree_data$kinship)
     panel_app_output <- reactiveVal(as.data.frame(panel_app))
     panel_app_vars <- c("Gene_Symbol","Sources","Level4","Level2","Model_Of_Inheritance")
-    tabServer("tab4", panel_app_output, panel_app_vars, FALSE)
+    exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
+                 "HPO_ID", "HPO_COUNT", "spliceai_override",
+                 "clinvar_override", "PRIORITYFlag")
+    tabServer("tab4", panel_app_output, panel_app_vars, outdir, exclude)
     phenotype_vars <- c("hpo_id","hpo_name","ncbi_gene_id","gene_symbol","disease_id")
     phenotype_data_output <- reactiveVal(as.data.frame(phenotype_data))
-    tabServer("tab5", phenotype_data_output, phenotype_vars, FALSE)
+    tabServer("tab5", phenotype_data_output, phenotype_vars, outdir, exclude)
     qcPlotsServer("tab6", coverage_data, processed_data,
                   pedigree_data, somalier)
   }

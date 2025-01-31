@@ -42,26 +42,32 @@ swap_order <- function(x) {
   return(x[c(3:l, 1, 2)]) # Case 2
 }
 
+tabFileSavingUI <- function(ns, outdir) {
+  sample_id <- unlist(strsplit(ns("sample"), "-"))[1]
+  date <- format(Sys.time(), "%Y%m%d_%H%M")
+  default_file <- paste0(sample_id, ".shinyApp.", date)
+  fmts <- c("Excel (.xlsx)" = "excel", "Tab-separated values (.tsv)" = "tsv",
+            "Comma-separated values (.csv)" = "csv")
+  scopes <- c("All variables" = "all",
+              "Selected variables only" = "selected_only")
+
+  tagList(
+    textInput(ns("output_dir"), "Output directory:", value = outdir),
+    selectInput(ns("filetype"), "File format:", fmts, "tsv"),
+    selectInput(ns("out_scope"), "Scope:", scopes, "all"),
+    textInput(ns("out_filename"), "File name prefix:", value = default_file)
+  )
+}
+
 # Define a server module for the "Tab Label"
-tabServer <- function(id, filtered_data, selected, show_file_saving) {
+tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
   moduleServer(id, function(input, output, session) {
 
     ns <- shiny::NS(id)
 
-    # TODO: dynamically update table for dependencies on names(data)
     data <- setupData(isolate(filtered_data()), selected)
     filtered_data(data)
 
-    # Columns to remove when show_file_saving is FALSE
-    excluded_vars <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP", 
-                       "HPO_ID", "HPO_COUNT", "spliceai_override", 
-                       "clinvar_override", "PRIORITYFlag")
-
-    initComplete <- paste0(
-      "function(settings, json) {",
-      "  Shiny.setInputValue('", ns("tableInitComplete"), "', json);",
-      "}"
-    )
     opts <- list(
       stateSave = TRUE,
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
@@ -71,9 +77,16 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
         list(targets = '_all', className = 'dt-body-nowrap')
       ),
       colReorder = TRUE,
-      initComplete = JS(initComplete),
       dom = 'Bfrtip',
-      buttons = list(list(extend = 'colvis', text = 'Select Variables'))
+      buttons = list(
+        list(extend = 'colvis', text = 'Select Variables'),
+        list(extend = 'collection', text = 'Download', dropIcon = TRUE,
+             action = JS(paste0(
+               "function(e, dt, node, config) {",
+                 "Shiny.setInputValue('", ns("download"), "', true, {priority: 'event'});",
+               "}"
+             )))
+      )
     )
     callback <- paste0(
       "table.on('column-reorder', function(e, settings, details) {",
@@ -84,8 +97,8 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
       data <- setupData(isolate(filtered_data()), selected)
-      if (show_file_saving == FALSE) {
-        opts$buttons[[1]]$columns <- c(0, which(!(names(data) %in% excluded_vars)))
+      if (!is.null(exclude)) {
+        opts$buttons[[1]]$columns <- c(0, which(!(names(data) %in% exclude)))
       }
       if (!is.null(data) && ncol(data) > 0) {
         DT::datatable(
@@ -124,8 +137,21 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
       }
     }, server = TRUE)
 
+    observeEvent(input$download, {
+      showModal(modalDialog(
+        tags$h3('Download Settings'),
+        tabFileSavingUI(ns, outdir),
+        footer=tagList(
+          actionButton(ns("save_file"), 'Save'),
+          modalButton('Cancel')
+        ),
+        easyClose = TRUE)
+      )
+    })
+
     # Save table to output file
     observeEvent(input$save_file, {
+      removeModal()
       show_spinner()
       output_dir <- input$output_dir
       filename <- input$out_filename
