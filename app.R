@@ -6,6 +6,22 @@ project_dir <- getwd()
 
 set.seed(123)
 
+initializeSampleObjects <- function() {
+  objects_to_check <- c(
+    "sample", "processed_data", "pedigree_data", "panel_app_genes", "coverage_data",
+    "somalier", "vep_consequences", "preselected_vars", "panel_app", "panel_app_vars",
+    "snvs_vcf", "svs_vcf", "bam_files", "phenotype_data"
+  )
+  for (obj in objects_to_check) {
+    if (!exists(obj, envir = .GlobalEnv)) {
+      assign(obj, NULL, envir = .GlobalEnv)
+    }
+  }
+}
+
+# Initialise variables if they don't exist
+initializeSampleObjects()
+
 # Define UI
 ui <- fluidPage(
   tags$head(
