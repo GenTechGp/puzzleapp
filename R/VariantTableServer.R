@@ -48,6 +48,7 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
 
     ns <- shiny::NS(id)
 
+    # TODO: dynamically update table for dependencies on names(data)
     data <- setupData(isolate(filtered_data()), selected)
     filtered_data(data)
 
@@ -62,7 +63,7 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
       "}"
     )
     opts <- list(
-      stateSave = FALSE,
+      stateSave = TRUE,
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
       columnDefs = list(
         list(targets = which(names(data) %in% selected == FALSE),
@@ -152,13 +153,13 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
                                "csv" = "csv")
       full_filename <- paste0(filename, ".", file_extension)
       output_path <- file.path(output_dir, full_filename)
+      save_exclude_vars <- c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA)
 
       if (scope == "all") {
         dataset <- data.table(filtered_data())
-        dataset[, c("ClinVar", "GNOMADv4", "PRIORITYFlag") := NULL]
+        dataset[, save_exclude_vars := NULL]
       } else {
-        # TODO: use colvis
-        cols_sub <- setdiff(sel(), c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA))
+        cols_sub <- setdiff(sel(), save_exclude_vars)
         dataset <- data.table(filtered_data()[, cols_sub])
       }
 
@@ -182,6 +183,13 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
     # 0 and NA represent the row index column
     colOrder <- reactiveVal(0:ncol(data))
     cols <- reactive(c(NA, names(data))[colOrder() + 1])
+    # Requires stateSave = TRUE in datatable options
+    table_st_cols <- reactive(data.frame(
+      cbind(name = names(input$table_state$columns),
+            do.call(rbind, c(input$table_state$columns, use.names = FALSE)))
+    ))
+    vis <- reactive(unlist(table_st_cols()$visible))
+    sel <- reactive(c(NA, names(data))[vis()])
 
     observeEvent(input$colOrder, {
       order <- input$colOrder
