@@ -156,12 +156,12 @@ tabServer <- function(id, filtered_data, selected, show_file_saving) {
       save_exclude_vars <- c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA)
 
       if (scope == "all") {
-        dataset <- data.table(filtered_data())
-        dataset[, save_exclude_vars := NULL]
+        cols_sub <- setdiff(names(filtered_data()), save_exclude_vars)
       } else {
         cols_sub <- setdiff(sel(), save_exclude_vars)
-        dataset <- data.table(filtered_data()[, cols_sub])
       }
+
+      dataset <- data.table(filtered_data()[, cols_sub])
 
       tryCatch({
         if (filetype == "excel") {
