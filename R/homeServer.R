@@ -1,4 +1,4 @@
-homeServer <- function(id) {
+homeServer <- function(id,reload_trigger) {
   moduleServer(id, function(input, output, session) {
     
     ns <- session$ns
@@ -31,8 +31,7 @@ homeServer <- function(id) {
         # Load the new sample
         showNotification("Loading sample...", id = ns("notify_load"), type = "message")
         load(sample_path, envir = .GlobalEnv) # Adjust file name/path as needed
-        removeNotification(ns("notify_load"))
-        showNotification("Sample loaded successfully!", type = "message")
+
         
         vtabvars <- c(
           "PRIORITY", "NOTES", 
@@ -50,7 +49,9 @@ homeServer <- function(id) {
         print(paste("Sample loaded from:", sample_path))
         
         # Trigger a full app reload
-        session$sendCustomMessage("reload", list())
+        reload_trigger(runif(1))
+        removeNotification(ns("notify_load"))
+        showNotification("Sample loaded successfully!", type = "message")
       }
     })
     

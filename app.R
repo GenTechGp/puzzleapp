@@ -37,12 +37,6 @@ ui <- fluidPage(
       .header img {
         max-height: 120px; /* Adjust max height to make the image bigger */
       }
-    ")),
-    # Add JavaScript handler to reload the page
-    tags$script(HTML("
-      Shiny.addCustomMessageHandler('reload', function(message) {
-        location.reload();
-      });
     "))
   ),
   # Create the header with the image
@@ -66,6 +60,7 @@ server <- function(input, output, session) {
   
   # Check environment data on app startup
   data_status <- checkEnvironmentData()
+  reload_trigger <- reactiveVal(NULL)
   
   if (!data_status$success) {
     showNotification(
@@ -81,7 +76,7 @@ server <- function(input, output, session) {
     shinyjs::enable(selector = "#tabs li")
   }
   
-  homeServer("tab0")
+  homeServer("tab0",reload_trigger)
   
   if (data_status$success) {
     filtered_data <- selectFiltersServer("tab1",
@@ -107,6 +102,23 @@ server <- function(input, output, session) {
     qcPlotsServer("tab6", coverage_data, processed_data,
                   pedigree_data, somalier)
   }
+  
+  observeEvent(reload_trigger(), {
+    filtered_data <- selectFiltersServer("tab1",
+                                         processed_data, pedigree_data,
+                                         panel_app_genes, vep_consequences,
+                                         phenotype_data)
+    vtabsel <- c("PRIORITY", "NOTES", "ID", "CHROM", "POS", "GT_1")
+    exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
+                 "HPO_ID", "HPO_COUNT", "spliceai_override",
+                 "clinvar_override", "PRIORITYFlag")
+    tabServer("tab2", filtered_data, vtabsel, outdir)
+    igvServer("tab3", processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
+              pedigree_data$kinship)
+    qcPlotsServer("tab6", coverage_data, processed_data,
+                  pedigree_data, somalier)
+  })
+  
 }
 
 # Run the Shiny app
