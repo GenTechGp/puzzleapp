@@ -10,7 +10,21 @@ metaUI <- function(ns) {
 # Saved searches
 preSavedSearchesUI <- function(ns) {
   collapseUI("pre_saved_searches_collapse", "Saved searches", "info",
-             selectizeInput(ns("pre_saved_search"), "SNVs & Indels pre-saved search:", choices = NULL, selected=NULL)
+             selectizeInput(ns("pre_saved_search"), "SNVs & Indels pre-saved search:", choices = NULL, selected=NULL),
+             selectizeInput(ns("sv_pre_saved_search"), "SVs pre-saved search:", choices = NULL, selected=NULL)
+  )
+}
+
+saveSessionsUI <- function(ns) {
+  collapseUI("save_sessions_collapse", "Sessions", "info",
+             fluidRow(
+               column(2, textInput(ns("session_name"), "Name session:", value = "")),
+               column(1, actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-top: 25px;"))
+             ),
+             fluidRow(
+               column(2, selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE))),
+               column(1, actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-top: 25px;"))
+             )
   )
 }
 
@@ -88,6 +102,7 @@ phenoUI <- function(ns) {
 globalOptsUI <- function(ns, panel_app_genes) {
   collapseUI("global_options_collapse", "Global options", "primary",
     div(
+      saveSessionsUI(ns),
       preSavedSearchesUI(ns),
       inherOptsUI(ns),
       geneOptsUI(ns, panel_app_genes),
@@ -112,21 +127,32 @@ snvPathoUI <- function(ns) {
   collapseUI("pathogenicity_collapse", "Pathogenicity", "info", ui)
 }
 
-snvAnnotUI <- function(ns) {
+AnnotUI <- function(ns, type = "snv") {
   conseq_opts <- c("Stop gained", "Start lost", "Stop lost", "Splice variant",
                    "Frameshift variant", "Missense variant", "In-frame variant",
                    "Synonymous variant", "5'UTR variant", "3'UTR variant",
                    "Intron variant", "Other")
-
-  ui <- div(
-    selectInput(ns("annotation"), "Functional consequence:",
+  
+  # Adjust namespace prefix based on type
+  id_prefix <- if (type == "sv") "sv_" else ""
+  
+  ui_elements <- list(
+    selectInput(ns(paste0(id_prefix, "annotation")), "Functional consequence:",
                 c("", "High impact", "Moderate to high impact"), ""),
-    prettyCheckboxGroup(ns("conseq_checkboxes"), NULL, conseq_opts,
-                        selected = NULL),
-    numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05)
+    prettyCheckboxGroup(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, conseq_opts,
+                        selected = NULL)
   )
-
-  collapseUI("annotation_collapse", "Annotation", "info", ui)
+  
+  # Only add SpliceAI score if type is SNV
+  if (type == "snv") {
+    ui_elements <- append(ui_elements, 
+                          list(numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05))
+    )
+  }
+  
+  ui <- div(ui_elements)
+  
+  collapseUI(paste0(id_prefix, "annotation_collapse"), "Annotation", "info", ui)
 }
 
 snvInsilicoUI <- function(ns) {
@@ -143,26 +169,28 @@ snvInsilicoUI <- function(ns) {
   collapseUI("insilico_filters_collapse", "In silico filters", "info", ui)
 }
 
-snvQualityUI <- function(ns) {
+QualityUI <- function(ns, label = "snv") {
+  prefix <- ifelse(label == "sv", "sv_", "")
+  
   ui <- div(
-    selectInput(ns("pass_variants"), "Select Variant:",
+    selectInput(ns(paste0(prefix, "pass_variants")), "Filter:",
                 c("", "PASS only variants", "All variants"), ""),
-    sliderInput(ns("genotype_quality"), "Genotype quality:", 0, 100, 0,
+    sliderInput(ns(paste0(prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0,
                 ticks = FALSE),
-    sliderInput(ns("allele_balance"), "Minimum Allele fraction:", 0, 1, 0,
+    sliderInput(ns(paste0(prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0,
                 ticks = FALSE),
-    materialSwitch(ns("affected_switch"), label = tags$b("Affected only:"))
+    materialSwitch(ns(paste0(prefix, "affected_switch")), label = tags$b("Affected only:"))
   )
-
-  collapseUI("quality_collapse", "Call quality", "info", ui)
+  
+  collapseUI(paste0(prefix, "quality_collapse"), "Call quality", "info", ui)
 }
 
-snvFreqUI <- function(ns) {
+FreqUI <- function(ns,label) {
   freqs <- c(0, seq(0.0001, 0.0005, by = 0.0004), 0.001, 0.005, 0.01, 0.02,
              0.03, 0.04, 0.05, 0.1, 1)
 
   ui <- div(
-    selectInput(ns("af"), "gnomADv4 AF:", freqs, 1)
+    selectInput(ns(label), "gnomADv4 AF:", freqs, 1)
   )
 
   collapseUI("frequency_collapse", "Frequency", "info", ui)
@@ -171,11 +199,11 @@ snvFreqUI <- function(ns) {
 snvOptsUI <- function(ns) {
   ui <- div(
     fluidRow(
-      column(3, snvAnnotUI(ns)),
+      column(3, AnnotUI(ns,"snv")),
       column(2, snvPathoUI(ns)),
       column(2, snvInsilicoUI(ns)),
-      column(2, snvQualityUI(ns)),
-      column(2, snvFreqUI(ns))
+      column(2, QualityUI(ns,"snv")),
+      column(2, FreqUI(ns,"af"))
     )
   )
 
@@ -196,41 +224,12 @@ svFeatsUI <- function(ns) {
   collapseUI("sv_features_collapse", "Features", "info", ui)
 }
 
-svConseqUI <- function(ns) {
-  rel_choices <- c("Exonic", "Intronic", "UTR", "Promoter", "Intergenic")
-  conseq_choices <- c("Loss of function (LoF)", "Copy Number Variation (CNV)",
-                      "Whole gene inversion",
-                      "Regulatory and Non-coding variants")
-  ui <- div(
-    prettyCheckboxGroup(ns("sv_relative_pos_checkboxes"), "Location:",
-                        rel_choices, NULL, inline = FALSE),
-    prettyCheckboxGroup(ns("sv_consequence_checkboxes"),
-                        "Predicted consequences:", conseq_choices,
-                        "Loss of function (LoF)", inline = FALSE)
-  )
-
-  collapseUI("sv_consequence_collapse", "Annotation", "info", ui)
-}
-
-svQualityUI <- function(ns) {
-  ui <- div(
-    selectInput(ns("sv_pass_variants"), "Filter:",
-                c("","PASS only variants","All variants"), ""),
-    sliderInput(ns("sv_genotype_quality"), "Genotype quality:", 0, 100, 0,
-                ticks = FALSE),
-    sliderInput(ns("sv_allele_balance"), "Minimum Allele fraction:", 0, 1,
-                0, ticks = FALSE),
-    materialSwitch(ns("sv_affected_switch"), tags$b("Affected only:"))
-  )
-
-  collapseUI("sv_quality_collapse", "Call quality", "info", ui)
-}
-
 svOptsUI <- function(ns) {
   ui <- fluidRow(
+    column(3, AnnotUI(ns,"sv")),
     column(2, svFeatsUI(ns)),
-    column(3, svConseqUI(ns)),
-    column(2, svQualityUI(ns))
+    column(2, QualityUI(ns,"sv")),
+    column(2, FreqUI(ns,"sv_af"))
   )
 
   collapseUI("svs_collapse", "SVs", "primary", ui)
