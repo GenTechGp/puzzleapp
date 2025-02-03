@@ -941,6 +941,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
       filtered_table_output(copy(all_filtered_data))
 
       removeNotification(ns("notify_filter"))
+      showNotification("Data filtered", type = "message")
     }) 
 
     return(filtered_table_output)

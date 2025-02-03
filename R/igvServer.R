@@ -76,11 +76,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         }
         updateTextInput(session, inputId = "genome_coords", value = coords)
       } else {
-        shinyalert(
-          title = "Invalid Input",
-          text = "There is no variant with the provided ID.",
-          type = "error"
-        )
+        showNotification("Invalid variant ID", type = "error")
       }
     })
 
@@ -113,11 +109,8 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
             region_of_interest <- paste0(chr, ":", start, "-", end)
             updateIgvViewer(region_of_interest, assembly)
           } else {
-            shinyalert(
-              title = "Invalid Input",
-              text = "Invalid genome coordinates format. Use chr:start-end or chr start end.",
-              type = "error"
-            )
+            showNotification("Invalid coordinates: Expected 'chr:start-end' or 'chr start end'",
+                             type = "error")
           }
        }
      })
