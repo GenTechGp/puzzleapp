@@ -52,11 +52,12 @@ tabFileSavingUI <- function(ns, dir) {
   default_path <- get_out_path(ns, dir, default_ext)
   fmts <- c("tsv", "csv", "xlsx")
   scopes <- c("All variables" = "all",
-              "Selected variables" = "selected_only")
+              "Selected variables" = "selected")
 
   tagList(
     selectInput(ns("out_ext"), "Format", fmts, default_ext),
     selectInput(ns("out_scope"), "Scope", scopes, "all"),
+    checkboxInput(ns("out_filter"), "Use search filters"),
     textInput(ns("out_path"), "Path", value = default_path)
   )
 }
@@ -66,8 +67,10 @@ save_file <- function(ns, input, filtered_data, sel) {
 
   if (input$out_scope == "all") {
     cols_sub <- setdiff(names(filtered_data()), save_exclude_vars)
-  } else {
+  } else if (input$out_scope == "selected") {
     cols_sub <- setdiff(sel(), save_exclude_vars)
+  } else {
+    showNotification(paste("Unknown scope:", input$out_scope), type = "error")
   }
 
   # TODO: one line solution
@@ -75,6 +78,10 @@ save_file <- function(ns, input, filtered_data, sel) {
     dataset <- filtered_data()[, ..cols_sub]
   } else {
     dataset <- filtered_data()[, cols_sub]
+  }
+
+  if (input$out_filter == TRUE) {
+    dataset <- dataset[input$table_rows_all, ]
   }
 
   showNotification("Saving...", duration = NULL, id = ns("notify_save"),
