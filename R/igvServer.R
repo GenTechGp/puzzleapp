@@ -18,7 +18,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       })
       do.call(c, gr_list)
     }
-    
+
     # Helper function to update the IGV viewer
     updateIgvViewer <- function(region_of_interest, assembly) {
       if (!is.null(region_of_interest) && region_of_interest != "") {
@@ -83,7 +83,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         )
       }
     })
-    
+
     # Reactive expression for condition
     shouldUpdateRegion <- reactive({
       current <- current_region()
@@ -94,7 +94,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         !is.null(coords) && coords != "" && coords != current
       }
     })
-    
+
     # Validate genome coordinates and update IGV viewer
      observeEvent(input$genome_coords, {
        if (shouldUpdateRegion()) {
@@ -121,7 +121,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
           }
        }
      })
-    
+
 
     # Observe changes to `current_region` to load VCF tracks
     observeEvent(input$igvReady, {

@@ -60,7 +60,7 @@ tabFileSavingUI <- function(ns, outdir) {
 }
 
 # Define a server module for the "Tab Label"
-tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
+tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
   moduleServer(id, function(input, output, session) {
 
     ns <- shiny::NS(id)
@@ -140,7 +140,7 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
     observeEvent(input$download, {
       showModal(modalDialog(
         tags$h3('Download Settings'),
-        tabFileSavingUI(ns, outdir),
+        tabFileSavingUI(ns, pref$outdir),
         footer=tagList(
           actionButton(ns("save_file"), 'Save'),
           modalButton('Cancel')

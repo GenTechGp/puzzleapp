@@ -3,7 +3,7 @@ metaUI <- function(ns) {
   ui <- div(
     tableOutput(ns("meta"))
   )
-  
+
   collapseUI("meta_collapse", "Metadata", "primary", ui)
 }
 
@@ -132,26 +132,26 @@ AnnotUI <- function(ns, type = "snv") {
                    "Frameshift variant", "Missense variant", "In-frame variant",
                    "Synonymous variant", "5'UTR variant", "3'UTR variant",
                    "Intron variant", "Other")
-  
+
   # Adjust namespace prefix based on type
   id_prefix <- if (type == "sv") "sv_" else ""
-  
+
   ui_elements <- list(
     selectInput(ns(paste0(id_prefix, "annotation")), "Functional consequence:",
                 c("", "High impact", "Moderate to high impact"), ""),
     prettyCheckboxGroup(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, conseq_opts,
                         selected = NULL)
   )
-  
+
   # Only add SpliceAI score if type is SNV
   if (type == "snv") {
     ui_elements <- append(ui_elements, 
                           list(numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05))
     )
   }
-  
+
   ui <- div(ui_elements)
-  
+
   collapseUI(paste0(id_prefix, "annotation_collapse"), "Annotation", "info", ui)
 }
 
@@ -171,7 +171,7 @@ snvInsilicoUI <- function(ns) {
 
 QualityUI <- function(ns, label = "snv") {
   prefix <- ifelse(label == "sv", "sv_", "")
-  
+
   ui <- div(
     selectInput(ns(paste0(prefix, "pass_variants")), "Filter:",
                 c("", "PASS only variants", "All variants"), ""),
@@ -181,7 +181,7 @@ QualityUI <- function(ns, label = "snv") {
                 ticks = FALSE),
     materialSwitch(ns(paste0(prefix, "affected_switch")), label = tags$b("Affected only:"))
   )
-  
+
   collapseUI(paste0(prefix, "quality_collapse"), "Call quality", "info", ui)
 }
 
