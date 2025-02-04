@@ -73,12 +73,7 @@ save_file <- function(ns, input, filtered_data, sel) {
     showNotification(paste("Unknown scope:", input$out_scope), type = "error")
   }
 
-  # TODO: one line solution
-  if (nrow(filtered_data()) == 0) {
-    dataset <- filtered_data()[, ..cols_sub]
-  } else {
-    dataset <- filtered_data()[, cols_sub]
-  }
+  dataset <- data.table(filtered_data())[, ..cols_sub]
 
   if (input$out_filter == TRUE) {
     dataset <- dataset[input$table_rows_all, ]
