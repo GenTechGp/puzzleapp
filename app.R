@@ -56,6 +56,13 @@ server <- function(input, output, session) {
   # Check environment data on app startup
   data_status <- checkEnvironmentData()
   reload_trigger <- reactiveVal(NULL)
+  processed_colnames <- reactiveVal(NULL)
+
+  observe({
+    if (exists("processed_data", envir = .GlobalEnv) && !is.null(processed_data)) {
+      processed_colnames(colnames(processed_data))
+    }
+  })
 
   if (!data_status$success) {
     showNotification(
@@ -71,14 +78,19 @@ server <- function(input, output, session) {
     shinyjs::enable(selector = "#tabs li")
   }
 
-  homeServer("tab0",reload_trigger)
+  preferences <- homeServer("tab0",reload_trigger,processed_colnames)
+
+  observe({
+    req(preferences$variants, preferences$panelapp, preferences$phenotype)
+    vtabsel <- isolate(preferences$variants)
+    panel_app_vars <- isolate(preferences$panelapp)
+    phenotype_vars <- isolate(preferences$phenotype)
 
   if (data_status$success) {
     filtered_data <- selectFiltersServer("tab1",
                                          processed_data, pedigree_data,
                                          panel_app_genes, vep_consequences,
                                          phenotype_data, pref)
-    vtabsel <- c("PRIORITY", "NOTES", "ID", "CHROM", "POS", "GT_1")
     exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
                  "HPO_ID", "HPO_COUNT", "spliceai_override",
                  "clinvar_override", "PRIORITYFlag")
@@ -86,28 +98,27 @@ server <- function(input, output, session) {
     igvServer("tab3", processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
               pedigree_data$kinship)
     panel_app_output <- reactiveVal(as.data.frame(panel_app))
-    panel_app_vars <- c("Gene_Symbol","Sources","Level4","Level2","Model_Of_Inheritance")
     exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
                  "HPO_ID", "HPO_COUNT", "spliceai_override",
                  "clinvar_override", "PRIORITYFlag")
     tabServer("tab4", panel_app_output, panel_app_vars, pref, exclude)
-    phenotype_vars <- c("hpo_id","hpo_name","ncbi_gene_id","gene_symbol","disease_id")
     phenotype_data_output <- reactiveVal(as.data.frame(phenotype_data))
     tabServer("tab5", phenotype_data_output, phenotype_vars, pref, exclude)
     qcPlotsServer("tab6", coverage_data, processed_data,
                   pedigree_data, somalier)
   }
+  })
 
   observeEvent(reload_trigger(), {
+    vtabsel <- isolate(preferences$variants)
     filtered_data <- selectFiltersServer("tab1",
                                          processed_data, pedigree_data,
                                          panel_app_genes, vep_consequences,
-                                         phenotype_data)
-    vtabsel <- c("PRIORITY", "NOTES", "ID", "CHROM", "POS", "GT_1")
+                                         phenotype_data, pref)
     exclude <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP",
                  "HPO_ID", "HPO_COUNT", "spliceai_override",
                  "clinvar_override", "PRIORITYFlag")
-    tabServer("tab2", filtered_data, vtabsel, outdir)
+    tabServer("tab2", filtered_data, vtabsel, pref)
     igvServer("tab3", processed_data, snvs_vcf, svs_vcf, bam_files, "hg38",
               pedigree_data$kinship)
     qcPlotsServer("tab6", coverage_data, processed_data,
