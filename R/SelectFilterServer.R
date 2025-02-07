@@ -38,16 +38,16 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
     names(allele_count) <- c("sample_id", "allele_count")
     allele_count <- merge(pedigree, allele_count, by = "sample_id")
     allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
-    
+
     inheritance_conditions <- vector("character")
-    
+
     for (i in seq_len(nrow(allele_count))) {
       col_name <- allele_count[i, col_name]
       val <- allele_count[i, allele_count]
       condition <- sprintf("compare_allele_count(get('%s'), '%s')",col_name,val)
       inheritance_conditions <- c(inheritance_conditions, condition)
     }
-    
+
     # Combine inheritance conditions into a single OR expression
     if (length(inheritance_conditions) > 0) {
       inheritance_expression <- paste(inheritance_conditions, collapse = " & ")
@@ -75,18 +75,18 @@ panelapp_filter <- function(filters, panel_app_genes) {
 # Helper function: Handle frequency and quality filters
 quality_filters <- function(filters, data) {
   conditions <- list()
-  
+
   if (!is.null(filters$af_value) && filters$af_value < 1) 
     conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
-  
+
   if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0) 
     conditions <- c(conditions, sprintf("QUAL >= %f", filters$genotype_quality_value))
-  
+
   if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0) {
     vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
     conditions <- c(conditions, paste(sprintf("get('%s') >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
   }
-  
+
   return(paste(conditions, collapse = " & "))
 }
 
@@ -98,10 +98,10 @@ text_filter <- function(column, values) {
 
 # Generic filter function for SNVs and SVs
 filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
-  
+
   filter_expression <- "TRUE"
   global_filters_expression <- "TRUE"
-  
+
   # Apply common filters
   inheritance_filter_condition <- inheritance_filter(filters, pedigree, allele_tab)
   if (!is.null(inheritance_filter_condition)) {
@@ -118,24 +118,24 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     global_filters_expression <- add_filter_condition(global_filters_expression, panelapp_filter_condition)
   }
   filter_expression <- add_filter_condition(filter_expression, quality_filters(filters, data))
-  
+
   # Apply VEP Annotation filter (for both SNVs and SVs)
   filter_expression <- add_filter_condition(filter_expression, text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term]))
-  
+
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL
-  
+
   if (is_snv) {
     # SNV-specific filters
     filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
     filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
-    
+
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
       # Main ClinVar condition
       clinvar_filter_updated <- gsub("VUS", "uncertain", filters$clinvar_filter)
       clinvar_pattern <- paste(sapply(clinvar_filter_updated, function(x) paste0("\\\\b", x, "\\\\b")), collapse = "|")
-      
+
       # Add condition for "Not available" (i.e., NA values in CLINVAR)
       if ("Not available" %in% filters$clinvar_filter) {
         clinvar_condition <- sprintf("(%s | is.na(CLINVAR))",
@@ -145,13 +145,13 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       }
       #clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
       filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
-      
+
       # ClinVar override for specific terms
       override_patterns <- c()
       if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bPathogenic\\\\b")
       if ("Likely pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely pathogenic\\\\b")
       if ("uncertain" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\buncertain\\\\b")
-      
+
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
         clinvar_override_condition <- sprintf(
@@ -160,7 +160,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         )
       }
     }
-    
+
     # SpliceAI override
     if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
       spliceai_override_condition <- sprintf(
@@ -171,22 +171,22 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         filters$spliceai_filter
       )
     }
-    
+
     # Ensure SpliceAI and ClinVar overrides are applied
     override_conditions <- list()
-    
+
     if (filters$inheritance_filter == "X-Linked Recessive") {
       if (!is.null(spliceai_override_condition)) spliceai_override_condition <- sprintf("(%s & CHROM == 'chrX')", spliceai_override_condition)
       if (!is.null(clinvar_override_condition)) clinvar_override_condition <- sprintf("(%s & CHROM == 'chrX')", clinvar_override_condition)
     }
-    
+
     override_conditions <- c(spliceai_override_condition, clinvar_override_condition)
     override_conditions <- Filter(Negate(is.null), override_conditions)  # Remove NULLs
-    
+
     if (length(override_conditions) > 0) {
       filter_expression <- paste(filter_expression, paste(override_conditions, collapse = " | "), sep = " | ")
     }
-    
+
   } else {
     # SV-specific filters
     sv_type_map <- list("Insertion" = "INS", "Deletion" = "DEL", "Duplication" = "DUP", "Inversion" = "INV", "Translocation" = "TRA|BND")
@@ -201,7 +201,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       filter_expression <- add_filter_condition(filter_expression, sprintf("VAR_LENGTH <= %d", filters$max_svlen))
     }
   }
-  
+
   all_conditions <- list(
     if (!is.null(filters$inheritance_filter) && filters$inheritance_filter == "X-Linked Recessive") {
       sprintf("(%s & CHROM == 'chrX')", filter_expression)
@@ -231,16 +231,16 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   )
 
   combined_expression <- paste(Filter(Negate(is.null), all_conditions), collapse = " | ")
-  
+
   # Special case for X-Linked Recessive
   if (filters$inheritance_filter == "X-Linked Recessive") {
     combined_expression <- sprintf("(%s & CHROM == 'chrX')",  combined_expression)
   }
-  
+
   # Apply filtering
   print(combined_expression)
   filtered_data <- data[eval(parse(text = combined_expression))]
-  
+
   # Add panel app and HPO information
   if (length(filters$panelapp_filter) > 0) {
     setkey(filtered_data, GENE_SYMBOL)
@@ -250,7 +250,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     filtered_data[, PANEL_APP := NA]
     filtered_data[, INHERITANCE := NA]
   }
-  
+
   if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
     split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list, "; "))
     hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list & gene_symbol %in% filtered_data$GENE_SYMBOL, .(HPO_ID = hpo_id, GENE_SYMBOL = gene_symbol)]
@@ -262,20 +262,20 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     filtered_data[, HPO_ID := NA]
     filtered_data[, HPO_COUNT := 0]
   }
-  
+
   filtered_data[, clinvar_override := FALSE]
   filtered_data[, spliceai_override := FALSE]
-  
+
   if (!is.null(clinvar_override_condition)) {
     filtered_data[eval(parse(text = clinvar_override_condition)),
                   clinvar_override := TRUE]
   }
-  
+
   if (!is.null(spliceai_override_condition)) {
     filtered_data[eval(parse(text = spliceai_override_condition)),
                   spliceai_override := TRUE]
   }
-  
+
   return(filtered_data)
 }
 
@@ -291,30 +291,30 @@ sv_filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_gen
 ############################################
 
 read_search_files <- function(directory, type=NULL) {
-  
+
   file_pattern <- if (!is.null(type)) {
     paste0(".*\\.", type, "_search.tsv$")
   } else {
     ".*_search\\.tsv$"
   }
-  
+
   # List all TSV files in the directory
   files <- list.files(directory, pattern = file_pattern, full.names = TRUE)
-  
+
   # Initialize an empty list to store results
   search_data <- list()
-  
+
   # Iterate over each file
   for (file in files) {
     # Read the file into a dataframe
     df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
-    
+
     # Convert the data to a named list
     file_data <- setNames(as.list(df$Value), df$Key)
-    
+
     # Extract the Label field as the key
     label <- file_data[["Label"]]
-    
+
     if (!is.null(label)) {
       # Store the data inside the main list, using label as key
       search_data[[label]] <- file_data
@@ -322,7 +322,7 @@ read_search_files <- function(directory, type=NULL) {
       warning(sprintf("Skipping file %s as it has no 'Label' field", file))
     }
   }
-  
+
   return(search_data)
 }
 
@@ -426,9 +426,18 @@ alleleServer <- function(input, output, ns, pedigree, allele_tab) {
   }
 }
 
+list_files <- function(dir) {
+  if (dir.exists(dir)) {
+    list.files(dir, full.names = FALSE)
+  } else {
+    character(0)
+  }
+}
+
 # Main
 
-selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_consequences, phenotype_data) {
+selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
+                                vep_consequences, phenotype_data, pref) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -463,7 +472,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     })
 
     alleleServer(input, output, ns, pedigree, allele_tab)
-    
+
     app_dir <- getwd()
     data_dir <- paste0(app_dir, "/data")
 
@@ -471,44 +480,35 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
     available_searches <- reactive({
       read_search_files(data_dir, "snv")
     })
-    
+
     sv_available_searches <- reactive({
       read_search_files(data_dir, "sv")
     })
-    
+
     # Sessions
     sessions_dir <- reactive({
-      outdir <- Sys.getenv("OUTDIR")
-      sample <- pedigree[kinship=="proband",sample_id]
-      session_dir <- sprintf("%s/%s",outdir,sample)
-      session_dir
+      sample <- pedigree[kinship == "proband", sample_id]
+      sprintf("%s/.sessions/%s", pref$outdir, sample)
     })
 
     # List all session directories
-    all_sessions <- reactive({
-      dir_path <- sessions_dir()
-      
-      if (dir.exists(dir_path)) {
-        sessions <- list.files(dir_path, full.names = FALSE)
-        print(sessions)
-        sessions
-      } else {
-        character(0)
-      }
-    })
-    
+    sessions <- reactiveVal(isolate(list_files(sessions_dir())))
+    reactive(sessions(list_files(sessions_dir())))
+
     observeEvent(input$save_session, {
-      
-      session_dir <- sessions_dir()
-      session_dir <- sprintf("%s/%s",session_dir,input$session_name)
-      
+
+      session_dir <- sprintf("%s/%s", sessions_dir(), input$session_name)
+
       if (!dir.exists(session_dir)) {
-        dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)
+        if (!dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)) {
+          showNotification("Failed to create session directory", type = "error")
+          return()
+        }
         message(sprintf("Created session directory: %s", session_dir))
       } else {
         message(sprintf("Session directory already exists: %s", session_dir))
       }
-      
+
       # Capture SNV filter states
       snv_filters <- list(
         "Inheritance" = input$inher,
@@ -527,7 +527,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
         "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
       )
-      
+
       # Capture SV filter states
       sv_filters <- list(
         "Inheritance" = input$inher,
@@ -543,7 +543,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
         "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
       )
-      
+
       # Convert SNV filter list to data.table
       snv_filters_dt <- data.table(
         Variable = names(snv_filters),
@@ -551,7 +551,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           if (is.null(x)) "" else paste(x, collapse = ";")
         }, FUN.VALUE = character(1))
       )
-      
+
       # Convert SV filter list to data.table
       sv_filters_dt <- data.table(
         Variable = names(sv_filters),
@@ -559,17 +559,17 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           if (is.null(x)) "" else paste(x, collapse = ";")
         }, FUN.VALUE = character(1))
       )
-      
+
       filtered_data <- data.table(filtered_table_output())
-      
+
       snv_filters_file <- sprintf("%s/snv_filters.tsv",session_dir)
       sv_filters_file <- sprintf("%s/sv_filters.tsv",session_dir)
       flagged_rows_file <- sprintf("%s/flagged_rows.tsv", session_dir)
-      
+
       # Save tables without column names
       fwrite(snv_filters_dt, file = snv_filters_file, sep = "\t", quote = FALSE, col.names = FALSE)
       fwrite(sv_filters_dt, file = sv_filters_file, sep = "\t", quote = FALSE, col.names = FALSE)
-      
+
       # Save flagged rows only if it contains data
       if (!is.null(filtered_data) && all(c("PRIORITY", "NOTES") %in% colnames(filtered_data))) {
         fwrite(filtered_data[PRIORITY !=0 | NOTES != "",.(ID, PRIORITY,NOTES)], file = flagged_rows_file, sep = "\t", quote = FALSE, col.names = TRUE)
@@ -577,85 +577,84 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       } else {
         message("No flagged rows to save.")
       }
-      
+
+      sessions(c(sessions(), input$session_name))
     })
-    
-    
+
+
     observeEvent(input$load_session, {
-      session_name <- input$available_sessions
-      session_dir <- sessions_dir()
-      session_to_load <- sprintf("%s/%s",session_dir,session_name)
-      
+      session_to_load <- sprintf("%s/%s", sessions_dir(), input$available_sessions)
+
       if (dir.exists(session_to_load)) {
         snv_file <- file.path(session_to_load, "snv_filters.tsv")
         sv_file <- file.path(session_to_load, "sv_filters.tsv")
         flagged_rows_file <- file.path(session_to_load, "flagged_rows.tsv")
-        
+
         snv_exists <- file.exists(snv_file)
         sv_exists <- file.exists(sv_file)
         flagged_rows_exists <- file.exists(flagged_rows_file)
-        
+
         if (snv_exists) {
           snv_df <- read.delim(snv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
           snv_df <- setNames(as.list(snv_df$Value), snv_df$Key)
           update_search_params(snv_df, session, type="snv")
         }
-        
+
         if (sv_exists) {
           sv_df <- read.delim(sv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
           sv_df <- setNames(as.list(sv_df$Value), sv_df$Key)
           update_search_params(sv_df, session, type="sv")
         }
-        
+
         if (flagged_rows_exists) {
           flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = "", nThread = 8)
           filtered_data <- data.table(filtered_table_output())
           str(flagged_rows_dt)
-          cols_to_keep <- c("ID",setdiff(names(filtered_data), names(flagged_rows_dt)))
-          merged_data <- merge(filtered_data[, ..cols_to_keep], flagged_rows_dt, by = "ID", all = TRUE)
-          filtered_table_output(copy(merged_data))
+          if (nrow(flagged_rows_dt) != 0) {
+            cols_to_keep <- c("ID", setdiff(names(filtered_data), names(flagged_rows_dt)))
+            merged_data <- merge(filtered_data[, ..cols_to_keep], flagged_rows_dt, by = "ID", all = TRUE)
+            filtered_table_output(copy(merged_data))
+          }
         }
         shinyjs::delay(100, shinyjs::click("apply_filter"))
       }
     })
-    
+
     # Update UI dropdown with available searches
     observe({
       choices <- c("", names(available_searches()))
       updateSelectizeInput(session, "pre_saved_search",
                         choices = choices, selected = "")
     })
-    
+
     observe({
       choices <- c("", names(sv_available_searches()))
       updateSelectizeInput(session, "sv_pre_saved_search",
                            choices = choices, selected = "")
     })
-    
+
     # Update UI dropdown with available sessions
     observe({
-      choices <- c("", all_sessions())
-      print(choices)
       updateSelectizeInput(session, "available_sessions",
-                           choices = choices, selected = "")
+                           choices = c("", sessions()), selected = "")
     })
-    
+
     # Generalized function to update UI elements
     update_search_params <- function(search_params, session, type="snv") {
-      
+
       # Define default values for clearing selections
       default_values <- list(
         "Inheritance" = "",
         "Annotation" = character(0),
         "Pathogenicity" = character(0),
         "SpliceAI score" = 0,
-        "gnomADv4 AF" = "",
+        "gnomADv4 AF" = "1",
         "Affected only" = FALSE,
         "Allele balance" = 0,
         "Genotype quality" = 0,
         "Filter value" = ""
       )
-      
+
       if (type == "snv") {
         update_mapping <- list(
           "Inheritance" = list(func = updateSelectInput, id = "inher", selected = TRUE),
@@ -666,7 +665,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           "AlphaMissense" = list(func = updateNumericInput, id = "alpha_missense", value = TRUE, as_numeric = TRUE),
           "SIFT" = list(func = updateSelectInput, id = "sift", selected = TRUE),
           "PolyPhen" = list(func = updateSelectInput, id = "polyphen", selected = TRUE),
-          "gnomADv4 AF" = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = TRUE),
+          "gnomADv4 AF" = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
           "Affected only" = list(func = updateMaterialSwitch, id = "affected_switch", value = TRUE, as_logical = TRUE),
           "Allele balance" = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
           "Genotype quality" = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
@@ -678,7 +677,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         update_mapping <- list(
           "Inheritance" = list(func = updateSelectInput, id = "inher", selected = TRUE),
           "Annotation" = list(func = updatePrettyCheckboxGroup, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE),
-          "gnomADv4 AF" = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = TRUE),
+          "gnomADv4 AF" = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE),
           "SV type" = list(func = updatePrettyCheckboxGroup, id = "sv_features_checkboxes", selected = TRUE, split = TRUE),
           "Min SV Length" = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE),
           "Max SV Length" = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE),
@@ -690,26 +689,26 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
           "HPO Terms" = list(func = updatePrettyCheckboxGroup, id = "phenotype", selected = TRUE, split = TRUE)
         )
       }
-      
+
       # If search_params is NULL or empty string, clear selections
       if (is.null(search_params) || length(search_params) == 0) {
         search_params <- default_values
       }
-      
+
       for (param in names(update_mapping)) {
         if (!is.null(search_params[[param]])) {
           update_info <- update_mapping[[param]]
           value <- search_params[[param]]
-          
+
           # Convert value if necessary
           if (!is.null(update_info$as_numeric)) value <- as.numeric(value)
           if (!is.null(update_info$as_logical)) value <- as.logical(value)
           if (!is.null(update_info$split)) value <- unlist(strsplit(value, ";"))
-          
+
           if (param %in% c("Annotation", "Pathogenicity") && is.null(value)) {
             value <- character(0)
           }
-          
+
           # Apply updates explicitly based on argument type
           if (!is.null(update_info$selected)) {
             update_info$func(session, update_info$id, selected = value)
@@ -719,27 +718,27 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         } 
       }
     }
-    
-    
+
+
     # Handle search selection
     observeEvent(input$pre_saved_search, {
       selected_search <- input$pre_saved_search
       #if (is.null(selected_search) || selected_search == "") return()
-      
+
       print(paste("Loading pre-saved search:", selected_search))  # Debugging print
       search_params <- available_searches()[[selected_search]]
       update_search_params(search_params, session)
     })
-    
+
     observeEvent(input$sv_pre_saved_search, {
       selected_search <- input$sv_pre_saved_search
       #if (is.null(selected_search) || selected_search == "") return()
-      
+
       print(paste("Loading pre-saved search:", selected_search))  # Debugging print
       search_params <- sv_available_searches()[[selected_search]]
       update_search_params(search_params, session, type="sv")
     })
-    
+
     observeEvent(input$pathogenicity, {
       if (input$pathogenicity == "Pathogenic/Likely pathogenic") {
         select <- c("Pathogenic", "Likely pathogenic")
@@ -752,7 +751,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       }
       updatePrettyCheckboxGroup(session, "clinvar_checkboxes", selected = select)
     })
-    
+
     updateAnnotationSelection <- function(annotation_value,checkboxes_id,session) {
       selected_values <- switch(
         annotation_value,
@@ -764,11 +763,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       updatePrettyCheckboxGroup(session, checkboxes_id, selected = selected_values)
       #return(selected_values)
     }
-    
+
     observeEvent(input$annotation, {
       updateAnnotationSelection(input$annotation, "conseq_checkboxes", session)
     })
-    
+
     observeEvent(input$sv_annotation, {
       updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
     })
@@ -864,7 +863,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         snv_filtered_data <- snv_filter_dataset(dataset[CATEGORY=="SNV & Indel"],snv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
       })
       cat(paste("Total execution time:", format_time(snv_total_time), "\n"))
-      
+
       # Define filters for SV
       sv_filters <- list(
         inheritance_filter = input$inher,
@@ -878,15 +877,15 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
         af_value = as.numeric(input$sv_af),
         hpo_terms_list = phenos()
       )
-      
+
       # Filter SVs
       sv_total_time <- system.time({
         sv_filtered_data <- sv_filter_dataset(dataset[CATEGORY == "SV"],sv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
       })
       cat(paste("Total execution time:", format_time(sv_total_time), "\n"))
-      
+
       all_filtered_data <- rbind(snv_filtered_data,sv_filtered_data)
-      
+
       if (input$inher=="Compound Heterozygous") {
         is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
         if (!is_trio) {
@@ -942,6 +941,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes, vep_cons
       filtered_table_output(copy(all_filtered_data))
 
       removeNotification(ns("notify_filter"))
+      showNotification("Data filtered", type = "message")
     }) 
 
     return(filtered_table_output)

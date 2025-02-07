@@ -42,25 +42,69 @@ swap_order <- function(x) {
   return(x[c(3:l, 1, 2)]) # Case 2
 }
 
-tabFileSavingUI <- function(ns, outdir) {
+get_out_path <- function(ns, dir, ext) {
   sample_id <- unlist(strsplit(ns("sample"), "-"))[1]
-  date <- format(Sys.time(), "%Y%m%d_%H%M")
-  default_file <- paste0(sample_id, ".shinyApp.", date)
-  fmts <- c("Excel (.xlsx)" = "excel", "Tab-separated values (.tsv)" = "tsv",
-            "Comma-separated values (.csv)" = "csv")
+  path <- paste0(dir, "/", sample_id, ".", ext)
+}
+
+tabFileSavingUI <- function(ns, dir) {
+  default_ext <- "tsv"
+  default_path <- get_out_path(ns, dir, default_ext)
+  fmts <- c("tsv", "csv", "xlsx")
   scopes <- c("All variables" = "all",
-              "Selected variables only" = "selected_only")
+              "Selected variables" = "selected")
 
   tagList(
-    textInput(ns("output_dir"), "Output directory:", value = outdir),
-    selectInput(ns("filetype"), "File format:", fmts, "tsv"),
-    selectInput(ns("out_scope"), "Scope:", scopes, "all"),
-    textInput(ns("out_filename"), "File name prefix:", value = default_file)
+    selectInput(ns("out_ext"), "Format", fmts, default_ext),
+    selectInput(ns("out_scope"), "Scope", scopes, "all"),
+    checkboxInput(ns("out_filter"), "Use search filters"),
+    textInput(ns("out_path"), "Path", value = default_path)
   )
 }
 
+save_file <- function(ns, input, filtered_data, sel) {
+  save_exclude_vars <- c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA)
+
+  if (input$out_scope == "all") {
+    cols_sub <- setdiff(names(filtered_data()), save_exclude_vars)
+  } else if (input$out_scope == "selected") {
+    cols_sub <- setdiff(sel(), save_exclude_vars)
+  } else {
+    showNotification(paste("Unknown scope:", input$out_scope), type = "error")
+  }
+
+  # TODO: one line solution
+  if (nrow(filtered_data()) == 0) {
+    dataset <- filtered_data()[, ..cols_sub]
+  } else {
+    dataset <- filtered_data()[, cols_sub]
+  }
+
+  if (input$out_filter == TRUE) {
+    dataset <- dataset[input$table_rows_all, ]
+  }
+
+  showNotification("Saving...", duration = NULL, id = ns("notify_save"),
+                   type = "message")
+  tryCatch({
+    if (input$out_ext == "xlsx") {
+      write.xlsx(dataset, input$out_path)
+    } else if (input$out_ext == "tsv") {
+      fwrite(dataset, input$out_path, sep = "\t")
+    } else if (input$out_ext == "csv") {
+      fwrite(dataset, input$out_path, sep = ",")
+    }
+    removeNotification(ns("notify_save"))
+    showNotification("Data saved", type = "message")
+  }, error = function(e) {
+    removeNotification(ns("notify_save"))
+    showNotification(paste("Error saving data:", e$message), type = "error")
+  })
+}
+
+
 # Define a server module for the "Tab Label"
-tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
+tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
   moduleServer(id, function(input, output, session) {
 
     ns <- shiny::NS(id)
@@ -84,10 +128,10 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
       dom = 'Bfrtip',
       buttons = list(
         list(extend = 'colvis', text = 'Select Variables'),
-        list(extend = 'collection', text = 'Download', dropIcon = TRUE,
+        list(extend = 'collection', text = 'Export', dropIcon = TRUE,
              action = JS(paste0(
                "function(e, dt, node, config) {",
-                 "Shiny.setInputValue('", ns("download"), "', true, {priority: 'event'});",
+                 "Shiny.setInputValue('", ns("save"), "', true, {priority: 'event'});",
                "}"
              )))
       )
@@ -142,11 +186,11 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
       }
     }, server = TRUE)
 
-    observeEvent(input$download, {
+    observeEvent(input$save, {
       showModal(modalDialog(
-        tags$h3('Download Settings'),
-        tabFileSavingUI(ns, outdir),
-        footer=tagList(
+        title = 'Export Options',
+        tabFileSavingUI(ns, pref$outdir),
+        footer = tagList(
           actionButton(ns("save_file"), 'Save'),
           modalButton('Cancel')
         ),
@@ -154,59 +198,31 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
       )
     })
 
+    observeEvent(input$out_ext, {
+      path <- get_out_path(ns, pref$outdir, input$out_ext)
+      updateTextInput(inputId = "out_path", value = path)
+    })
+
     # Save table to output file
     observeEvent(input$save_file, {
-      removeModal()
-      show_spinner()
-      output_dir <- input$output_dir
-      filename <- input$out_filename
-      filetype <- input$filetype
-      scope <- input$out_scope
-
-      # Check if output directory is specified
-      if (output_dir == "") {
-        shinyalert("Error", "Output directory is empty. Please provide a valid directory.", type = "error")
-        hide_spinner()
-        return(NULL)
-      }
-
-      # Check if output directory exists
-      if (!dir.exists(output_dir)) {
-        shinyalert("Error", "Output directory does not exist. Please provide a valid directory.", type = "error")
-        hide_spinner()
-        return(NULL)
-      }
-
-      # Add the filetype extension to the filename
-      file_extension <- switch(filetype,
-                               "excel" = "xlsx",
-                               "tsv" = "tsv",
-                               "csv" = "csv")
-      full_filename <- paste0(filename, ".", file_extension)
-      output_path <- file.path(output_dir, full_filename)
-      save_exclude_vars <- c("ClinVar", "GNOMADv4", "PRIORITYFlag", NA)
-
-      if (scope == "all") {
-        cols_sub <- setdiff(names(filtered_data()), save_exclude_vars)
+      if (file.exists(input$out_path)) {
+        showModal(modalDialog(
+          title = "Path already exists! Overwrite?",
+          tagList(
+            modalButton('No'),
+            actionButton(ns("save_overwrite"), 'Yes')
+          ),
+          footer = NULL
+        ))
       } else {
-        cols_sub <- setdiff(sel(), save_exclude_vars)
+        removeModal()
+        save_file(ns, input, filtered_data, sel)
       }
+    })
 
-      dataset <- data.table(filtered_data()[, cols_sub])
-
-      tryCatch({
-        if (filetype == "excel") {
-          write.xlsx(dataset, output_path)
-        } else if (filetype == "tsv") {
-          fwrite(dataset, output_path, sep = "\t")
-        } else if (filetype == "csv") {
-          fwrite(dataset, output_path, sep = ",")
-        }
-        shinyalert("Success", paste("File saved successfully:", full_filename), type = "success")
-      }, error = function(e) {
-        shinyalert("Error", paste("Error saving file:", e$message), type = "error")
-      })
-      hide_spinner()
+    observeEvent(input$save_overwrite, {
+      removeModal()
+      save_file(ns, input, filtered_data, sel)
     })
 
     proxy <- dataTableProxy("table")

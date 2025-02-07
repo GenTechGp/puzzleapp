@@ -18,7 +18,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       })
       do.call(c, gr_list)
     }
-    
+
     # Helper function to update the IGV viewer
     updateIgvViewer <- function(region_of_interest, assembly) {
       if (!is.null(region_of_interest) && region_of_interest != "") {
@@ -76,14 +76,10 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         }
         updateTextInput(session, inputId = "genome_coords", value = coords)
       } else {
-        shinyalert(
-          title = "Invalid Input",
-          text = "There is no variant with the provided ID.",
-          type = "error"
-        )
+        showNotification("Invalid variant ID", type = "error")
       }
     })
-    
+
     # Reactive expression for condition
     shouldUpdateRegion <- reactive({
       current <- current_region()
@@ -94,7 +90,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         !is.null(coords) && coords != "" && coords != current
       }
     })
-    
+
     # Validate genome coordinates and update IGV viewer
      observeEvent(input$genome_coords, {
        if (shouldUpdateRegion()) {
@@ -113,15 +109,12 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
             region_of_interest <- paste0(chr, ":", start, "-", end)
             updateIgvViewer(region_of_interest, assembly)
           } else {
-            shinyalert(
-              title = "Invalid Input",
-              text = "Invalid genome coordinates format. Use chr:start-end or chr start end.",
-              type = "error"
-            )
+            showNotification("Invalid coordinates: Expected 'chr:start-end' or 'chr start end'",
+                             type = "error")
           }
        }
      })
-    
+
 
     # Observe changes to `current_region` to load VCF tracks
     observeEvent(input$igvReady, {
