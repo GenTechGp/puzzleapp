@@ -68,11 +68,15 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
     data <- setupData(isolate(filtered_data()), selected)
     filtered_data(data)
 
+    targets_hidden <- which(!(names(data) %in% selected))
+    
     opts <- list(
-      stateSave = TRUE,
+      #stateSave = TRUE,
+      stateSave = FALSE,
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
       columnDefs = list(
-        list(targets = which(names(data) %in% selected == FALSE),
+        #list(targets = which(names(data) %in% selected == FALSE),
+         list(targets = targets_hidden,
              visible = FALSE),
         list(targets = '_all', className = 'dt-body-nowrap')
       ),
@@ -97,6 +101,7 @@ tabServer <- function(id, filtered_data, selected, outdir, exclude = NULL) {
     output$table <- DT::renderDT({
       # Check if data is valid and has columns
       data <- setupData(isolate(filtered_data()), selected)
+      
       if (!is.null(exclude)) {
         opts$buttons[[1]]$columns <- c(0, which(!(names(data) %in% exclude)))
       }

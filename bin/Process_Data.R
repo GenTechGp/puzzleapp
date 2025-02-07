@@ -9,9 +9,10 @@ if (length(args) != 2) {
   stop("usage: ./Process_Data.R <config> <out.RData>")
 }
 
-config_path <- args[1]
-rdata_output <- args[2]
-
+# config_path <- args[1]
+# rdata_output <- args[2]
+config_path <- "/g/data/kr68/andre/puzzleapp_test/RDN_RareDisease/LRS00002-00-PB-01/20250131/LRS00002-00-PB-01_clair3_sniffles.yaml"
+rdata_output <- "/g/data/kr68/andre/puzzleapp_test/RDN_RareDisease/LRS00002-00-PB-01/20250131/LRS00002-00-PB-01_clair3_sniffles.rdata"
 
 if (!file.exists(config_path)) {
   stop(paste("Configuration file not found at:", config_path))
