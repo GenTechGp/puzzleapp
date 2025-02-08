@@ -17,13 +17,19 @@ preSavedSearchesUI <- function(ns) {
 
 saveSessionsUI <- function(ns) {
   collapseUI("save_sessions_collapse", "Sessions", "info",
-             fluidRow(
-               column(2, textInput(ns("session_name"), "Name session:", value = "")),
-               column(1, actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-top: 25px;"))
+             # fluidRow(
+             #   column(8, textInput(ns("session_name"), "Name session:", value = "")),
+             #   column(1, actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-top: 25px;"))
+             # ),
+             fluidRow(column(12,div(style = "display: flex; align-items: center;",
+                  textInput(ns("session_name"), "Name session:", value = ""),
+                  actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
+               ))
              ),
-             fluidRow(
-               column(2, selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE))),
-               column(1, actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-top: 25px;"))
+             fluidRow(column(12,div(style = "display: flex; align-items: center;",
+                 selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE)),
+                 actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
+               ))
              )
   )
 }
@@ -102,9 +108,11 @@ phenoUI <- function(ns) {
 globalOptsUI <- function(ns, panel_app_genes) {
   collapseUI("global_options_collapse", "Global options", "primary",
     div(
-      saveSessionsUI(ns),
-      preSavedSearchesUI(ns),
-      inherOptsUI(ns),
+      fluidRow(
+        column(3, saveSessionsUI(ns)),  # Adjust width as needed
+        column(3, preSavedSearchesUI(ns)),
+        column(3, inherOptsUI(ns))
+      ),
       geneOptsUI(ns, panel_app_genes),
       phenoUI(ns)
     )

@@ -34,6 +34,22 @@ ui <- fluidPage(
       }
     "))
   ),
+  
+  # JavaScript to clear DataTables' local storage on first app load
+  tags$script(HTML("
+      $(document).on('shiny:connected', function() {
+        if (!sessionStorage.getItem('appLoaded')) {
+          Object.keys(localStorage).forEach(key => {
+            if (key.includes('DataTables')) {
+              localStorage.removeItem(key);
+            }
+          });
+          sessionStorage.setItem('appLoaded', 'true'); // Prevents clearing on refresh
+        }
+      });
+    ")),
+
+  
   # Create the header with the image
   div(class = "header",
       img(src = paste0("logo.png?v=", Sys.time()), alt = "Logo")  # Append query string for cache busting
@@ -85,6 +101,7 @@ server <- function(input, output, session) {
     vtabsel <- isolate(preferences$variants)
     panel_app_vars <- isolate(preferences$panelapp)
     phenotype_vars <- isolate(preferences$phenotype)
+    print(pref)
 
   if (data_status$success) {
     filtered_data <- selectFiltersServer("tab1",

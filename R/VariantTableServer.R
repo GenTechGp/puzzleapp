@@ -101,7 +101,7 @@ save_file <- function(ns, input, filtered_data, sel) {
 # Define a server module for the "Tab Label"
 tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
   moduleServer(id, function(input, output, session) {
-
+    
     ns <- shiny::NS(id)
 
     data <- setupData(isolate(filtered_data()), selected)
@@ -110,8 +110,8 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
     targets_hidden <- which(!(names(data) %in% selected))
     
     opts <- list(
-      #stateSave = TRUE,
-      stateSave = FALSE,
+      stateSave = TRUE,
+      #stateSave = FALSE,
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
       columnDefs = list(
         #list(targets = which(names(data) %in% selected == FALSE),
@@ -226,10 +226,11 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
     colOrder <- reactiveVal(0:ncol(data))
     cols <- reactive(c(NA, names(data))[colOrder() + 1])
     # Requires stateSave = TRUE in datatable options
-    table_st_cols <- reactive(data.frame(
-      cbind(name = names(input$table_state$columns),
-            do.call(rbind, c(input$table_state$columns, use.names = FALSE)))
-    ))
+    table_st_cols <- reactive({
+      state_df <- data.frame(cbind(name = names(input$table_state$columns),
+            do.call(rbind, c(input$table_state$columns, use.names = FALSE))))
+      return(state_df)
+    })
     vis <- reactive(unlist(table_st_cols()$visible))
     sel <- reactive(c(NA, names(data))[vis()])
 

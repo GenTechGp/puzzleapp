@@ -584,6 +584,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
     observeEvent(input$load_session, {
       session_to_load <- sprintf("%s/%s", sessions_dir(), input$available_sessions)
+      print(session_to_load)
 
       if (dir.exists(session_to_load)) {
         snv_file <- file.path(session_to_load, "snv_filters.tsv")
@@ -607,9 +608,22 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
         }
 
         if (flagged_rows_exists) {
-          flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = "", nThread = 8)
+          print("exists")
+          flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = NULL, nThread = 8)
           filtered_data <- data.table(filtered_table_output())
-          str(flagged_rows_dt)
+          
+          # Ensure PRIORITY is numeric
+          if (!is.numeric(flagged_rows_dt$PRIORITY)) {
+            flagged_rows_dt[, PRIORITY := as.numeric(PRIORITY)]
+          }
+          
+          # Ensure NOTES is character
+          if (!is.character(flagged_rows_dt$NOTES)) {
+            flagged_rows_dt[, NOTES := as.character(NOTES)]
+            flagged_rows_dt[is.na(NOTES), NOTES := ""]  # Replace NA with empty string
+          }
+          
+          #print(flagged_rows_dt)
           if (nrow(flagged_rows_dt) != 0) {
             cols_to_keep <- c("ID", setdiff(names(filtered_data), names(flagged_rows_dt)))
             merged_data <- merge(filtered_data[, ..cols_to_keep], flagged_rows_dt, by = "ID", all = TRUE)
@@ -885,6 +899,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
       cat(paste("Total execution time:", format_time(sv_total_time), "\n"))
 
       all_filtered_data <- rbind(snv_filtered_data,sv_filtered_data)
+      
+      print("past filtering")
 
       if (input$inher=="Compound Heterozygous") {
         is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
@@ -906,15 +922,20 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
       # Handle PRIORITY and NOTES
       filtered_data <- data.table(filtered_table_output())
+      #print(filtered_data)
 
       if (!is.null(filtered_data) && all(c("PRIORITY", "NOTES") %in% colnames(filtered_data))) {
         # Extract flagged rows
         current_flagged_rows <- filtered_data[,
           .(ID, CURRENT_PRIORITY=PRIORITY,CURENT_NOTES=NOTES)
         ]
+        # current_flagged_rows[, CURENT_NOTES := as.character(CURENT_NOTES)]
+        # current_flagged_rows[is.na(CURENT_NOTES),CURENT_NOTES:=""]
+        #str(current_flagged_rows)
 
         # Check for changes in flagged rows
         previous_flagged_rows <- flagged_rows_reactive()
+        #str(previous_flagged_rows)
         if (!is.null(previous_flagged_rows)) {
           # Identify new or updated rows
           merged_flagged_rows <- merge(
@@ -939,6 +960,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
       }
 
       filtered_table_output(copy(all_filtered_data))
+      #print("after")
 
       removeNotification(ns("notify_filter"))
       showNotification("Data filtered", type = "message")
