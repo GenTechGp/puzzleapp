@@ -94,14 +94,13 @@ server <- function(input, output, session) {
     shinyjs::enable(selector = "#tabs li")
   }
 
-  preferences <- homeServer("tab0",reload_trigger,processed_colnames)
+  pref <- homeServer("tab0",reload_trigger,processed_colnames,pref)
 
   observe({
-    req(preferences$variants, preferences$panelapp, preferences$phenotype)
-    vtabsel <- isolate(preferences$variants)
-    panel_app_vars <- isolate(preferences$panelapp)
-    phenotype_vars <- isolate(preferences$phenotype)
-    print(pref)
+    req(pref$variants, pref$panelapp, pref$phenotype)
+    vtabsel <- isolate(pref$variants)
+    panel_app_vars <- isolate(pref$panelapp)
+    phenotype_vars <- isolate(pref$phenotype)
 
   if (data_status$success) {
     filtered_data <- selectFiltersServer("tab1",
@@ -127,7 +126,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(reload_trigger(), {
-    vtabsel <- isolate(preferences$variants)
+    vtabsel <- isolate(pref$variants)
     filtered_data <- selectFiltersServer("tab1",
                                          processed_data, pedigree_data,
                                          panel_app_genes, vep_consequences,

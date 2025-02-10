@@ -608,7 +608,6 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
         }
 
         if (flagged_rows_exists) {
-          print("exists")
           flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = NULL, nThread = 8)
           filtered_data <- data.table(filtered_table_output())
           

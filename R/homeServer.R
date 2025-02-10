@@ -1,4 +1,4 @@
-homeServer <- function(id,reload_trigger,processed_colnames) {
+homeServer <- function(id,reload_trigger,processed_colnames,pref) {
   moduleServer(id, function(input, output, session) {
 
     ns <- session$ns
@@ -10,12 +10,6 @@ homeServer <- function(id,reload_trigger,processed_colnames) {
       outdir <- "."
     
     colnames_options <- fread(sprintf("%s/colnames_options.tsv",data_dir),header=TRUE)
-    
-    preferences <- reactiveValues(
-      variants = character(0),
-      panelapp = character(0),
-      phenotype = character(0)
-    )
     
     observe({
       
@@ -30,40 +24,49 @@ homeServer <- function(id,reload_trigger,processed_colnames) {
         "HPO_ID", "HPO_COUNT", "spliceai_override",
         "clinvar_override", "PRIORITYFlag"
       )
-      preferences$variants <- resolve_colnames(input$variants_preferences, c(processed_colnames(),additional_column_names))
-      preferences$panelapp <- input$panelapp_preferences
-      preferences$phenotype <- input$phenotype_preferences
+      pref$variants <- resolve_colnames(input$variants_preferences, c(processed_colnames(),additional_column_names))
+      pref$panelapp <- input$panelapp_preferences
+      pref$phenotype <- input$phenotype_preferences
     })
     
     observe({
       pref_file <- file.path(outdir, "preferences", "colnames_preferences.tsv")
       
+      # Default values
+      variants_default <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF", "N_HOM_ALT", 
+                            "SpliceAI_pred", "CLINVAR", "REVEL", "SIFT", "PolyPhen", "am_class", "am_pathogenicity", 
+                            "CADD_PHRED", "CADD_RAW", "PANEL_APP", "INHERITANCE")
+      
+      panelapp_default <- c("Entity_Name", "Mode_Of_Inheritance", "Level4", "Sources")
+      
+      phenotype_default <- c("disease_id", "hpo_id", "gene_symbol", "hpo_name", "ncbi_gene_id")
+      
       # Read preferences if the file exists, otherwise use defaults
       if (file.exists(pref_file)) {
         colnames_preferences <- fread(pref_file, header = TRUE)
         
-        get_preferences <- function(table_name) {
+        get_preferences <- function(table_name, default_values) {
           row <- colnames_preferences[Table == table_name, colNames]
           if (length(row) > 0) unlist(strsplit(row, ";")) else character(0)
         }
         
       } else {
-        get_preferences <- function(table_name) character(0)
+        get_preferences <- function(table_name, default_values) default_values
       }
       
       # Update dropdowns with either stored preferences or default choices
-      update_dropdown <- function(table_name, input_id) {
+      update_dropdown <- function(table_name, input_id, default_values) {
         colnames_string <- colnames_options[Table == table_name, colNames]
         colnames_vector <- unlist(strsplit(colnames_string, ";"))
         
-        selected_values <- get_preferences(table_name)
+        selected_values <- get_preferences(table_name, default_values)
         
         updateSelectizeInput(session, input_id, choices = c("", colnames_vector), selected = selected_values)
       }
       
-      update_dropdown("Variants", "variants_preferences")
-      update_dropdown("PanelApp", "panelapp_preferences")
-      update_dropdown("Phenotype", "phenotype_preferences")
+      update_dropdown("Variants", "variants_preferences", variants_default)
+      update_dropdown("PanelApp", "panelapp_preferences", panelapp_default)
+      update_dropdown("Phenotype", "phenotype_preferences", phenotype_default)
     })
     
     observeEvent(input$update_preferences, {
@@ -127,6 +130,6 @@ homeServer <- function(id,reload_trigger,processed_colnames) {
       }
     })
 
-    return(preferences)
+    return(pref)
   })
 }
