@@ -29,7 +29,6 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
           dataMode = "localFiles"
         )
         output$igvShiny_0 <- renderIgvShiny({
-          cat("--- starting renderIgvShiny\n")
           igvShiny(genomeOptions, displayMode = "SQUISHED")
         })
       }
@@ -40,44 +39,42 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
     current_region <- reactiveVal(NULL)
 
     observe({
-      if (is.null(current_region())) {
-        genomeOptions <- parseAndValidateGenomeSpec(
-          genomeName = assembly,
-          initialLocus = "all",
-          stockGenome = TRUE,
-          dataMode = "localFiles"
-        )
-        output$igvShiny_0 <- renderIgvShiny({
-          igvShiny(genomeOptions, displayMode = "SQUISHED")
-        })
-      }
+      req(is.null(current_region()))
+      genomeOptions <- parseAndValidateGenomeSpec(
+        genomeName = assembly,
+        initialLocus = "all",
+        stockGenome = TRUE,
+        dataMode = "localFiles"
+      )
+      output$igvShiny_0 <- renderIgvShiny({
+        igvShiny(genomeOptions, displayMode = "SQUISHED")
+      })
     })
 
     observeEvent(input$coords_button, {
-      print(input$igv_var_id)
-      if (input$igv_var_id %in% dataset$ID) {
-
-        x <- dataset[dataset$ID == input$igv_var_id, ]
-        chrom <- x$CHROM
-        pos <- x$POS
-        len <- x$VAR_LENGTH
-        flanking <- input$igv_flanking
-        max_window <- input$igv_max_window
-
-        start <- pos - flanking
-        end <- pos + len + flanking
-
-        if ((end - start) > max_window) {
-          split_start <- paste0(chrom, ":", start, "-", (start + max_window))
-          split_end <- paste0(chrom, ":", (end - max_window), "-", end)
-          coords <- paste(split_start, split_end)
-        } else {
-          coords <- paste0(chrom, ":", start, "-", end)
-        }
-        updateTextInput(session, inputId = "genome_coords", value = coords)
-      } else {
+      if (!(input$igv_var_id %in% dataset$ID)) {
         showNotification("Invalid variant ID", type = "error")
+        return()
       }
+
+      x <- dataset[dataset$ID == input$igv_var_id, ]
+      chrom <- x$CHROM
+      pos <- x$POS
+      len <- x$VAR_LENGTH
+      flanking <- input$igv_flanking
+      max_window <- input$igv_max_window
+
+      start <- pos - flanking
+      end <- pos + len + flanking
+
+      if ((end - start) > max_window) {
+        split_start <- paste0(chrom, ":", start, "-", (start + max_window))
+        split_end <- paste0(chrom, ":", (end - max_window), "-", end)
+        coords <- paste(split_start, split_end)
+      } else {
+        coords <- paste0(chrom, ":", start, "-", end)
+      }
+      updateTextInput(session, inputId = "genome_coords", value = coords)
     })
 
     # Reactive expression for condition
@@ -93,25 +90,25 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
 
     # Validate genome coordinates and update IGV viewer
      observeEvent(input$genome_coords, {
-       if (shouldUpdateRegion()) {
-          coords <- trimws(input$genome_coords)
-          pattern <- "^(chr[0-9XY]+)([:-]|\\s)([0-9]+)(([-]|\\s)([0-9]+))?$"
-          if (grepl(pattern, coords)) {
-            matches <- regmatches(coords, regexec(pattern, coords))[[1]]
-            chr <- matches[2]
-            start <- as.numeric(matches[4])
-            if (matches[7] != "") {
-              end <- as.numeric(matches[7])
-            } else {
-              start <- as.numeric(matches[4]) - 20
-              end <- as.numeric(matches[4]) + 20
-            }
-            region_of_interest <- paste0(chr, ":", start, "-", end)
-            updateIgvViewer(region_of_interest, assembly)
-          } else {
-            showNotification("Invalid coordinates: Expected 'chr:start-end' or 'chr start end'",
-                             type = "error")
-          }
+       if (!shouldUpdateRegion()) {
+         showNotification("Invalid coordinates: Expected 'chr:start-end' or 'chr start end'",
+                          type = "error")
+         return()
+       }
+       coords <- trimws(input$genome_coords)
+       pattern <- "^(chr[0-9XY]+)([:-]|\\s)([0-9]+)(([-]|\\s)([0-9]+))?$"
+       if (grepl(pattern, coords)) {
+         matches <- regmatches(coords, regexec(pattern, coords))[[1]]
+         chr <- matches[2]
+         start <- as.numeric(matches[4])
+         if (matches[7] != "") {
+           end <- as.numeric(matches[7])
+         } else {
+           start <- as.numeric(matches[4]) - 20
+           end <- as.numeric(matches[4]) + 20
+         }
+         region_of_interest <- paste0(chr, ":", start, "-", end)
+         updateIgvViewer(region_of_interest, assembly)
        }
      })
 
@@ -119,26 +116,41 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
     # Observe changes to `current_region` to load VCF tracks
     observeEvent(input$igvReady, {
       region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        region.GRanges <- parseRegions(region_of_interest)
+      if (is.null(region_of_interest)) {
+        return()
+      }
+      region.GRanges <- parseRegions(region_of_interest)
+      if (file.exists(snps_vcf_file)) {
         vcf1 <- readVcf(snps_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
         loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SNVs/Indels VCF", vcf1)
+      } else {
+        showNotification("File missing: SNVs/Indels VCF", type = "error")
+      }
+      if (file.exists(svs_vcf_file)) {
         vcf2 <- readVcf(svs_vcf_file, genome = assembly, param = ScanVcfParam(which = region.GRanges))
         loadVcfTrack(session, id = ns("igvShiny_0"), trackName = "SVs VCF", vcf2)
-        lapply(pedigree_data$kinship, function(x) loadBAMTrack(x, sprintf("%s BAM",x)))
+      } else {
+        showNotification("File missing: SVs VCF", type = "error")
       }
+      lapply(pedigree_data$kinship, function(x) loadBAMTrack(x, sprintf("%s BAM",x)))
     })
 
     # Utility function to load BAM track
     loadBAMTrack <- function(kinship_label, track_name) {
       region_of_interest <- current_region()
-      if (!is.null(region_of_interest)) {
-        region.GRanges <- parseRegions(region_of_interest)
-        tags_to_extract <- c("PS", "HP")
-        param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
-        current_bam <- unlist(bam_file[kinship==kinship_label])
+      if (is.null(region_of_interest)) {
+        showNotification("File missing: BAM", type = "error")
+        return()
+      }
+      region.GRanges <- parseRegions(region_of_interest)
+      tags_to_extract <- c("PS", "HP")
+      param <- ScanBamParam(which = region.GRanges, what = "seq",tag=tags_to_extract)
+      current_bam <- unlist(bam_file[kinship==kinship_label])
+      if (file.exists(current_bam)) {
         bam <- readGAlignments(current_bam, use.names = TRUE, param = param)
         loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_name, data = bam, displayMode = "EXPANDED")
+      } else {
+        showNotification("File missing: BAM", type = "error")
       }
     }
 
