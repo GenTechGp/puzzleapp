@@ -58,6 +58,8 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         return()
       }
       region(parseRegionList(reg))
+      showNotification("Loading IGV...", duration = NULL,
+                       id = ns("notify_igv"), type = "message")
       genomeOptions <- parseAndValidateGenomeSpec(
         genomeName = assembly,
         initialLocus = reg,
@@ -67,6 +69,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       output$igvShiny_0 <- renderIgvShiny({
         igvShiny(genomeOptions, displayMode = "SQUISHED")
       })
+      removeNotification(ns("notify_igv"))
     }
 
     updateIgv <- function(co) {
@@ -76,7 +79,6 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         return()
       }
       cp <- parseCoords(co)
-      req(!is.null(cp))
       updateIgvViewer(cp, assembly)
     }
 
@@ -126,7 +128,6 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       }
       updateTextInput(session, inputId = "genome_coords", value = coords)
       coords_p <- parseCoords(coords)
-      req(!is.null(coords_p))
       updateIgvViewer(coords_p, assembly)
     })
 

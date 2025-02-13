@@ -18,7 +18,14 @@ igvInputUI <- function(ns) {
       column(2, textInput(ns("genome_coords"), "Genome coordinates:",
                 placeholder = "chr:start-end")),
       column(2, actionButton(ns("coords_manual_button"), "Update"),
-             style = "margin-top: 25px;")
+             style = "margin-top: 25px;"),
+      tags$script(HTML(sprintf("
+        $(document).on('keypress', function(e) {
+          if(e.which == 13 && $('#%s').is(':focus')) {
+            $('#%s').click();
+          }
+        });
+      ", ns("genome_coords"), ns("coords_manual_button"))))
     )
   )
 }
