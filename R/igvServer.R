@@ -26,6 +26,22 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
       return(paste0(chr, ":", start, "-", end))
     }
 
+    parseCoordsList <- function(co) {
+      cl <- strsplit(co, " ")[[1]]
+      cps <- vector(mode = "character", length = length(cl))
+      for (i in seq(1, length(cl))) {
+        cp <- parseCoords(cl[i])
+        if (is.null(cp)) {
+          if (i > 1) {
+            showNotification(paste("Invalid coordinates at position", i), type = "error")
+          }
+          return(NULL)
+        }
+        cps[i] <- cp
+      }
+      return(paste(cps, collapse = " "))
+    }
+
     # Parse a single region
     parseRegion <- function(reg) {
       if (reg == "all") {
@@ -78,7 +94,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         updateIgvViewer("all", assembly)
         return()
       }
-      cp <- parseCoords(co)
+      cp <- parseCoordsList(co)
       updateIgvViewer(cp, assembly)
     }
 
@@ -127,7 +143,7 @@ igvServer <- function(id, dataset, snps_vcf_file, svs_vcf_file, bam_file, assemb
         coords <- paste0(chrom, ":", start, "-", end)
       }
       updateTextInput(session, inputId = "genome_coords", value = coords)
-      coords_p <- parseCoords(coords)
+      coords_p <- parseCoordsList(coords)
       updateIgvViewer(coords_p, assembly)
     })
 
