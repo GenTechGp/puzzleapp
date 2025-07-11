@@ -1,6 +1,8 @@
 JigSeq PuzzleApp
 ================
 
+Visualise and analyse variants
+
 Usage
 -----
 Run the app using a pre-generated RData file. Optionally specify the port:
