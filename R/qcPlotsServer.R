@@ -1,14 +1,33 @@
 qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data, somalier) {
   moduleServer(id, function(input, output, session) {
 
+    cat(sprintf("[qcServer] Module initialized\n"))
+    
     ns <- session$ns
 
     # Function to process VAF data
     processVAFData <- function(data, pedigree) {
-      if (is.null(data) || nrow(data[CATEGORY == "SNV & Indel"]) == 0) return(NULL)
+      cat("[qcServer] Processing VAF data\n")
+      showNotification("Processing allele fraction data...", type = "message", duration = NULL, id = ns("notify_vaf"))
+      if (is.null(data) || nrow(data[CATEGORY == "SNV & Indel"]) == 0) { 
+        cat("[qcServer] Warning: VAF processing failed due to missing CATEGORY column\n")
+        removeNotification(ns("notify_vaf"))
+        return(NULL)
+      }
+      
+      # Ensure pedigree has a 'code' column
+      if (!"code" %in% names(pedigree)) {
+        pedigree[, code := seq_len(.N)]
+      }
 
       # Limit to 200,000 rows if necessary
-      sampled_data <- if (nrow(data) > 200000) sample_n(data, 200000) else data
+      if (nrow(data) > 200000) {
+        cat("[qcServer] Sampling VAF data: Reducing to 200,000 rows\n")
+        showNotification("Sampling VAF data to 200,000 rows...", type = "message")
+        sampled_data <- sample_n(data, 200000) 
+      } else { 
+        sampled_data <- data
+      }
 
       # Extract and reshape VAF columns
       selected_columns <- c("ID", grep("^VAF_", names(sampled_data), value = TRUE))
@@ -24,11 +43,16 @@ qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
       sampled_data <- dcast(sampled_data[, .(ID, sample_id, variable, value)], ID + sample_id ~ variable, value.var = "value")
       setnames(sampled_data, old = names(sampled_data)[3], new = "AF")
 
+      cat("[qcServer] VAF data processing complete\n")
+      removeNotification(ns("notify_vaf"))
       return(sampled_data)
     }
 
     # Process VAF Data
     vaf_data <- processVAFData(snvs_processed_data, pedigree_data)
+    
+    cat("[qcServer] Rendering UI elements for coverage, VAF, and Somalier\n")
+    showNotification("Rendering QC plot options...", type = "message")
 
     # Generate UI elements dynamically
     output$coverage_ui <- renderUI({
@@ -92,7 +116,10 @@ qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
 
     # Plot coverage data
     if (!is.null(coverage_data)) {
+      cat("[qcServer] Coverage data available - generating plots\n")
       output$plot1 <- renderPlotly({
+        cat("[qcServer] Rendering coverage plot (Average Coverage)\n")
+        showNotification("Rendering average coverage plot...", type = "message")
         plot_ly(coverage_data[CHROM != "chrM"], x = ~CHROM, y = ~AVERAGE_COVERAGE, color = ~SAMPLE,
                 colors = RColorBrewer::brewer.pal(max(3, length(unique(coverage_data$SAMPLE))), "Set2"), 
                 type = 'scatter', mode = 'markers', marker = list(size = 12, opacity = 0.6)) %>%
@@ -101,6 +128,8 @@ qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
       })
 
       output$plot2 <- renderPlotly({
+        cat("[qcServer] Rendering coverage plot (Normalized Coverage)\n")
+        showNotification("Rendering normalised coverage plot...", type = "message")
         autosomal_coverage <- coverage_data %>%
           filter(CHROM %in% paste0("chr", 1:22)) %>%
           group_by(SAMPLE) %>%
@@ -120,7 +149,10 @@ qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
 
     # Render VAF Plot
     if (!is.null(vaf_data)) {
+      cat("[qcServer] VAF data available - generating plots\n")
       output$plot3 <- renderPlotly({
+        cat("[qcServer] Rendering VAF distribution plot\n")
+        showNotification("Rendering allele fraction plot...", type = "message")
         dens_list <- lapply(unique(vaf_data$sample_id), function(sample) {
           dens <- density(vaf_data$AF[vaf_data$sample_id == sample], na.rm = TRUE)
           data.frame(x = dens$x, y = dens$y, sample_id = sample)
@@ -140,7 +172,10 @@ qcPlotsServer <- function(id, coverage_data, snvs_processed_data, pedigree_data,
 
     # Plot Somalier
     if (!is.null(somalier)) {
+      cat("[qcServer] Somalier data available - generating plots\n")
       output$somalier_plot <- renderPlotly({
+        cat("[qcServer] Rendering Somalier relatedness plot\n")
+        showNotification("Rendering Somalier plot...", type = "message")
         req(input$x_var, input$y_var)
 
         plot_ly(somalier, x = ~get(input$x_var), y = ~get(input$y_var), text = ~paste(sample_a, sample_b), 

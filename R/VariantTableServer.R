@@ -99,8 +99,10 @@ save_file <- function(ns, input, filtered_data, sel) {
 
 
 # Define a server module for the "Tab Label"
-tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
+tabServer <- function(id, filtered_data, selected, pref, selected_igv_id, exclude = NULL) {
   moduleServer(id, function(input, output, session) {
+    
+    cat(sprintf("[tabServer] Module initialized (%s)\n",id))
     
     ns <- shiny::NS(id)
 
@@ -109,9 +111,29 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
 
     targets_hidden <- which(!(names(data) %in% selected))
     
+    total_rows <- reactive({
+      nrow(isolate(filtered_data()))  # Get total rows dynamically
+    })
+    
+    display_rows <- reactiveVal(min(100000, total_rows()))  # Start with max 100K or total
+    
+    display_percentage <- reactive({
+      round((display_rows() / total_rows()) * 100, 1)  # Convert rows to percentage
+    })
+    
+    # Dynamically find the index of the "ID" column (zero-based for JavaScript)
+    id_column_index <- if ("ID" %in% colnames(data)) {
+      which(colnames(data) == "ID")  # Adjust for JS (zero-based)
+    } else {
+      NULL
+    }
+    
     opts <- list(
       stateSave = TRUE,
-      #stateSave = FALSE,
+      server = TRUE,         # Enable server-side processing
+      processing = TRUE,     # Show spinner while loading
+      deferRender = TRUE,    # Render only when needed
+      pageLength = 25,       # Show fewer rows by default
       lengthMenu = list(c(25, 50, -1), c("25", "50", "All")),
       columnDefs = list(
         #list(targets = which(names(data) %in% selected == FALSE),
@@ -127,24 +149,85 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
              action = JS(paste0(
                "function(e, dt, node, config) {",
                  "Shiny.setInputValue('", ns("save"), "', true, {priority: 'event'});",
+               "}")
+             )),
+        list(extend = 'collection', text = '% Data Shown',
+             action = JS(paste0(
+               "function (e, dt, node, config) {",
+               "  Shiny.setInputValue('", ns("open_data_modal"), "', true, {priority: 'event'});",
                "}"
              )))
+        
       )
     )
+    
+    # Add clickable ID logic only if "ID" column exists
+# if (!is.null(id_column_index)) {
+#   opts$columnDefs <- append(opts$columnDefs, list(
+#     list(
+#       targets = id_column_index,
+#       render = JS(
+#         "function(data, type, row, meta) {",
+#         "  return '<a class=\"id-link\" data-id=\"' + data + '\" style=\"cursor: pointer; text-decoration: underline; color: blue;\">' + data + '</a>';",
+#         "}"
+#       )
+#     )
+#   ))
+# }
+    if (!is.null(id_column_index)) {
+      opts$columnDefs <- append(opts$columnDefs, list(
+        list(
+          targets = id_column_index,
+          render = JS(
+            "function(data, type, row, meta) {",
+            "  return '<a class=\"id-link\" data-id=\"' + data + '\" style=\"cursor: pointer; text-decoration: underline; color: blue;\">' + data + '</a>';",
+            "}"
+          )
+        )
+      ))
+    }
+    
     callback <- paste0(
       "table.on('column-reorder', function(e, settings, details) {",
       "  Shiny.setInputValue('", ns("colOrder"), "', details.mapping, {priority: 'event'});",
       "});"
     )
+    
+    if (!is.null(id_column_index)) {
+      callback <- paste0(callback, sprintf(
+        "table.on('click', '.id-link', function() { 
+           event.preventDefault();
+           var id = $(this).data('id'); 
+           Shiny.setInputValue('%s', id, {priority: 'event'}); 
+         });", ns("selected_igv")
+      ))
+    }
 
     output$table <- DT::renderDT({
+      cat(sprintf("[tabServer] Rendering table (%s)\n",id))
+      # Show loading notification
+      showNotification("Rendering table...", id = ns("notify_table"), type = "message", duration = NULL)
+
+      time_setup_start <- Sys.time()
       # Check if data is valid and has columns
       data <- setupData(isolate(filtered_data()), selected)
+      #data <- data[1:isolate(display_rows()), ]
+      data <- data[1:min(nrow(data), isolate(display_rows())), ]
+      #data <- data[1:100000,]
+      time_setup_end <- Sys.time()
+      message("[tabServer] Time for setupData: ", time_setup_end - time_setup_start)
       
+      # Timing exclude processing
+      time_exclude_start <- Sys.time()
       if (!is.null(exclude)) {
         opts$buttons[[1]]$columns <- c(0, which(!(names(data) %in% exclude)))
       }
-      if (!is.null(data) && ncol(data) > 0) {
+      time_exclude_end <- Sys.time()
+      message("[tabServer] Time for exclude processing: ", time_exclude_end - time_exclude_start)
+      
+      # Timing datatable rendering
+      time_dt_start <- Sys.time()
+      result <- if (!is.null(data) && ncol(data) > 0) {
         DT::datatable(
           data,
           filter = list(position = "top", clear = TRUE),
@@ -179,9 +262,20 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
           )
         )
       }
+      # Remove loading notification
+      removeNotification(ns("notify_table"))
+      time_dt_end <- Sys.time()
+      message("[tabServer] Time for DT::datatable rendering: ", time_dt_end - time_dt_start)
+      return(result)
     }, server = TRUE)
+    
+    observeEvent(input$selected_igv, {
+      cat(sprintf("[tabServer] ID clicked: %s\n",input$selected_igv))
+      selected_igv_id(input$selected_igv)
+    },ignoreInit = TRUE)
 
     observeEvent(input$save, {
+      cat(sprintf("[tabServer] Save pop-up box (%s)\n",id))
       showModal(modalDialog(
         title = 'Export Options',
         tabFileSavingUI(ns, pref$outdir),
@@ -192,6 +286,36 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
         easyClose = TRUE)
       )
     })
+    
+    observeEvent(display_rows(), {
+      cat(sprintf("[tabServer] Display rows updated (%s)\n",id))
+    })
+    
+    observeEvent(input$open_data_modal, {
+      cat(sprintf("[tabServer] Percent data shown pop-up box (%s)\n",id))
+      showModal(modalDialog(
+        title = "Adjust Data Display",
+        sliderInput(ns("data_slider"), "Data Shown (%)", 
+                    min = 0, max = 100, value = display_percentage(), step = 5, post = "%"),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("confirm_data_percentage"), "Apply")
+        ),
+        easyClose = TRUE
+      ))
+    })
+    
+    observeEvent(input$confirm_data_percentage, {
+      cat(sprintf("[tabServer] Update percent data shown (%s)\n",id))
+      removeModal()
+      
+      # Convert percentage to row count
+      new_row_count <- max(1, round((input$data_slider / 100) * total_rows()))
+      
+      # Update both reactives
+      display_rows(new_row_count)  # Update row count
+      replaceData(dataTableProxy("table"), filtered_data()[1:new_row_count, ], resetPaging = FALSE)
+    })
 
     observeEvent(input$out_ext, {
       path <- get_out_path(ns, pref$outdir, input$out_ext)
@@ -200,6 +324,7 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
 
     # Save table to output file
     observeEvent(input$save_file, {
+      cat(sprintf("[tabServer] Save file (%s)\n",id))
       if (file.exists(input$out_path)) {
         showModal(modalDialog(
           title = "Path already exists! Overwrite?",
@@ -216,6 +341,7 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
     })
 
     observeEvent(input$save_overwrite, {
+      cat(sprintf("[tabServer] Overwriting existing file (%s) | Path: %s\n", id, input$out_path))
       removeModal()
       save_file(ns, input, filtered_data, sel)
     })
@@ -235,6 +361,7 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
     sel <- reactive(c(NA, names(data))[vis()])
 
     observeEvent(input$colOrder, {
+      cat(sprintf("[tabServer] Column order changed (%s)\n", id))
       order <- input$colOrder
       focus <- order[order != 0:ncol(data)]
       order[order != 0:ncol(data)] <- swap_order(focus)
@@ -242,14 +369,20 @@ tabServer <- function(id, filtered_data, selected, pref, exclude = NULL) {
     })
 
     observeEvent(filtered_data(), {
-      resetData(proxy, filtered_data(), selected)
+      data <- filtered_data()
+      data <- data[1:min(nrow(data), isolate(display_rows())), ]
+      cat(sprintf("[tabServer] Filtered data updated (%s) | Rows: %d\n", id, nrow(data)))
+      resetData(proxy, data, selected)
     }, ignoreInit = TRUE)
 
     observeEvent(input$table_cell_edit, {
+      cat(sprintf("[tabServer] Table cell edited (%s)\n", id))
       edit <- input$table_cell_edit
       req(edit)
 
       data <- isolate(filtered_data())
+      #data <- data[1:isolate(display_rows()), ]
+      data <- data[1:min(nrow(data), isolate(display_rows())), ]
       clear <- FALSE
 
       col <- cols()[edit$col+1]

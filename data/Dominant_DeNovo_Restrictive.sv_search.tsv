@@ -4,5 +4,5 @@ Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Mi
 gnomADv4 AF	0.001
 Affected only	TRUE
 Filter value	PASS only variants
-Genotype quality	20
-Allele balance	0.20
+Genotype quality	0
+Allele balance	0

@@ -33,9 +33,11 @@ add_filter_condition <- function(filter_expression, condition) {
 
 # Helper function: Handle inheritance filtering
 inheritance_filter <- function(filters, pedigree, allele_tab) {
+  #browser()
   if (!is.null(filters$inheritance_filter) && filters$inheritance_filter != "") {
     allele_count <- allele_tab()
     names(allele_count) <- c("sample_id", "allele_count")
+    pedigree[, code := seq_len(.N)]
     allele_count <- merge(pedigree, allele_count, by = "sample_id")
     allele_count[, col_name := paste0("alt_allele_count_", code), by = sample_id]
 
@@ -44,8 +46,12 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
     for (i in seq_len(nrow(allele_count))) {
       col_name <- allele_count[i, col_name]
       val <- allele_count[i, allele_count]
-      condition <- sprintf("compare_allele_count(get('%s'), '%s')",col_name,val)
-      inheritance_conditions <- c(inheritance_conditions, condition)
+      # condition <- sprintf("compare_allele_count(get('%s'), '%s')",col_name,val)
+      # inheritance_conditions <- c(inheritance_conditions, condition)
+      if (val != "") {
+        condition <- sprintf("compare_allele_count(get('%s'), '%s')", col_name, val)
+        inheritance_conditions <- c(inheritance_conditions, condition)
+      }
     }
 
     # Combine inheritance conditions into a single OR expression
@@ -98,6 +104,8 @@ text_filter <- function(column, values) {
 
 # Generic filter function for SNVs and SVs
 filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
+  
+  cat(sprintf("[filtServer][filter_dataset] Filtering dataset (SNV: %s)\n", is_snv))
 
   filter_expression <- "TRUE"
   global_filters_expression <- "TRUE"
@@ -105,11 +113,13 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   # Apply common filters
   inheritance_filter_condition <- inheritance_filter(filters, pedigree, allele_tab)
   if (!is.null(inheritance_filter_condition)) {
+    cat("[filtServer][filter_dataset] Applying inheritance filter\n")
     filter_expression <- add_filter_condition(filter_expression, inheritance_filter_condition)
     global_filters_expression <- add_filter_condition(global_filters_expression, inheritance_filter_condition)
   }
   panelapp_filter_results <- panelapp_filter(filters, panel_app_genes)
   if (!is.null(panelapp_filter_results)) {
+    cat("[filtServer][filter_dataset] Applying PanelApp filter\n")
     panelapp_filter_condition <- panelapp_filter_results[[1]]
     genes_search <- panelapp_filter_results[[2]]
     genes <- panelapp_filter_results[[3]]
@@ -117,21 +127,26 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     filter_expression <- add_filter_condition(filter_expression, panelapp_filter_condition)
     global_filters_expression <- add_filter_condition(global_filters_expression, panelapp_filter_condition)
   }
+  
+  cat("[filtServer][filter_dataset] Applying quality filters\n")
   filter_expression <- add_filter_condition(filter_expression, quality_filters(filters, data))
 
   # Apply VEP Annotation filter (for both SNVs and SVs)
+  cat("[filtServer][filter_dataset] Applying VEP annotation filter\n")
   filter_expression <- add_filter_condition(filter_expression, text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term]))
 
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL
 
   if (is_snv) {
+    cat("[filtServer][filter_dataset] Applying SNV-specific filters\n")
     # SNV-specific filters
     filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
     filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
 
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
+      cat("[filtServer][filter_dataset] Applying ClinVar filter\n")
       # Main ClinVar condition
       clinvar_filter_updated <- gsub("VUS", "uncertain", filters$clinvar_filter)
       clinvar_pattern <- paste(sapply(clinvar_filter_updated, function(x) paste0("\\\\b", x, "\\\\b")), collapse = "|")
@@ -163,6 +178,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
     # SpliceAI override
     if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
+      cat("[filtServer][filter_dataset] Applying SpliceAI override filter\n")
       spliceai_override_condition <- sprintf(
         "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f)",
         filters$spliceai_filter,
@@ -180,15 +196,16 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       if (!is.null(clinvar_override_condition)) clinvar_override_condition <- sprintf("(%s & CHROM == 'chrX')", clinvar_override_condition)
     }
 
-    override_conditions <- c(spliceai_override_condition, clinvar_override_condition)
-    override_conditions <- Filter(Negate(is.null), override_conditions)  # Remove NULLs
-
-    if (length(override_conditions) > 0) {
-      filter_expression <- paste(filter_expression, paste(override_conditions, collapse = " | "), sep = " | ")
-    }
+    # override_conditions <- c(spliceai_override_condition, clinvar_override_condition)
+    # override_conditions <- Filter(Negate(is.null), override_conditions)  # Remove NULLs
+    # 
+    # if (length(override_conditions) > 0) {
+    #   filter_expression <- paste(filter_expression, paste(override_conditions, collapse = " | "), sep = " | ")
+    # }
 
   } else {
     # SV-specific filters
+    cat("[filtServer][filter_dataset] Filtering SVs based on type and length\n")
     sv_type_map <- list("Insertion" = "INS", "Deletion" = "DEL", "Duplication" = "DUP", "Inversion" = "INV", "Translocation" = "TRA|BND")
     sv_types <- unlist(sv_type_map[filters$sv_features])
     if (!is.null(sv_types) && length(sv_types) > 0) {
@@ -238,7 +255,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   }
 
   # Apply filtering
-  print(combined_expression)
+  #print(combined_expression)
+  cat(sprintf("[filtServer][filter_dataset] Filter expression: %s\n", combined_expression))
   filtered_data <- data[eval(parse(text = combined_expression))]
 
   # Add panel app and HPO information
@@ -276,6 +294,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
                   spliceai_override := TRUE]
   }
 
+  cat(sprintf("[filtServer][filter_dataset] Filtering complete: %d variants retained\n", nrow(filtered_data)))
   return(filtered_data)
 }
 
@@ -327,6 +346,12 @@ read_search_files <- function(directory, type=NULL) {
 }
 
 alleleCount <- function(inher, status, sex) {
+  
+  if (status=="NA") {
+    print("NA allele")
+    return("")
+  }
+  
   if (inher == "Homozygous Recessive") {
     if (status == "affected")
       "2"
@@ -366,65 +391,198 @@ alleleTable <- function(pedigree, alleles_FUN) {
   tab
 }
 
+# alleleCustomTable <- function(ns, pedigree) {
+#   FUN <- function(x) {
+#     boxId <- paste0("allele_", x)
+#     names <- c("None", "0", "0-1", "1", "1-2", "2")
+#     vals <- c("", "0", "0-1", "1", "1-2", "2")
+#     as.character(radioButtons(ns(boxId), NULL, selected = "", inline = TRUE,
+#                               choiceNames = names, choiceValues = vals))
+#   }
+#   alleleTable(pedigree, FUN)
+# }
+
+# alleleCustomTable <- function(ns, pedigree) {
+#   tagList(
+#     tags$table(
+#       tags$thead(
+#         tags$tr(
+#           tags$th("Sample ID"), tags$th("Allele Count")
+#         )
+#       ),
+#       tags$tbody(
+#         lapply(seq_len(nrow(pedigree)), function(i) {
+#           sid <- pedigree$sample_id[i]
+#           radio_id <- ns(paste0("allele_", sid))
+#           tags$tr(
+#             tags$td(sid),
+#              
+#             tags$td(
+#               radioButtons(
+#                 inputId = radio_id,
+#                 label = NULL,
+#                 choices = c("None" = "", "0", "0-1", "1", "1-2", "2"),
+#                 inline = TRUE,
+#                 selected = ""
+#               )
+#             )
+#           )
+#         })
+#       )
+#     )
+#   )
+# }
 alleleCustomTable <- function(ns, pedigree) {
-  FUN <- function(x) {
-    boxId <- paste0("allele_", x)
-    names <- c("None", "0", "0-1", "1", "1-2", "2")
-    vals <- c("", "0", "0-1", "1", "1-2", "2")
-    as.character(radioButtons(ns(boxId), NULL, selected = "", inline = TRUE,
-                              choiceNames = names, choiceValues = vals))
-  }
-  alleleTable(pedigree, FUN)
+  tagList(
+    tags$table(
+      tags$thead(
+        tags$tr(
+          tags$th(style = "padding-bottom: 0.5em;", "Sample ID"),
+          tags$th(style = "padding-bottom: 0.5em;", "Allele Count")
+        )
+      ),
+      tags$tbody(
+        lapply(seq_len(nrow(pedigree)), function(i) {
+          sid <- pedigree$sample_id[i]
+          radio_id <- ns(paste0("allele_", sid))
+          tags$tr(
+            tags$td(style = "vertical-align: baseline; padding-right: 1em;", sid),
+            tags$td(
+              radioButtons(
+                inputId = radio_id,
+                label = NULL,
+                choices = c("None" = "", "0", "0-1", "1", "1-2", "2"),
+                inline = TRUE,
+                selected = ""
+              )
+            )
+          )
+        })
+      )
+    )
+  )
 }
 
+
+# alleleServer <- function(input, output, ns, pedigree, allele_tab) {
+#   # Init allele table and custom checkbox table
+#   allele_tab(alleleTable(pedigree, function(x) ""))
+#   allele_custom_tab <- alleleCustomTable(ns, pedigree)
+# 
+#   n <- dim(pedigree)[1]
+# 
+#   alleles <- reactiveValues()
+#   for (i in seq_len(n)) {
+#     id <- pedigree$sample_id[i]
+#     sid <- paste0("status_", id)
+#     # print(id)
+#     # print(input$inher)
+#     # print(pedigree$status[i])
+#     alleles[[id]] <- reactive(
+#       if (is.null(input[[sid]])) {
+#         #print("if")
+#         alleleCount(input$inher, pedigree$status[i], pedigree$sex[i])
+#       } else {
+#         #print("else")
+#         alleleCount(input$inher, input[[sid]], pedigree$sex[i])
+#       }
+#     )
+#     print(isolate(alleles[[id]]()))
+#   }
+# 
+#   tab <- reactive({
+#     if (input$inher == "") {
+#       NULL
+#     } else if (input$inher == "Custom") {
+#       allele_custom_tab
+#     } else {
+#       tmp <- isolate(allele_tab())
+#       for (i in seq_len(n)) {
+#         id <- tmp[i, "Sample ID"]
+#         tmp[i, "Allele Count"] <- alleles[[id]]()
+#       }
+#       allele_tab(tmp)
+#       tmp
+#     }
+#   })
+#   output$allele <- renderTable(tab(), sanitize.text.function = function(x) x)
+# 
+#   # Update allele table on custom checkbox event
+#   for (id in pedigree$sample_id) {
+#     boxId <- paste0("allele_", id)
+#     observeEvent(input[[boxId]], {
+#       tab <- allele_tab()
+#       cnt <- c(input[[boxId]])
+#       tab[tab["Sample ID"] == id, "Allele Count"] <- cnt
+#       allele_tab(tab)
+#     })
+#   }
+# }
 alleleServer <- function(input, output, ns, pedigree, allele_tab) {
-  # Init allele table and custom checkbox table
+  # Initialise blank allele table
   allele_tab(alleleTable(pedigree, function(x) ""))
-  allele_custom_tab <- alleleCustomTable(ns, pedigree)
+  n <- nrow(pedigree)
+  # Pre-compute the custom allele table with radio buttons
+  #allele_custom_tab <- alleleCustomTable(ns, pedigree)
+  #print(allele_custom_tab)
+  output$allele_ui <- renderUI({
+    if (input$inher == "Custom") {
+      alleleCustomTable(ns, pedigree)
+    } else {
+      tableOutput(ns("allele"))
+    }
+  })
+  
+  
 
-  n <- dim(pedigree)[1]
-
-  alleles <- reactiveValues()
-  for (i in seq_len(n)) {
-    id <- pedigree$sample_id[i]
-    sid <- paste0("status_", id)
-    alleles[[id]] <- reactive(
-      if (is.null(input[[sid]])) {
-        alleleCount(input$inher, pedigree$status[i], pedigree$sex[i])
-      } else {
-        alleleCount(input$inher, input[[sid]], pedigree$sex[i])
-      }
-    )
-  }
-
+  
+  # Reactive allele table, updates with inheritance model or status inputs
   tab <- reactive({
     if (input$inher == "") {
       NULL
     } else if (input$inher == "Custom") {
-      allele_custom_tab
+      NULL
+      # print("custom")
+      # tmp <- alleleTable(pedigree, function(x) "")
+      # for (i in seq_len(n)) {
+      #   id <- tmp[i, "Sample ID"]
+      #   boxId <- paste0("allele_", id)
+      #   tmp[i, "Allele Count"] <- input[[boxId]] %||% ""
+      # }
+      # allele_tab(tmp)  # Keep allele_tab() in sync
+      # return(tmp)
     } else {
-      tmp <- isolate(allele_tab())
+      tmp <- alleleTable(pedigree, function(x) "")
       for (i in seq_len(n)) {
         id <- tmp[i, "Sample ID"]
-        tmp[i, "Allele Count"] <- alleles[[id]]()
+        sid <- paste0("status_", id)
+        status_val <- input[[sid]]
+        if (is.null(status_val)) status_val <- pedigree$status[i]
+        tmp[i, "Allele Count"] <- alleleCount(input$inher, status_val, pedigree$sex[i])
       }
-      allele_tab(tmp)
+      allele_tab(tmp)  # keep allele_tab() in sync
       tmp
     }
   })
-  output$allele <- renderTable(tab(), sanitize.text.function = function(x) x)
-
-  # Update allele table on custom checkbox event
-  for (id in pedigree$sample_id) {
-    boxId <- paste0("allele_", id)
-    observeEvent(input[[boxId]], {
-      tab <- allele_tab()
-      cnt <- c(input[[boxId]])
-      tab[tab["Sample ID"] == id, "Allele Count"] <- cnt
-      allele_tab(tab)
-    })
-  }
+  
+  output$allele <- renderTable(tab(), sanitize.text.function = identity)
+  
+  # Update allele tab on manual edits from radio buttons (Custom mode only)
+  # for (id in pedigree$sample_id) {
+  #   boxId <- paste0("allele_", id)
+  #   observe({
+  #     req(input$inher == "Custom")
+  #     print(boxId)
+  #     tab_data <- allele_tab()
+  #     cnt <- input[[boxId]] %||% ""
+  #     print(cnt)
+  #     tab_data[tab_data[["Sample ID"]] == id, "Allele Count"] <- cnt
+  #     #print(tab_data)
+  #     allele_tab(tab_data)
+  #   })
+  # }
 }
+
 
 list_files <- function(dir) {
   if (dir.exists(dir)) {
@@ -439,6 +597,9 @@ list_files <- function(dir) {
 selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
                                 vep_consequences, phenotype_data, pref) {
   moduleServer(id, function(input, output, session) {
+    
+    cat(sprintf("[filtServer] Module initialized\n"))
+    
     ns <- session$ns
 
     show_spinner()
@@ -459,8 +620,29 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     igv_coord_box <- reactiveVal(NULL)
 
     initialisation <- reactiveVal(TRUE)
+    
+    cat("[filtServer] Initializing UI components and loading data...\n")
 
-    metaServer(output, ns, pedigree)
+    #metaServer(output, ns, pedigree)
+    
+    observe({
+      req(panel_app_genes)  # Ensure data is available
+      locs <- c("", unique(panel_app_genes$Level4))
+      updateSelectizeInput(session, "panelapp", choices = locs, selected = NULL)
+      cat("[filtServer] Updated PanelApp selection options\n")
+    })
+    
+    custom_allele_tab <- reactive({
+      print("custom")
+      req(input$inher == "Custom")
+      tmp <- alleleTable(pedigree, function(x) "")
+      for (i in seq_len(nrow(tmp))) {
+        id <- tmp[i, "Sample ID"]
+        val <- input[[paste0("allele_", id)]] %||% ""
+        tmp[i, "Allele Count"] <- val
+      }
+      tmp
+    })
 
     flagged_rows_reactive <- reactiveVal(data.table(ID = character(0), PRIORITY = numeric(0), NOTES = character(0)))
 
@@ -469,13 +651,17 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
       shinyjs::enable(ns("pathogenicity"))
       shinyjs::enable(ns("pre_saved_search"))
       shinyjs::enable(ns("apply_filter"))
+      cat("[filtServer] Enabled UI elements for filtering\n")
     })
 
+
     alleleServer(input, output, ns, pedigree, allele_tab)
+
 
     app_dir <- getwd()
     data_dir <- paste0(app_dir, "/data")
 
+    cat("[filtServer] Loading available searches...\n")
     # Load available searches on startup
     available_searches <- reactive({
       read_search_files(data_dir, "snv")
@@ -498,6 +684,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     observeEvent(input$save_session, {
 
       session_dir <- sprintf("%s/%s", sessions_dir(), input$session_name)
+      cat(sprintf("[filtServer] Saving session: %s\n", input$session_name))
 
       if (!dir.exists(session_dir)) {
         if (!dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)) {
@@ -584,7 +771,8 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
     observeEvent(input$load_session, {
       session_to_load <- sprintf("%s/%s", sessions_dir(), input$available_sessions)
-      print(session_to_load)
+      cat(sprintf("[filtServer] Loading session: %s\n", session_to_load))
+      #print(session_to_load)
 
       if (dir.exists(session_to_load)) {
         snv_file <- file.path(session_to_load, "snv_filters.tsv")
@@ -634,22 +822,27 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     })
 
     # Update UI dropdown with available searches
-    observe({
+    observeEvent(available_searches(),{
+      #req(length(available_searches()) > 0)
       choices <- c("", names(available_searches()))
       updateSelectizeInput(session, "pre_saved_search",
                         choices = choices, selected = "")
-    })
+      cat("[filtServer] Updated UI dropdowns for SNV available searches\n")
+    }, once = TRUE)
 
-    observe({
+    observeEvent(sv_available_searches(), {
+      #req(length(sv_available_searches()) > 0)
       choices <- c("", names(sv_available_searches()))
       updateSelectizeInput(session, "sv_pre_saved_search",
                            choices = choices, selected = "")
-    })
+      cat("[filtServer] Updated UI dropdowns for SV available searches\n")
+    }, once = TRUE)
 
     # Update UI dropdown with available sessions
     observe({
       updateSelectizeInput(session, "available_sessions",
                            choices = c("", sessions()), selected = "")
+      cat("[filtServer] Updated UI dropdowns for available sessions\n")
     })
 
     # Generalized function to update UI elements
@@ -736,23 +929,28 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     # Handle search selection
     observeEvent(input$pre_saved_search, {
       selected_search <- input$pre_saved_search
+      cat(sprintf("[filtServer] Update selected pre-saved SNV search: %s\n", selected_search))
       #if (is.null(selected_search) || selected_search == "") return()
 
-      print(paste("Loading pre-saved search:", selected_search))  # Debugging print
+      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
       search_params <- available_searches()[[selected_search]]
       update_search_params(search_params, session)
-    })
+
+    },ignoreInit = TRUE)
 
     observeEvent(input$sv_pre_saved_search, {
       selected_search <- input$sv_pre_saved_search
+      cat(sprintf("[filtServer] Update selected pre-saved SV search: %s\n", selected_search))
       #if (is.null(selected_search) || selected_search == "") return()
 
-      print(paste("Loading pre-saved search:", selected_search))  # Debugging print
+      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
       search_params <- sv_available_searches()[[selected_search]]
       update_search_params(search_params, session, type="sv")
-    })
+
+    },ignoreInit = TRUE)
 
     observeEvent(input$pathogenicity, {
+      cat(sprintf("[filtServer] Pathogenicity filter changed: %s\n", input$pathogenicity))
       if (input$pathogenicity == "Pathogenic/Likely pathogenic") {
         select <- c("Pathogenic", "Likely pathogenic")
       } else if (input$pathogenicity == "Not benign") {
@@ -766,6 +964,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     })
 
     updateAnnotationSelection <- function(annotation_value,checkboxes_id,session) {
+      cat(sprintf("[filtServer] Annotation selection changed: %s (ID: %s)\n", annotation_value, checkboxes_id))
       selected_values <- switch(
         annotation_value,
         "High impact" = c("Stop gained", "Start lost", "Stop lost", "Splice variant", "Frameshift variant"),
@@ -786,6 +985,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
     })
 
     observeEvent(input$panelapp, {
+      cat("[filtServer] PanelApp filter updated\n")
       tmp <- panel_app_genes[Level4 %in% input$panelapp]
       green_genes(sort(unique(tmp[Sources == "Green", Entity_Name])))
       red_genes(sort(unique(tmp[Sources == "Red", Entity_Name])))
@@ -806,9 +1006,10 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
     # Add multiple IDs to the phenotype list
     observeEvent(input$phenotype_add, {
+      cat("[filtServer] Adding phenotype terms\n")
       new_ids <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))
       new_ids <- trimws(new_ids)
-      print(new_ids)
+      #print(new_ids)
 
       if (length(new_ids) > 0) {
         current_ids <- phenos()
@@ -823,6 +1024,7 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
 
     observeEvent(input$phenotype_remove, {
+      cat("[filtServer] Removing phenotype terms\n")
       current_ids <- phenos()
       ids_to_remove <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))  # Split by spaces, commas, or semicolons
       ids_to_remove <- ids_to_remove[ids_to_remove %in% current_ids]
@@ -855,6 +1057,11 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
 
       showNotification("Filtering...", duration = NULL, id = ns("notify_filter"),
                        type = "message")
+      
+      # If Custom inheritance, update allele_tab from custom_allele_tab
+      if (input$inher == "Custom") {
+        allele_tab(custom_allele_tab())
+      }
 
       # Define filters
       snv_filters <- list(
@@ -871,11 +1078,18 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
         allele_balance_value = input$allele_balance,
         hpo_terms_list = phenos()
       )
-
-      snv_total_time <- system.time({
-        snv_filtered_data <- snv_filter_dataset(dataset[CATEGORY=="SNV & Indel"],snv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
-      })
-      cat(paste("Total execution time:", format_time(snv_total_time), "\n"))
+      
+      
+      if (nrow(dataset[CATEGORY == "SNV & Indel"]) > 0) {
+        print("")
+        snv_total_time <- system.time({
+          snv_filtered_data <- snv_filter_dataset(dataset[CATEGORY=="SNV & Indel"],snv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
+        })
+        #cat(paste("Total execution time:", format_time(snv_total_time), "\n"))
+        message("[filtServer] Time for SNV filtering: ", format_time(snv_total_time))
+      } else {
+        message("[filtServer] No SNV & Indel data found — skipping SNV filtering")
+      }
 
       # Define filters for SV
       sv_filters <- list(
@@ -892,16 +1106,42 @@ selectFiltersServer <- function(id, dataset, pedigree, panel_app_genes,
       )
 
       # Filter SVs
-      sv_total_time <- system.time({
-        sv_filtered_data <- sv_filter_dataset(dataset[CATEGORY == "SV"],sv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
-      })
-      cat(paste("Total execution time:", format_time(sv_total_time), "\n"))
-
-      all_filtered_data <- rbind(snv_filtered_data,sv_filtered_data)
+      if (nrow(dataset[CATEGORY == "SV"]) > 0) {
+        sv_total_time <- system.time({
+          sv_filtered_data <- sv_filter_dataset(dataset[CATEGORY == "SV"],sv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
+        })
+        #cat(paste("Total execution time:", format_time(sv_total_time), "\n"))
+        message("[filtServer] Time for SV filtering: ", format_time(sv_total_time))
+      } else {
+        message("[filtServer] No SV data found — skipping SV filtering")
+      }
       
-      print("past filtering")
+      filtered_list <- list()
+      
+      if (exists("snv_filtered_data") && is.data.table(snv_filtered_data) && nrow(snv_filtered_data) > 0) {
+        filtered_list[[length(filtered_list) + 1]] <- snv_filtered_data
+      }
+      
+      if (exists("sv_filtered_data") && is.data.table(sv_filtered_data) && nrow(sv_filtered_data) > 0) {
+        filtered_list[[length(filtered_list) + 1]] <- sv_filtered_data
+      }
+      
+      if (length(filtered_list) > 0) {
+        all_filtered_data <- rbindlist(filtered_list, use.names = TRUE, fill = TRUE)
+      } else {
+        removeNotification(ns("notify_filter"))
+        showNotification("No variants passed filtering", type = "warning")
+        showNotification("Showing all variants", type = "warning")
+        filtered_table_output(dataset)
+        return()  # Exit the observeEvent early
+      }
+      
+      #all_filtered_data <- rbind(snv_filtered_data,sv_filtered_data)
+      
+      #print("past filtering")
 
       if (input$inher=="Compound Heterozygous") {
+        cat("[filtServer] Applying compound heterozygous filtering...\n")
         is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
         if (!is_trio) {
           comp_hets_1 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "1|0", .(VAR_COUNT_1 = .N), by = GENE_SYMBOL]

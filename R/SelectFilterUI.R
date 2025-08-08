@@ -41,7 +41,8 @@ inherOptsUI <- function(ns) {
                "Compound Heterozygous", "Dominant/De Novo", "Custom")
   collapseUI("inheritance_collapse", "Inheritance", "info",
     selectInput(ns("inher"), "Mode of inheritance:", choices, ""),
-    tableOutput(ns("allele"))
+    #tableOutput(ns("allele"))
+    uiOutput(ns("allele_ui"))
   )
 }
 
@@ -66,10 +67,10 @@ panelBox <- function(id, label, color = "black", width = "100%",
 }
 
 geneOptsUI <- function(ns, panel_app_genes) {
-  locs <- c("", unique(panel_app_genes$Level4))
+  #locs <- c("", unique(panel_app_genes$Level4))
 
   ui <- div(
-    selectInput(ns("panelapp"), "Gene list:", locs, "", TRUE),
+    selectInput(ns("panelapp"), "Gene list:", NULL, "", TRUE),
     fluidRow(
       column(3,
         panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")
@@ -111,7 +112,7 @@ globalOptsUI <- function(ns, panel_app_genes) {
       fluidRow(
         column(3, saveSessionsUI(ns)),  # Adjust width as needed
         column(3, preSavedSearchesUI(ns)),
-        column(3, inherOptsUI(ns))
+        column(4, inherOptsUI(ns))
       ),
       geneOptsUI(ns, panel_app_genes),
       phenoUI(ns)
@@ -250,7 +251,7 @@ selectFiltersUI <- function(id, panel_app_genes) {
 
   fluidPage(
     useShinyjs(),
-    fluidRow(metaUI(ns)),
+    #fluidRow(metaUI(ns)),
     fluidRow(globalOptsUI(ns, panel_app_genes)),
     fluidRow(snvOptsUI(ns)),
     fluidRow(svOptsUI(ns)),
