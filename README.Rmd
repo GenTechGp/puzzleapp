@@ -19,25 +19,30 @@ knitr::opts_chunk$set(
 [![R-CMD-check](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-The goal of puzzleapp is to ...
+Visualise and analyse variants
 
 ## Installation
 
 You can install the development version of puzzleapp from [GitHub](https://github.com/) with:
 
+```bash
+git clone --branch pack --depth 1 git@github.com:KCCGGenomeTechLab/puzzleapp.git
+cd puzzleapp
+```
+
+
 ``` r
-# install.packages("pak")
-pak::pak("KCCGGenomeTechLab/puzzleapp")
-```
+# install.packages("devtools")
 
-## Example
+devtools::install("/g/data/ox63/hiruna/puzzleapp")
 
-This is a basic example which shows you how to solve a common problem:
-
-```{r example}
 library(puzzleapp)
-## basic example code
+
+run_app()
+
 ```
+
+Disregard below details,
 
 What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
 

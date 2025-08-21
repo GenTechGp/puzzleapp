@@ -8,26 +8,29 @@
 [![R-CMD-check](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
-The goal of puzzleapp is to …
+Visualise and analyse variants
 
 ## Installation
 
 You can install the development version of puzzleapp from
 [GitHub](https://github.com/) with:
 
-``` r
-# install.packages("pak")
-pak::pak("KCCGGenomeTechLab/puzzleapp")
+``` bash
+git clone --branch pack --depth 1 git@github.com:KCCGGenomeTechLab/puzzleapp.git
+cd puzzleapp
 ```
 
-## Example
-
-This is a basic example which shows you how to solve a common problem:
-
 ``` r
+# install.packages("devtools")
+
+devtools::install("/g/data/ox63/hiruna/puzzleapp")
+
 library(puzzleapp)
-## basic example code
+
+run_app()
 ```
+
+Disregard below details,
 
 What is special about using `README.Rmd` instead of just `README.md`?
 You can include R chunks like so:
