@@ -12,46 +12,44 @@ Visualise and analyse variants
 
 ## Installation
 
-You can install the development version of puzzleapp from
-[GitHub](https://github.com/) with:
-
 ``` bash
 git clone --branch pack --depth 1 git@github.com:KCCGGenomeTechLab/puzzleapp.git
 cd puzzleapp
 ```
 
 ``` r
-# install.packages("devtools")
+local_lib <- "optional path"
+.libPaths(c(local_lib, .libPaths()))
 
-devtools::install("/g/data/ox63/hiruna/puzzleapp")
+install.packages(
+  [path to repo],
+  repos = NULL,
+  type = "source",
+  lib = local_lib,
+  dependencies = TRUE
+)
 
 library(puzzleapp)
-
 run_app()
 ```
 
-Disregard below details,
-
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
+## Development
 
 ``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
+local_lib <- "optional path"
+.libPaths(c(local_lib, .libPaths()))
+
+devtools::install([path to repo])
+
+library(puzzleapp)
+run_app()
+
+remove.packages("puzzleapp", lib=local_lib)
+
+# Other
+devtools::document()    # Run after editing functions, roxygen comments, or _PACKAGE.R
+devtools::load_all()    # Run while testing functions interactively
+devtools::install()     # Run after changes to test outside load_all()
+devtools::check(clean = TRUE)
+devtools::build_readme() # Update README.md
 ```
-
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date. `devtools::build_readme()` is handy for this.
-
-You can also embed plots, for example:
-
-<img src="man/figures/README-pressure-1.png" width="100%" />
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub and CRAN.
