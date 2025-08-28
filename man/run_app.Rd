@@ -2,13 +2,32 @@
 % Please edit documentation in R/run_app.R
 \name{run_app}
 \alias{run_app}
-\title{Run the Puzzle App}
+\title{Launch the Shiny App}
 \usage{
-run_app()
+run_app(port = 8888, host = "0.0.0.0")
+}
+\arguments{
+\item{port}{Integer. Port number on which to run the Shiny app. Default is 8888.}
+
+\item{host}{Character. Host address to bind the app to.
+\itemize{
+\item Use "127.0.0.1" for local testing.
+\item Use "0.0.0.0" for HPC remote access (requires SSH tunnel or OnDemand). Default is "0.0.0.0".
+}}
 }
 \value{
-Runs the Shiny app
+Invisibly returns the Shiny app object.
 }
 \description{
-Launches the Shiny application contained in this package.
+This function launches the Shiny application included in the \code{puzzleapp} package.
+It automatically locates the app directory within the package installation.
+}
+\examples{
+\dontrun{
+  # Run locally
+  puzzleapp::run_app(host = "127.0.0.1")
+
+  # Run on HPC / remote server
+  puzzleapp::run_app(port = 9999, host = "0.0.0.0")
+}
 }
