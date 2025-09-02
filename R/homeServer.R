@@ -98,7 +98,7 @@ home_server <- function(id, shared_data) {
       }
     })
 
-    observeEvent(input$load_data, {
+    shiny::observeEvent(input$load_data, {
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         showNotification("No data files specified to load.", type = "error")
         return()
@@ -123,15 +123,15 @@ home_server <- function(id, shared_data) {
 
       if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)){
         if (file.exists(input$snvs_tsv)) {
-          shared_data$snvs_data <- fread(input$snvs_tsv, stringsAsFactors = FALSE)
+          shared_data$snvs_data <- fread(input$snvs_tsv, stringsAsFactors = FALSE, nrows = 1000)
           shared_data$snvs_data_filtered <- shared_data$snvs_data # acts like a shallow reference initially, but behaves as a deep copy once you modify it
         } else {
-          showNotification("SNVs & Indels TSV file not found.", type = "error")
+          shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
         }
       }
       if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)){
         if( file.exists(input$svs_tsv)) {
-          shared_data$svs_data <- fread(input$svs_tsv, stringsAsFactors = FALSE)
+          shared_data$svs_data <- fread(input$svs_tsv, stringsAsFactors = FALSE, nrows = 1000)
           shared_data$svs_data_filtered <- shared_data$svs_data # acts like a shallow reference initially, but behaves as a deep copy once you modify it
         } else {
           showNotification("SVs TSV file not found.", type = "error")
@@ -140,33 +140,33 @@ home_server <- function(id, shared_data) {
       if (!is.null(input$panel_app) && nzchar(input$panel_app)){
         cat("input$panel_app:", input$panel_app, "\n")
         if (file.exists(input$panel_app)) {
-          shared_data$panel_app_data <- load_panel_app_data(file = input$panel_app)
+          shared_data$panel_app_data <- NULL#load_panel_app_data(file = input$panel_app)
         } else {
           showNotification("PanelApp TSV file not found.", type = "error")
         }
       } else {
         cat("Loading from PanelApp database.\n")
-        shared_data$panel_app_data <- load_panel_app_data()
+        shared_data$panel_app_data <- NULL#load_panel_app_data()
       }
       if (!is.null(input$vep_consequences) && nzchar(input$vep_consequences)){
         if (file.exists(input$vep_consequences)) {
-          shared_data$vep_map <- load_vep_map(file = input$vep_consequences)
+          shared_data$vep_map <- NULL#load_vep_map(file = input$vep_consequences)
         } else {
           showNotification("VEP consequence annotations file not found.", type = "error")
         }
       } else {
         cat("Loading from VEP consequences database.\n")
-        shared_data$vep_map <- load_vep_map()
+        shared_data$vep_map <- NULL#load_vep_map()
       }
       if (!is.null(input$phenotype_data) && nzchar(input$phenotype_data)){
         if (file.exists(input$phenotype_data)) {
-          shared_data$phenotype_data <- load_phenotype_data(file = input$phenotype_data)
+          shared_data$phenotype_data <- NULL#load_phenotype_data(file = input$phenotype_data)
         } else {
           showNotification("Human Phenotype Ontology TSV file not found.", type = "error")
         }
       } else {
         cat("Loading from HPO database.\n")
-        shared_data$phenotype_data <- load_phenotype_data()
+        shared_data$phenotype_data <- NULL#load_phenotype_data()
       }
       cat("Data loaded into shared_data.\n")
     })

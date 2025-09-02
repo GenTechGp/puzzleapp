@@ -19,8 +19,7 @@ check_snvs_data <- function(dt, expected_cols) {
     ))
     return(FALSE)
   }
-  
-  return(TRUE)
+  TRUE
 }
 
 apply_snv_filters_debug <- function(dt, filters) {
@@ -28,7 +27,7 @@ apply_snv_filters_debug <- function(dt, filters) {
   af_vec <- dt[["AF"]]  # vector of numeric values
   filtered <- dt[is.na(af_vec) | af_vec <= filters$af, ]
   cat("nrow after filter:", nrow(filtered), "\n")
-  return(filtered)
+  filtered
 }
 
 clinvar_filtering <- function(dt, filters) {
@@ -50,10 +49,10 @@ clinvar_filtering <- function(dt, filters) {
   #         ▼
   #   Does filter include "Not available"?
   #         │
-  #         ├── Yes ──► clinvar_condition = 
+  #         ├── Yes ──► clinvar_condition =
   #         │           (grepl(pattern, CLINVAR, ignore.case=TRUE) OR is.na(CLINVAR))
   #         │
-  #         └── No ───► clinvar_condition = 
+  #         └── No ───► clinvar_condition =
   #                     grepl(pattern, CLINVAR, ignore.case=TRUE)
   #         │
   #         ▼
@@ -124,12 +123,11 @@ clinvar_filtering <- function(dt, filters) {
     if (length(override_patterns) > 0) {
       override_pattern <- paste(override_patterns, collapse = "|")
       clinvar_override_condition <- bquote(
-        (grepl(.(override_pattern), dt[["CLINVAR"]], ignore.case = TRUE) &
-        (is.na(dt[["AF"]]) | dt[["AF"]] < 0.05))
+        (grepl(.(override_pattern), dt[["CLINVAR"]], ignore.case = TRUE) & (is.na(dt[["AF"]]) | dt[["AF"]] < 0.05))
       )
     }
   }
-  return(filter_expr)
+  filter_expr
 }
 
 # Compare column values to allele counts (vectorized)
@@ -137,10 +135,11 @@ compare_allele_count <- function(col, values) {
   if (is.null(values) || values == "") return(rep(TRUE, length(col)))
   rng <- as.numeric(unlist(strsplit(values, "-")))
   if (length(rng) == 1) return(col == rng)
-  return(col >= rng[1] & col <= rng[2])
+  state <- col >= rng[1] & col <= rng[2]
+  state
 }
 
-buildInheritanceFilter_vec <- function(dt, pedigree, allele_counts) {
+build_inheritance_filter_vec <- function(dt, pedigree, allele_counts) {
   if (length(pedigree) == 0) return(rep(TRUE, nrow(dt)))
   mask <- rep(TRUE, nrow(dt))
   for (i in seq_along(pedigree)) {
@@ -154,7 +153,7 @@ buildInheritanceFilter_vec <- function(dt, pedigree, allele_counts) {
 }
 
 
-buildInheritanceFilter_expr <- function(pedigree, allele_counts) {
+build_inheritance_filter_expr <- function(pedigree, allele_counts) {
   filter_expr <- quote(TRUE)
   if (length(pedigree) == 0) return(filter_expr)
   for (i in seq_along(pedigree)) {
@@ -180,7 +179,7 @@ apply_filters <- function(pedigree, allele_counts, dt, filters, type, vep_conseq
   filter_expr <- quote(TRUE)
 
   # inheritance filter
-  inheritance_filter_expr <- buildInheritanceFilter_expr(pedigree, allele_counts)
+  inheritance_filter_expr <- build_inheritance_filter_expr(pedigree, allele_counts)
   filter_expr <- bquote(.(filter_expr) & .(inheritance_filter_expr))
   # dt <- dt[eval(filter_expr)]
   # mask <- buildInheritanceFilter_vec(dt, pedigree, allele_counts)
@@ -228,7 +227,7 @@ apply_filters <- function(pedigree, allele_counts, dt, filters, type, vep_conseq
   # PolyPhen filter
   if (!is.null(filters$polyphen_filter) && nzchar(filters$polyphen_filter)) {
     filter_expr <- bquote(.(filter_expr) & grepl(.(filters$polyphen_filter), dt[["PolyPhen"]], ignore.case = TRUE))
-  }  
+  }
 
   # PASS-only filter
   if (isTRUE(filters$pass_only)) {
@@ -294,7 +293,5 @@ apply_filters <- function(pedigree, allele_counts, dt, filters, type, vep_conseq
   # Apply filter and return filtered data.table
   filtered_dt <- dt[eval(filter_expr), ]
   cat("nrow after filtering:", nrow(filtered_dt), "\n")
-  return(filtered_dt)
+  filtered_dt
 }
-
-

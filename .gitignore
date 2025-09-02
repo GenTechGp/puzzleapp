@@ -4,3 +4,4 @@ README.html
 .vscode
 .RData
 .Ruserdata
+inst/extdata/phenotype_to_genes.txt
