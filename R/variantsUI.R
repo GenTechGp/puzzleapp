@@ -3,18 +3,18 @@
 #' @export
 #' @import shiny
 variants_ui <- function(id) {
-  ns <- NS(id)
+  ns <- shiny::NS(id)
   shiny::tagList(
-    fluidRow(
-      column(
+    shiny::fluidRow(
+      shiny::column(
         width = 12,
-        div(style = "margin-bottom:10px;",
-            actionButton(ns("reset_table"), "Reset Table Layout")
+        shiny::div(style = "margin-bottom:10px;",
+            shiny::actionButton(ns("reset_table"), "Reset Table Layout")
         )
       )
     ),
     # Max width + ellipsis for cells
-    tags$style(HTML("
+    shiny::tags$style(shiny::HTML("
       table.dataTable td {
         max-width: 200px;
         white-space: nowrap;

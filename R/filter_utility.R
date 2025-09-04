@@ -152,7 +152,6 @@ build_inheritance_filter_vec <- function(dt, pedigree, allele_counts) {
   mask
 }
 
-
 build_inheritance_filter_expr <- function(pedigree, allele_counts) {
   filter_expr <- quote(TRUE)
   if (length(pedigree) == 0) return(filter_expr)
@@ -169,6 +168,102 @@ build_inheritance_filter_expr <- function(pedigree, allele_counts) {
   }
   filter_expr
 }
+
+#' Apply first-level inheritance filter (Compound Heterozygous)
+#'
+#' @param dt data.table of variants
+#' @param inheritance character string: e.g., "Compound Heterozygous"
+#' @param pedigree list of lists describing the family
+#' @return filtered data.table
+# -------------------------------------------------------------------------
+# Example test cases for apply_filter_1
+#
+# Data table schema:
+#   - GENE_SYMBOL
+#   - alt_allele_count_1 (child’s alt count)
+#   - GT_2 (parent 1 phased genotype, optional in trio)
+#   - GT_3 (parent 2 phased genotype, optional in trio)
+#
+# Trio rule:
+#   Keep rows where alt_allele_count_1 == 1 AND
+#   (GT_2=="1|0" & GT_3=="0|1") OR (GT_2=="0|1" & GT_3=="1|0").
+#   Then require at least 2 such rows per gene.
+#
+# NON-TRIO logic:
+#   For each gene, count het proband variants split by haplotype:
+#     comp_hets_1: alt_allele_count_1 == 1 & GT_1 == "1|0"  -> VAR_COUNT_1
+#     comp_hets_2: alt_allele_count_1 == 1 & GT_1 == "0|1"  -> VAR_COUNT_2
+#   Keep genes where VAR_COUNT_1 > 0 AND VAR_COUNT_2 > 0 (i.e., evidence on both haplotypes).
+#
+# --- Example 1: Trio (mixed case) ---
+# dt <- data.table(
+#   GENE_SYMBOL = c("GENE1","GENE1","GENE2","GENE2"),
+#   alt_allele_count_1 = c(1,1,1,1),
+#   GT_2 = c("1|0","0|1","1|0","1|0"),
+#   GT_3 = c("0|1","1|0","1|0","0|1")
+# )
+# -> GENE1: both rows valid → GENE1 kept.
+# -> GENE2: only one valid row → GENE2 dropped.
+#
+# --- Example 2: NON-TRIO (proband-only; haplotype-split counts) ---
+# dt <- data.table(
+#   GENE_SYMBOL         = c("GENE_A","GENE_A","GENE_B","GENE_B","GENE_C"),
+#   alt_allele_count_1  = c(1,1,1,1,1),
+#   GT_1                = c("1|0","0|1","1|0","1|0","0|1")
+# )
+# Per-gene haplotype counts:
+#   GENE_A: VAR_COUNT_1=1 (1|0), VAR_COUNT_2=1 (0|1) -> both >0 -> GENE_A kept
+#   GENE_B: VAR_COUNT_1=2 (1|0), VAR_COUNT_2=0       -> fails   -> GENE_B dropped
+#   GENE_C: VAR_COUNT_1=0, VAR_COUNT_2=1 (0|1)       -> fails   -> GENE_C dropped
+# -------------------------------------------------------------------------
+apply_filter_1 <- function(dt, inheritance, pedigree) {
+  if (inheritance != "Compound Heterozygous") {
+    return(dt)  # No filtering needed
+  }
+  cat("[apply_filter_1] Applying Compound Heterozygous filtering...\n")
+  # Detect if trio
+  kinships <- sapply(pedigree, function(x) x$kinship)
+  has_mother <- any(kinships == "mother")
+  has_father <- any(kinships == "father")
+  is_trio <- has_mother && has_father
+  cat("[apply_filter_1] Is trio:", is_trio, "\n")
+  if (!is_trio) {
+    # Non-trio: count variants separately by proband haplotype
+    comp_hets_1 <- dt[alt_allele_count_1 == 1 & GT_1 == "1|0", .(VAR_COUNT_1 = .N), by = GENE_SYMBOL]
+    comp_hets_2 <- dt[alt_allele_count_1 == 1 & GT_1 == "0|1", .(VAR_COUNT_2 = .N), by = GENE_SYMBOL]
+    comp_hets <- merge(comp_hets_1, comp_hets_2, by = "GENE_SYMBOL", all = TRUE)
+    comp_hets <- comp_hets[VAR_COUNT_1 > 0 & VAR_COUNT_2 > 0]
+    # Keep only variants in genes satisfying CH
+    dt <- dt[GENE_SYMBOL %in% comp_hets$GENE_SYMBOL]
+  } else {
+    # Trio: variants inherited in trans from different parents
+    comp_hets <- dt[alt_allele_count_1 == 1 & ((GT_2 == "1|0" & GT_3 == "0|1") | (GT_2 == "0|1" & GT_3 == "1|0")), .(VAR_COUNT = .N), by = GENE_SYMBOL]
+    valid_genes <- comp_hets[VAR_COUNT > 1, GENE_SYMBOL]
+    dt <- dt[GENE_SYMBOL %in% valid_genes]
+  }
+  dt
+}
+
+
+apply_filter_0 <- function(dt, inheritance) {
+  if (!check_snvs_data(dt)) {
+    return(dt)  # return original data if checks fail
+  }
+  cat("apply_filter_0")
+  # Start with a filter expression that always passes
+  filter_expr <- quote(TRUE)
+  cat("Initial filter_expr:", deparse(filter_expr), "\n")
+  cat("Filters received:", paste(names(inheritance), collapse = ", "), "\n")
+  # browser()
+  # X-linked recessive filter
+  if (!is.null(inheritance) && inheritance == "X-Linked Recessive") {
+    filter_expr <- bquote(.(filter_expr) & (dt[["CHROM"]] == "chrX"))
+  }
+  cat("After X-linked filter, filter_expr:", deparse(filter_expr), "\n")
+  # Apply filter and return
+  dt[eval(filter_expr)]
+}
+
 
 apply_filters <- function(pedigree, allele_counts, dt, filters, type, vep_consequences) {
   if (!check_snvs_data(dt)) {

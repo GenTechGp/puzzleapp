@@ -6,10 +6,10 @@ variants_server <- function(id, shared_data) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    exported_cols <- reactiveVal(NULL)
+    exported_cols <- shiny::reactiveVal(NULL)
 
-    reset_trigger <- reactiveVal(0)
-    observeEvent(input$reset_table, {
+    reset_trigger <- shiny::reactiveVal(0)
+    shiny::observeEvent(input$reset_table, {
       reset_trigger(reset_trigger() + 1)
     })
 
@@ -83,29 +83,29 @@ variants_server <- function(id, shared_data) {
       )
     })
 
-    observeEvent(input$export_signal, {
+    shiny::observeEvent(input$export_signal, {
       exported_cols(input$export_signal)
 
-      showModal(modalDialog(
+      shiny::showModal(shiny::modalDialog(
         title = "Save Table",
-        textInput(ns("out_path"), "Save Path", value = ""),
-        selectInput(ns("out_ext"), "Format", choices = c("tsv","csv","xlsx"), selected = "tsv"),
-        checkboxInput(ns("overwrite"), "Overwrite if output file exists", value = TRUE),
-        checkboxInput(ns("save_selected"), "Save only selected columns", value = TRUE),  # NEW
-        footer = tagList(
-          actionButton(ns("confirm_save"), "Save"),
-          modalButton("Cancel")
+        shiny::textInput(ns("out_path"), "Save Path", value = ""),
+        shiny::selectInput(ns("out_ext"), "Format", choices = c("tsv", "csv", "xlsx"), selected = "tsv"),
+        shiny::checkboxInput(ns("overwrite"), "Overwrite if output file exists", value = TRUE),
+        shiny::checkboxInput(ns("save_selected"), "Save only selected columns in current order", value = TRUE),
+        footer = shiny::tagList(
+          shiny::actionButton(ns("confirm_save"), "Save"),
+          shiny::modalButton("Cancel")
         ),
         easyClose = FALSE
       ))
     })
 
-    observeEvent(input$confirm_save, {
-      req(input$out_path)
+    shiny::observeEvent(input$confirm_save, {
+      shiny::req(input$out_path)
 
       # check overwrite setting
       if (!isTRUE(input$overwrite) && file.exists(input$out_path)) {
-        showNotification("File already exists. Overwrite is disabled.", type = "error")
+        shiny::showNotification("File already exists. Overwrite is disabled.", type = "error")
         return(NULL)
       }
       cat("Saving data to", input$out_path, "as", input$out_ext, "\n")
@@ -114,7 +114,7 @@ variants_server <- function(id, shared_data) {
 
       # Decide whether to save only selected columns or full dataset
       if (isTRUE(input$save_selected)) {
-        req(exported_cols())
+        shiny::req(exported_cols())
         cat("Save selected columns only\n")
         cat("Exported columns in user order:", paste(exported_cols(), collapse = ", "), "\n")
         data_to_save <- df[, exported_cols(), drop = FALSE]
@@ -124,14 +124,14 @@ variants_server <- function(id, shared_data) {
 
       tryCatch({
         switch(input$out_ext,
-              tsv  = data.table::fwrite(data_to_save, input$out_path, sep = "\t"),
-              csv  = data.table::fwrite(data_to_save, input$out_path, sep = ","),
-              xlsx = openxlsx::write.xlsx(data_to_save, input$out_path)
+          tsv  = data.table::fwrite(data_to_save, input$out_path, sep = "\t"),
+          csv  = data.table::fwrite(data_to_save, input$out_path, sep = ","),
+          xlsx = openxlsx::write.xlsx(data_to_save, input$out_path)
         )
-        showNotification("Data saved successfully", type = "message")
-        removeModal()
+        shiny::showNotification("Data saved successfully", type = "message")
+        shiny::removeModal()
       }, error = function(e) {
-        showNotification(paste("Error saving data:", e$message), type = "error")
+        shiny::showNotification(paste("Error saving data:", e$message), type = "error")
       })
     })
   })

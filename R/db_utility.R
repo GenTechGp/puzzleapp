@@ -25,6 +25,24 @@ load_vep_map <- function(file = NULL) {
 }
 
 
+# #' Load Phenotype Data
+# #'
+# #' Utility function to load phenotype-to-genes data from a TSV file.
+# #'
+# #' @param file Path to the phenotype TSV file. If NULL, loads the default file from the package.
+# #' @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
+# load_phenotype_data <- function(file = NULL) {
+#   if (is.null(file)) {
+#     cat("Loading default HPO data.\n")
+#     # Locate the TSV file inside inst/extdata/
+#     file <- system.file("extdata", "phenotype_to_genes.txt", package = "puzzleapp")
+#   }
+#   stopifnot(file.exists(file))
+#   # Read the file
+#   df <- read.delim(file, stringsAsFactors = FALSE, sep = "\t")
+#   return(df)
+# }
+
 #' Load Phenotype Data
 #'
 #' Utility function to load phenotype-to-genes data from a TSV file.
@@ -36,12 +54,20 @@ load_phenotype_data <- function(file = NULL) {
     cat("Loading default HPO data.\n")
     # Locate the TSV file inside inst/extdata/
     file <- system.file("extdata", "phenotype_to_genes.txt", package = "puzzleapp")
+    if (!file.exists(file)) {
+      alt_file <- system.file("extdata", "phenotype_to_genes.txt.tar.bz2", package = "puzzleapp")
+      cat("Please Decompress file:", alt_file, "\n")
+      # exit now
+      stop("Decompress the file and try again.")
+    }
   }
+
   stopifnot(file.exists(file))
   # Read the file
   df <- read.delim(file, stringsAsFactors = FALSE, sep = "\t")
   return(df)
 }
+
 
 
 #' Load PanelApp Data

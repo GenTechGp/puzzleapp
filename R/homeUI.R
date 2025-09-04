@@ -4,47 +4,83 @@
 #' @return Shiny UI object
 #' @export
 #' @import shiny
+
+prefOptsUI <- function(ns) {
+  createPreferencesSection <- function(id, title) {
+    selectizeInput(ns(id), title, choices = NULL, multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%")
+  }
+  fluidRow(
+    column(12, createPreferencesSection("variants_preferences", "Variants columns")),
+    column(12, createPreferencesSection("panelapp_preferences", "PanelApp columns")),
+    column(12, createPreferencesSection("phenotype_preferences", "Phenotype columns")),
+    column(12, div(actionButton(ns("update_preferences"), "Save preferred columns", class = "btn-primary"), style = "margin-top: 10px; text-align: left;"))
+  )
+}
+
 home_ui <- function(id) {
-  ns <- NS(id)
-  tagList(
-    br(),
-    fluidRow(
-      column(6, style = "padding: 1;", textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
-      column(2, actionButton(ns("load_yml"), "Load from file", class = "btn-primary")),
-      column(4)  # empty space
+  ns <- shiny::NS(id)
+  shiny::tagList(
+    shiny::br(),
+    shiny::fluidRow(
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
+      shiny::column(2, shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary")),
+      shiny::column(4)  # empty space
     ),
 
-    strong("Number of Individuals (set this value first):"),
-    fluidRow(
-      column(1, numericInput(ns("num_individuals"), label = NULL, value = 1, min = 1, step = 1)),
-      column(11)  # empty space
+    shiny::strong("Number of Individuals (set this value first):"),
+    shiny::fluidRow(
+      shiny::column(1, shiny::numericInput(ns("num_individuals"), label = NULL, value = 1, min = 1, step = 1)),
+      shiny::column(11)  # empty space
     ),
 
-    uiOutput(ns("samples_panel")),
+    shiny::uiOutput(ns("samples_panel")),
 
-    fluidRow(
-      column(6, style = "padding: 1;", textInput(ns("snvs_vcf"), "SNVs & Indels VCF:", width = "100%")),
-      column(6, style = "padding: 1;", textInput(ns("snvs_tsv"), "SNVs & Indels TSV:", width = "100%"))
+    shiny::fluidRow(
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("snvs_vcf"), "SNVs & Indels VCF:", width = "100%")),
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("snvs_tsv"), "SNVs & Indels TSV:", width = "100%"))
     ),
-    fluidRow(
-      column(6, style = "padding: 1;", textInput(ns("svs_vcf"), "SVs VCF:", width = "100%")),
-      column(6, style = "padding: 1;", textInput(ns("svs_tsv"), "SVs TSV:", width = "100%"))
+    shiny::fluidRow(
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("svs_vcf"), "SVs VCF:", width = "100%")),
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("svs_tsv"), "SVs TSV:", width = "100%"))
     ),
-    fluidRow(
-      column(4, style = "padding: 1;", textInput(ns("panel_app"), "PanelApp DB:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
-      column(4, style = "padding: 1;", textInput(ns("vep_consequences"), "VEP consequence annotations:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
-      column(4, style = "padding: 1;", textInput(ns("phenotype_data"), "Human Phenotype Ontology DB:", placeholder = "optional. leave blank to load from internal db", width = "100%"))
+    shiny::fluidRow(
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("panel_app"), "PanelApp DB:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("vep_consequences"), "VEP consequence annotations:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("phenotype_data"), "Human Phenotype Ontology DB:", placeholder = "optional. leave blank to load from internal db", width = "100%"))
     ),
 
-    fluidRow(
-      column(2, actionButton(ns("clear_inputs"), "Clear inputs and delete loaded data", class = "btn-danger")),
-      column(2, actionButton(ns("load_data"), "Load Data", class = "btn-primary")),
-      column(8)  # empty space
+    shiny::fluidRow(
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("outdir"), "Output directory:", placeholder = "optional", width = "100%")),
+      shiny::column(6)  # empty space
+      # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_sample"), "IGV Sample ID:", placeholder = "optional. leave blank to disable IGV integration", width = "100%"))
     ),
-    br(),
+
+    shiny::fluidRow(
+      shiny::column(2, shiny::actionButton(ns("clear_inputs"), "Clear inputs and delete loaded data", class = "btn-danger")),
+      shiny::column(2, shiny::actionButton(ns("load_data"), "Load Data", class = "btn-primary")),
+      shiny::column(8)  # empty space
+    ),
+    shiny::br(),
     # Feedback text
-    textOutput(ns("status"))
+    shiny::textOutput(ns("status")),
+    shiny::br(),
+
+    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_pref", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show preferred column lists (add/remove/reorder)", id="toggle_pref_label")),
+    shiny::div(id="pref_container", style="display:none;margin-top:10px;", prefOptsUI(ns)),
+    # shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click',function(){var c=$('#pref_container');var b=$('#toggle_pref');var l=$('#toggle_pref_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide Preferences');}else{b.text('+');l.text('Show Preferences');}});")),
+    shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click', function() {
+      var c = $('#pref_container');
+      var b = $('#toggle_pref');
+      var l = $('#toggle_pref_label');
+      c.toggle();
+      if(c.is(':visible')) {
+        b.text('-'); l.text('Hide preferred column lists (add/remove/reorder)');
+        Shiny.setInputValue('home-cookie_prefs', getCookie('user_prefs'), {priority: 'event'});
+      } else {
+        b.text('+'); l.text('Show preferred column lists (add/remove/reorder)');
+      }
+    });")),
+    br(),
   )
 
 }
-

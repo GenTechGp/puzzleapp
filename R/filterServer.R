@@ -5,49 +5,11 @@
 
 source("R/filter_utility.R")
 source("R/inheritance_utility.R")
+source("R/filter_utility_legacy.R")
 
 selectFiltersServer <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    snv_filters <- reactive({
-      list(
-        # Frequency
-        af            = input$af,
-        # Quality
-        pass_only     = isTRUE(input$pass_variants == "PASS only variants"),
-        affected_only = isTRUE(input$affected_switch),
-        genotype_quality = input$genotype_quality,
-        allele_balance   = input$allele_balance,
-        # Annotation
-        conseq_checkboxes = input$conseq_checkboxes,
-        spliceai_score    = input$spliceai_score,
-        # Pathogenicity
-        clinvar_checkboxes = input$clinvar_checkboxes,
-        # In silico
-        revel           = input$revel,
-        alpha_missense  = input$alpha_missense,
-        sift            = input$sift,
-        polyphen        = input$polyphen
-      )
-    })
-
-    sv_filters <- reactive({
-      list(
-        # Frequency
-        af            = input$sv_af,
-        # Quality
-        pass_only     = isTRUE(input$sv_pass_variants == "PASS only variants"),
-        affected_only = isTRUE(input$sv_affected_switch),
-        genotype_quality = input$sv_genotype_quality,
-        allele_balance   = input$sv_allele_balance,
-        # Annotation
-        conseq_checkboxes = input$sv_conseq_checkboxes,
-        # SV features
-        sv_features_checkboxes = input$sv_features_checkboxes,
-        sv_min_len = input$min_svlen,
-        sv_max_len = input$max_svlen
-      )
-    })
 
     samples <- reactive({ shared_data$samples })
     pedigree <- reactive({ convert_samples_to_pedigree(samples()) })
@@ -112,18 +74,75 @@ selectFiltersServer <- function(id, shared_data) {
       counts
     }
 
+    phenos <- reactiveVal()
+
     observeEvent(input$apply, {
-      snvf <- snv_filters()
-      svf  <- sv_filters()
       ped <- pedigree()
       allele_counts <- getAlleleCounts(ped, input)
-      snv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=shared_data$snvs_data, filters=snvf, type="snv", vep_consequences=shared_data$vep_consequences)
-      sv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=shared_data$svs_data, filters=svf, type="sv", vep_consequences=shared_data$vep_consequences)
-      #cat("class of snv_filtered:", class(snv_filtered), "\n")
-      shared_data$snvs_data_filtered <- snv_filtered
-      shared_data$svs_data_filtered  <- sv_filtered
-      showNotification(sprintf("snv_filtered to %s rows", nrow(snv_filtered)), type = "message")
-      showNotification(sprintf("sv_filtered to %s rows", nrow(sv_filtered)), type = "message")
+      cat("class of allele_counts:", class(allele_counts), "\n")
+      cat("Allele counts:\n")
+      print(allele_counts)
+
+      # Legacy filtering function
+      snv_filters <- list(
+        clinvar_filter = input$clinvar_checkboxes,
+        af_value = as.numeric(input$af),
+        annotation_filter = input$conseq_checkboxes,
+        revel_value = input$revel,
+        sift_filter = input$sift,
+        polyphen_filter = input$polyphen,
+        spliceai_filter = input$spliceai_score,
+        inheritance_filter = input$inher,
+        panelapp_filter = input$panelapp,
+        genotype_quality_value = input$genotype_quality,
+        allele_balance_value = input$allele_balance,
+        hpo_terms_list = phenos()
+      )
+
+      sv_filters <- list(
+        inheritance_filter = input$inher,
+        panelapp_filter = input$panelapp,
+        annotation_filter = input$sv_conseq_checkboxes,
+        sv_features = input$sv_features_checkboxes,
+        min_svlen = input$min_svlen,
+        max_svlen = input$max_svlen,
+        genotype_quality_value = input$sv_genotype_quality,
+        allele_balance_value = input$sv_allele_balance,
+        af_value = as.numeric(input$sv_af),
+        hpo_terms_list = phenos()
+      )
+      if (exists("processed_data", envir = .GlobalEnv)) {
+        processed_data <- get("processed_data", envir = .GlobalEnv)
+        cat("Applying legacy filter_dataset on processed_data with", nrow(processed_data), "rows\n")
+        cat("class of processed_data:", class(processed_data), "\n")
+        cat("colnames of processed_data:", paste(colnames(processed_data), collapse=", "), "\n")
+        # browser()
+        allele_counts_dt <- data.table(
+          sample_id = names(allele_counts),
+          allele_count = unlist(allele_counts, use.names = FALSE)
+        )
+        pedigree_dt <- rbindlist(ped, fill = TRUE)
+        d <- processed_data
+        cat("nrow(d):", nrow(d), "\n")
+        filtered_data <- apply_filter_legacy(data=d,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree_dt, allele_tab=allele_counts_dt, panel_app_genes=NULL, vep_consequences=shared_data$vep_consequences, phenotype_data=NULL)
+        shared_data$legacy_snvs_data_filtered <- filtered_data$snv_filtered_data
+        shared_data$legacy_svs_data_filtered <- filtered_data$sv_filtered_data
+      } else {
+        warning("processed_data not available yet in GlobalEnv")
+      }
+      # legacy end
+
+      # new filtering function
+      # snv_filtered_0 <- apply_filter_0(dt=shared_data$snvs_data, input$inher)
+      # sv_filtered_0  <- apply_filter_0(dt=shared_data$svs_data, input$inher)
+      # snv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=snv_filtered_0, filters=snvf, type="snv", vep_consequences=shared_data$vep_map)
+      # sv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=sv_filtered_0, filters=svf, type="sv", vep_consequences=shared_data$vep_map)
+      # shared_data$snvs_data_filtered <- snv_filtered
+      # shared_data$svs_data_filtered  <- sv_filtered
+      # showNotification(sprintf("snv_filtered to %s rows", nrow(snv_filtered)), type = "message")
+      # showNotification(sprintf("sv_filtered to %s rows", nrow(sv_filtered)), type = "message")
+      showNotification(sprintf("legacy_snvs_data_filtered to %s rows", nrow(shared_data$legacy_snvs_data_filtered)), type = "message")
+      showNotification(sprintf("legacy_svs_data_filtered to %s rows", nrow(shared_data$legacy_svs_data_filtered)), type = "message")
       # print(allele_counts)
 
     })
@@ -149,7 +168,7 @@ selectFiltersServer <- function(id, shared_data) {
     })
 
     observeEvent(input$pathogenicity, {
-      cat(sprintf("[homeServer] Pathogenicity filter changed: %s\n", input$pathogenicity))
+      cat(sprintf("[homeServer] Pathogenicity filter chan`ged: %s\n", input$pathogenicity))
       pathogenicity_map <- list(
         "Pathogenic/Likely pathogenic" = c("Pathogenic", "Likely pathogenic"),
         "Not benign" = c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting")
