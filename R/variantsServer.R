@@ -1,138 +1,81 @@
-#' Variants Tab Server
-#' @param id Module ID
-#' @export
-#' @import shiny
-variants_server <- function(id, shared_data) {
-  shiny::moduleServer(id, function(input, output, session) {
+variants_server <- function(id, shared_data, initial_order) {
+  moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    exported_cols <- shiny::reactiveVal(NULL)
-
-    reset_trigger <- shiny::reactiveVal(0)
-    shiny::observeEvent(input$reset_table, {
-      reset_trigger(reset_trigger() + 1)
+    observe({
+      cat("[DEBUG] All input names:", names(reactiveValuesToList(input)), "\n")
     })
 
-    output$variants_table <- DT::renderDataTable({
-      reset_trigger()  # dependency for reset
+    # Safety: require a reactiveVal-style initial_order (read/write).
+    if (!is.function(initial_order) || length(formals(initial_order)) == 0) {
+      stop("initial_order must be a reactiveVal (i.e. a function that accepts an argument to set and returns value when called without args).")
+    }
 
+    output$table <- renderDT({
       df <- shared_data()
-      if (is.null(df) || nrow(df) == 0) {
-        return(DT::datatable(data.frame(Message = "No data available")))
-      }
+      req(df)
+      all_cols <- colnames(df)
 
-      DT::datatable(
+      # determine visible columns using initial_order (reactiveVal expected)
+      current_order <- isolate(initial_order())
+      if (is.null(current_order) || length(current_order) == 0) {
+        visible_cols <- all_cols
+      } else {
+        visible_cols <- intersect(current_order, all_cols)
+      }
+      hidden_cols <- setdiff(all_cols, visible_cols)
+
+      # robust 0-based index computation for DataTables
+      hidden_idx <- which(all_cols %in% hidden_cols) - 1  # 0-based for DT
+
+      datatable(
         df,
         extensions = c("ColReorder", "Buttons"),
         options = list(
-          dom = "lBfrtip",  # Buttons + Filter + Length + Table + Info + Pagination
-          buttons = list(
-            list(extend = "colvis", text = "Select Columns"),
-            list(
-              extend = "collection",   # can be 'collection' or 'text'
-              text = "Deselect All",
-              action = DT::JS("
-                function ( e, dt, node, config ) {
-                  dt.columns().visible(false);
-                }
-              ")
-            ),
-            list(
-              extend = "collection",
-              text = "Select All",
-              action = DT::JS("
-                function ( e, dt, node, config ) {
-                  dt.columns().visible(true);
-                }
-              ")
-            ),
-            list(
-              extend = "collection", text = "Export", dropIcon = TRUE,
-              action = DT::JS(
-                sprintf("
-                  function(e, dt, node, config) {
-                    // Get the column indexes in current *display* order
-                    var colOrder = dt.colReorder.order();
-
-                    // Keep only visible ones
-                    var exportCols = colOrder.filter(function(idx){
-                      return dt.column(idx).visible();
-                    });
-
-                    // Send to Shiny
-                    Shiny.setInputValue('%s', exportCols, {priority: 'event'});
-                  }", ns("export_signal")
-                )
-              )
-            )
-          ),
-          colReorder = TRUE,
+          dom = "Bfrtip",
           scrollX = TRUE,
           autoWidth = TRUE,
-          columnDefs = list(list(width = "150px", targets = "_all")),
-          drawCallback = DT::JS("
-            function(settings) {
-              var table = this.api();
-              // ensure headers/body align after column visibility change
-              table.on('column-visibility.dt', function(e, settings, column, state) {
-                table.columns.adjust();
-              });
-            }
-          ")
-        )
-      )
-    })
-
-    shiny::observeEvent(input$export_signal, {
-      exported_cols(input$export_signal)
-
-      shiny::showModal(shiny::modalDialog(
-        title = "Save Table",
-        shiny::textInput(ns("out_path"), "Save Path", value = ""),
-        shiny::selectInput(ns("out_ext"), "Format", choices = c("tsv", "csv", "xlsx"), selected = "tsv"),
-        shiny::checkboxInput(ns("overwrite"), "Overwrite if output file exists", value = TRUE),
-        shiny::checkboxInput(ns("save_selected"), "Save only selected columns in current order", value = TRUE),
-        footer = shiny::tagList(
-          shiny::actionButton(ns("confirm_save"), "Save"),
-          shiny::modalButton("Cancel")
+          stateSave = TRUE,
+          stateDuration = -1,
+          # ensure DT state includes column names
+          columns = lapply(all_cols, function(n) list(name = n)),
+          columnDefs = c(
+            list(list(width = "150px", targets = "_all")),
+            if (length(hidden_idx) > 0) list(list(visible = FALSE, targets = hidden_idx))
+          ),
+          colReorder = TRUE,
+          buttons = list(list(extend = "colvis", text = "Select Columns"))
         ),
-        easyClose = FALSE
-      ))
-    })
+        selection = "none",
+        rownames = FALSE
+      )
+    }, server = TRUE)  # always use server-side processing as requested
 
-    shiny::observeEvent(input$confirm_save, {
-      shiny::req(input$out_path)
+    # Observe DT state changes and update initial_order (avoid loops)
+    observe({
+      state <- input$table_state
+      req(state)
+      if (!is.null(state$columns) && length(state$columns) > 0) {
+        # extract best available name for each column from state
+        new_order <- vapply(state$columns, FUN.VALUE = character(1), FUN = function(col) {
+          if (!is.null(col$name) && nzchar(col$name)) return(col$name)
+          if (!is.null(col$data) && nzchar(col$data)) return(col$data)
+          if (!is.null(col$title) && nzchar(col$title)) return(col$title)
+          NA_character_
+        }, USE.NAMES = FALSE)
 
-      # check overwrite setting
-      if (!isTRUE(input$overwrite) && file.exists(input$out_path)) {
-        shiny::showNotification("File already exists. Overwrite is disabled.", type = "error")
-        return(NULL)
+        # drop any NA and keep only columns that still exist in the df
+        new_order <- new_order[!is.na(new_order)]
+        sd <- isolate(shared_data())
+        df_cols <- if (!is.null(sd)) colnames(sd) else character(0)
+        new_order <- intersect(new_order, df_cols)
+
+        # update only when different to avoid reactive loops
+        old_order <- isolate(initial_order())
+        if (!identical(old_order, new_order)) {
+          initial_order(new_order)
+        }
       }
-      cat("Saving data to", input$out_path, "as", input$out_ext, "\n")
-
-      df <- shared_data()
-
-      # Decide whether to save only selected columns or full dataset
-      if (isTRUE(input$save_selected)) {
-        shiny::req(exported_cols())
-        cat("Save selected columns only\n")
-        cat("Exported columns in user order:", paste(exported_cols(), collapse = ", "), "\n")
-        data_to_save <- df[, exported_cols(), drop = FALSE]
-      } else {
-        data_to_save <- df
-      }
-
-      tryCatch({
-        switch(input$out_ext,
-          tsv  = data.table::fwrite(data_to_save, input$out_path, sep = "\t"),
-          csv  = data.table::fwrite(data_to_save, input$out_path, sep = ","),
-          xlsx = openxlsx::write.xlsx(data_to_save, input$out_path)
-        )
-        shiny::showNotification("Data saved successfully", type = "message")
-        shiny::removeModal()
-      }, error = function(e) {
-        shiny::showNotification(paste("Error saving data:", e$message), type = "error")
-      })
     })
   })
 }

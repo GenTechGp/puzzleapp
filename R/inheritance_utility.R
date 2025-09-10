@@ -52,7 +52,7 @@ convert_samples_to_pedigree <- function(samples_list) {
       code      = s$code
     )
   })
-  print(pedigree)
+  # print(pedigree)
   check_pedigree_sanity(pedigree)
   pedigree
 }

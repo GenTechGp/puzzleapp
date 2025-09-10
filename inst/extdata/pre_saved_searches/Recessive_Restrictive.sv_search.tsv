@@ -1,0 +1,8 @@
+Label	Recessive Restrictive (SVs/LRS)
+Inheritance	Homozygous Recessive
+Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant
+gnomADv4 AF	0.01
+Affected only	TRUE
+Filter value	PASS only variants
+Genotype quality	20
+Allele balance	0.20

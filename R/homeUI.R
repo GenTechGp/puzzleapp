@@ -50,10 +50,15 @@ home_ui <- function(id) {
     ),
 
     shiny::fluidRow(
-      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("outdir"), "Output directory:", placeholder = "optional", width = "100%")),
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("work_dir"), "Working directory:", width = "100%")),
       shiny::column(6)  # empty space
       # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_sample"), "IGV Sample ID:", placeholder = "optional. leave blank to disable IGV integration", width = "100%"))
     ),
+
+    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_pref", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show preferred column lists (add/remove/reorder)", id="toggle_pref_label")),
+    shiny::div(id="pref_container", style="display:none;margin-top:10px;", prefOptsUI(ns)),
+    shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click',function(){var c=$('#pref_container');var b=$('#toggle_pref');var l=$('#toggle_pref_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide preferred column lists (add/remove/reorder)');}else{b.text('+');l.text('Show preferred column lists (add/remove/reorder)');}});")),
+    shiny::br(),
 
     shiny::fluidRow(
       shiny::column(2, shiny::actionButton(ns("clear_inputs"), "Clear inputs and delete loaded data", class = "btn-danger")),
@@ -63,24 +68,7 @@ home_ui <- function(id) {
     shiny::br(),
     # Feedback text
     shiny::textOutput(ns("status")),
-    shiny::br(),
 
-    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_pref", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show preferred column lists (add/remove/reorder)", id="toggle_pref_label")),
-    shiny::div(id="pref_container", style="display:none;margin-top:10px;", prefOptsUI(ns)),
-    # shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click',function(){var c=$('#pref_container');var b=$('#toggle_pref');var l=$('#toggle_pref_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide Preferences');}else{b.text('+');l.text('Show Preferences');}});")),
-    shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click', function() {
-      var c = $('#pref_container');
-      var b = $('#toggle_pref');
-      var l = $('#toggle_pref_label');
-      c.toggle();
-      if(c.is(':visible')) {
-        b.text('-'); l.text('Hide preferred column lists (add/remove/reorder)');
-        Shiny.setInputValue('home-cookie_prefs', getCookie('user_prefs'), {priority: 'event'});
-      } else {
-        b.text('+'); l.text('Show preferred column lists (add/remove/reorder)');
-      }
-    });")),
-    br(),
   )
 
 }

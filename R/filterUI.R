@@ -2,6 +2,7 @@
 #' @param id Module ID
 #' @export
 #' @import shiny
+#' @importFrom shiny selectizeInput
 
 # ---- UI building functions ----
 # Annotation UI
@@ -146,15 +147,90 @@ inherOptsUI <- function(ns) {
   )
 }
 
+panelBox <- function(id, label, color = "black", width = "100%", height = "30vh") {
+  boxStyle <- paste("overflow-y: auto; max-height: calc(100% - 30px); color:", color, ";")
+  panelStyle <- paste("width:", width, "; height:", height, "; padding: 5px;")
+  if (is.null(label)) {
+    labelUI <- NULL
+  } else {
+    labelStyle <- "font-weight: bold; margin-bottom: 5px;"
+    labelUI <- div(style = labelStyle, label)
+  }
+  wellPanel(labelUI, div(style = boxStyle, textOutput(id)), style = panelStyle)
+}
+
+panelAppOptsUI <- function(ns) {
+  tagList(
+    selectizeInput(ns("panelapp"), "Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
+    br(),
+    fluidRow(
+      column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")),
+      column(3, panelBox(ns("green_genes"), "Green genes:", "green")),
+      column(3, panelBox(ns("red_genes"), "Red genes:", "red")),
+      column(3, panelBox(ns("amber_genes"), "Amber genes:", "#FFBF00"))
+    ),
+  )
+}
+
+phenotypeOptsUI <- function(ns) {
+  tagList(
+    fluidRow(
+      column(4, 
+      br(),
+      textInput(ns("phenotype_var"), "HPO term:", ""),
+      actionButton(ns("phenotype_add"), NULL, icon("plus")),
+      actionButton(ns("phenotype_remove"), NULL, icon("minus")),
+      br(),
+      panelBox(ns("phenotype"), NULL, height = "10vh")
+      )
+    )
+  )
+}
+
+preSavedSearchesUI <- function(ns) {
+  tagList(
+    fluidRow(
+      column(4, 
+        selectizeInput(ns("pre_saved_search"), "SNVs & Indels pre-saved search:", choices = NULL, selected=NULL),
+        selectizeInput(ns("sv_pre_saved_search"), "SVs pre-saved search:", choices = NULL, selected=NULL)
+      ),
+      column(4,   
+        div(style = "display: flex; align-items: center;",
+          textInput(ns("session_name"), "Name session:", value = ""),
+          actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
+        ),
+        div(style = "display: flex; align-items: center;",
+          selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE)),
+          actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;"),
+        ),
+        checkboxInput(ns("load_and_apply"), "Load and apply filter", value = FALSE)
+      ),
+      column(4)
+    )
+  )
+}
 
 selectFiltersUI <- function(id) {
   ns <- NS(id)
 
   tagList(
-  
+    br(),
+    preSavedSearchesUI(ns),
+    br(),
+    
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_inher", "+", style="padding:0 6px;min-width:30px;"), span("Show Inheritance Options", id="toggle_inher_label")),
     div(id="inher_container", style="display:none;margin-top:10px;", inherOptsUI(ns)),
     tags$script(HTML("$('#toggle_inher').on('click',function(){var c=$('#inher_container');var b=$('#toggle_inher');var l=$('#toggle_inher_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide Inheritance Options');}else{b.text('+');l.text('Show Inheritance Model Options');}});")),
+    br(),
+
+    div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_panelapp", "+", style="padding:0 6px;min-width:30px;"), span("Show PanelApp Options", id="toggle_panelapp_label")),
+    div(id="panelapp_container", style="max-height:0; overflow:hidden; transition:max-height 0.3s ease;", panelAppOptsUI(ns)),
+    tags$script(HTML("$('#toggle_panelapp').on('click',function(){var c=$('#panelapp_container'); var b=$('#toggle_panelapp'); var l=$('#toggle_panelapp_label'); if(c.css('max-height')=='0px'){c.css('max-height','2000px'); b.text('-'); l.text('Hide PanelApp Options');} else {c.css('max-height','0px'); b.text('+'); l.text('Show PanelApp Options');}});")),
+    br(),
+
+    div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_phenotype", "+", style="padding:0 6px;min-width:30px;"), span("Show Phenotype Options", id="toggle_phenotype_label")),
+    div(id="phenotype_container", style="max-height:0; overflow:hidden; transition:max-height 0.3s ease;", phenotypeOptsUI(ns)),
+    tags$script(HTML("$('#toggle_phenotype').on('click',function(){var c=$('#phenotype_container'); var b=$('#toggle_phenotype'); var l=$('#toggle_phenotype_label'); if(c.css('max-height')=='0px'){c.css('max-height','2000px'); b.text('-'); l.text('Hide Phenotype Options');} else {c.css('max-height','0px'); b.text('+'); l.text('Show Phenotype Options');}});")),
     br(),
 
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_snv", "+", style="padding:0 6px;min-width:30px;"), span("Show SNVs and Indels Filters", id="toggle_snv_label")),
@@ -166,7 +242,11 @@ selectFiltersUI <- function(id) {
     div(id="sv_container", style="display:none;margin-top:10px;", svOptsUI(ns)),
     tags$script(HTML("$('#toggle_sv').on('click',function(){var c=$('#sv_container');var b=$('#toggle_sv');var l=$('#toggle_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide SVs Filters');}else{b.text('+');l.text('Show SVs Filters');}});")),
     br(),
-    actionButton(ns("apply"), "Apply filters", class = "btn-primary"),
 
+    fluidRow(
+      column(1, actionButton(ns("reset"), "Reset all filters", class = "btn-secondary")),
+      column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
+      column(10)
+    )
   )
 }

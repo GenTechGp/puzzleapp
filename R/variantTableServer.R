@@ -302,7 +302,7 @@ tabServer <- function(id, filtered_data, selected, pref, selected_igv_id, exclud
       cat(sprintf("[tabServer] Save pop-up box (%s)\n",id))
       showModal(modalDialog(
         title = 'Export Options',
-        tabFileSavingUI(ns, pref$outdir),
+        tabFileSavingUI(ns, pref$working_dir),
         footer = tagList(
           actionButton(ns("save_file"), 'Save'),
           modalButton('Cancel')
@@ -342,7 +342,7 @@ tabServer <- function(id, filtered_data, selected, pref, selected_igv_id, exclud
     })
 
     observeEvent(input$out_ext, {
-      path <- get_out_path(ns, pref$outdir, input$out_ext)
+      path <- get_out_path(ns, pref$working_dir, input$out_ext)
       updateTextInput(inputId = "out_path", value = path)
     })
 

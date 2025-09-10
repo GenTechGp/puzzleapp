@@ -16,7 +16,7 @@ home_server <- function(id, shared_data) {
 
     clear_shared_data <- function(shared_data) {
       # Clear shared_data reactiveValues
-      fields <- c("samples", "dependencies", "snvs_data", "svs_data", "snvs_data_filtered", "svs_data_filtered", "panel_app_data", "vep_map", "phenotype_data", "vep_consequences", "legacy_snvs_data_filtered", "legacy_svs_data_filtered")
+      fields <- c("samples", "dependencies", "snvs_data", "svs_data", "snvs_data_filtered", "svs_data_filtered", "panel_app_data", "vep_map", "phenotype_data", "vep_consequences", "legacy_snvs_data_filtered", "legacy_svs_data_filtered", "work_dir")
       for (f in fields) shared_data[[f]] <- NULL
       shared_data$paths <- list()
       shared_data$pref <- list(variants = NULL, panelapp = NULL, phenotype = NULL, outdir = "")
@@ -34,6 +34,7 @@ home_server <- function(id, shared_data) {
       shiny::updateTextInput(session, "panel_app", value = "")
       shiny::updateTextInput(session, "vep_consequences", value = "")
       shiny::updateTextInput(session, "phenotype_data", value = "")
+      shiny::updateTextInput(session, "outdir", value = "")
       # Clear shared_data
       clear_shared_data(shared_data)
       shared_data$config_samples <- NULL
@@ -107,72 +108,30 @@ home_server <- function(id, shared_data) {
         shiny::showNotification("No data files specified to load.", type = "error")
         return()
       }
+      if (nzchar(input$work_dir) == 0) {
+        shiny::showNotification("Please specify a working directory.", type = "error")
+        return()
+      }
       clear_shared_data(shared_data)
       # Store in shared_data
-      # Collect sample info from UI inputs
-      n <- input$num_individuals
-      shared_data$samples <- lapply(seq_len(n), function(i) {
-        list(
-          sample_id = input[[paste0("sample_id_", i)]],
-          kinship   = input[[paste0("kinship_", i)]],
-          status    = input[[paste0("status_", i)]],
-          sex       = input[[paste0("sex_", i)]],
-          code      = input[[paste0("code_", i)]],
-          bam       = input[[paste0("bam_", i)]],
-          coverage  = input[[paste0("coverage_", i)]]
-        )
-      })
-      cat("Collected sample info for", length(shared_data$samples), "individuals.\n")
-      cat("Samples:", str(shared_data$samples), "\n")
+      collected <- collect_inputs(input)
 
-      if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)){
-        if (file.exists(input$snvs_tsv)) {
-          shared_data$snvs_data <- fread(input$snvs_tsv)
-          shared_data$snvs_data_filtered <- shared_data$snvs_data # acts like a shallow reference initially, but behaves as a deep copy once you modify it
-        } else {
-          shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
-        }
+      for (msg in collected$messages) {
+        shiny::showNotification(msg, type = "error")
       }
-      if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)){
-        if( file.exists(input$svs_tsv)) {
-          shared_data$svs_data <- fread(input$svs_tsv)
-          shared_data$svs_data_filtered <- shared_data$svs_data # acts like a shallow reference initially, but behaves as a deep copy once you modify it
-        } else {
-          shiny::showNotification("SVs TSV file not found.", type = "error")
-        }
-      }
-      if (!is.null(input$panel_app) && nzchar(input$panel_app)){
-        cat("input$panel_app:", input$panel_app, "\n")
-        if (file.exists(input$panel_app)) {
-          shared_data$panel_app_data <- NULL#load_panel_app_data(file = input$panel_app)
-        } else {
-          shiny::showNotification("PanelApp TSV file not found.", type = "error")
-        }
-      } else {
-        cat("Loading from PanelApp database.\n")
-        shared_data$panel_app_data <- NULL#load_panel_app_data()
-      }
-      if (!is.null(input$vep_consequences) && nzchar(input$vep_consequences)){
-        if (file.exists(input$vep_consequences)) {
-          shared_data$vep_map <- load_vep_map(file = input$vep_consequences)
-          shared_data$vep_consequences <- fread(file = input$vep_consequences, header=TRUE)
-        } else {
-          shiny::showNotification("VEP consequence annotations file not found.", type = "error")
-        }
-      } else {
-        cat("Loading from VEP consequences database.\n")
-        shared_data$vep_map <- load_vep_map()
-      }
-      if (!is.null(input$phenotype_data) && nzchar(input$phenotype_data)){
-        if (file.exists(input$phenotype_data)) {
-          shared_data$phenotype_data <- NULL#load_phenotype_data(file = input$phenotype_data)
-        } else {
-          shiny::showNotification("Human Phenotype Ontology TSV file not found.", type = "error")
-        }
-      } else {
-        cat("Loading from HPO database.\n")
-        shared_data$phenotype_data <- load_phenotype_data()
-      }
+
+      # Fill shared_data reactives
+      shared_data$samples <- collected$samples
+      shared_data$pedigree <- collected$pedigree
+      shared_data$snvs_data <- collected$snvs_data
+      shared_data$snvs_data_filtered <- collected$snvs_data
+      shared_data$svs_data <- collected$svs_data
+      shared_data$svs_data_filtered <- collected$svs_data
+      shared_data$panel_app_genes <- collected$panel_app_data
+      shared_data$vep_consequences <- collected$vep_consequences
+      shared_data$phenotype_data <- collected$phenotype_data
+
+      shared_data$work_dir <- input$work_dir
 
       #to support legacy start
       processed_list <- list()
@@ -186,16 +145,15 @@ home_server <- function(id, shared_data) {
           grep(paste0("^", col, "$|^", col, "_[0-9]+$"), available, value = TRUE)
         }))
       }
-      extra_columns <- c("PRIORITY", "NOTES", "INHERITANCE", "PANEL_APP", "HPO_ID", "HPO_COUNT", "spliceai_override", "clinvar_override", "PRIORITYFlag")
       snvs_cols <- if (!is.null(shared_data$snvs_data)) colnames(shared_data$snvs_data) else character(0)
       svs_cols  <- if (!is.null(shared_data$svs_data)) colnames(shared_data$svs_data) else character(0)
-      data_cols <- sort(unique(c(snvs_cols, svs_cols)))
-      available_cols <- c(data_cols, extra_columns)
+      available_cols <- sort(unique(c(snvs_cols, svs_cols)))
       selected_pref_variant_cols <- resolve_colnames(input$variants_preferences, available_cols)
+      cat("Selected variant columns based on preferences:", selected_pref_variant_cols, "\n")
       shared_data$pref$variants <- selected_pref_variant_cols
       shared_data$pref$panelapp <- input$panelapp_preferences
       shared_data$pref$phenotype <- input$phenotype_preferences
-      shared_data$pref$outdir <- input$outdir
+      shared_data$pref$working_dir <- shared_data$work_dir
 
       # shared_data$legacy_snvs_data_filtered <- shared_data$snvs_data_filtered
       # to support legacy end
@@ -282,10 +240,9 @@ home_server <- function(id, shared_data) {
     # --- If cookie arrives, override defaults ---
     observeEvent(input$cookie_prefs, {
       cat("[HomeServer] cookie_prefs received:", "\n")
-      print(input$cookie_prefs)   # prints the full list in readable format
+      # print(input$cookie_prefs)   # prints the full list in readable format
       # Flatten the list of lists into list of character vectors
       prefs <- lapply(input$cookie_prefs, function(x) unlist(x))
-
       cat("[HomeServer] Flattened cookie_prefs keys and lengths:\n")
       for (nm in names(prefs)) {
         cat(nm, ":", length(prefs[[nm]]), "items\n")
@@ -309,8 +266,6 @@ home_server <- function(id, shared_data) {
       ))
       showNotification("Saved as a browser cookie!", type = "message")
     })
-
-
 
   })
 }

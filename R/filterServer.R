@@ -11,8 +11,73 @@ selectFiltersServer <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
-    samples <- reactive({ shared_data$samples })
-    pedigree <- reactive({ convert_samples_to_pedigree(samples()) })
+    phenos <- reactiveVal()
+    green_genes <- reactiveVal()
+    red_genes <- reactiveVal()
+    amber_genes <- reactiveVal()
+    unclassified_genes <- reactiveVal()
+
+    cat("[filtServer] Loading available searches...\n")
+    # Load available searches on startup
+    available_searches <- reactive({
+      read_search_files(NULL, "snv")
+    })
+    sv_available_searches <- reactive({
+      read_search_files(NULL, "sv")
+    })
+
+    # Sessions
+    sessions_dir <- reactive({
+      req(shared_data$work_dir)
+      req(shared_data$pedigree)
+      sample <- shared_data$pedigree[kinship == "proband", sample_id]
+      sprintf("%s/sessions/%s", shared_data$work_dir, sample)
+    })
+    sessions <- reactiveVal(character())
+    observe({
+      sessions(list_files(sessions_dir()))
+    })
+
+    # Update UI dropdown with available sessions
+    observe({
+      updateSelectizeInput(session, "available_sessions", choices = c("", sessions()), selected = "")
+      cat("[filtServer] Updated UI dropdowns for available sessions\n")
+    })
+
+    observeEvent(input$save_session, {
+      req(shared_data$snvs_data)
+      req(shared_data$svs_data)
+      if (save_session_data(input, input$session_name, sessions_dir(), shared_data$snvs_data, shared_data$svs_data, phenos())) {
+        sessions(list_files(sessions_dir()))
+        message("Session saved. It will appear in the list automatically.")
+      }
+    })
+
+    observeEvent(input$load_session, {
+      req(shared_data$snvs_data)
+      req(shared_data$svs_data)
+      if (is.null(input$available_sessions) || input$available_sessions == "") {
+        showNotification("Please select a session to load.", type = "error")
+        return()
+      }
+      loaded <- load_session_data(input, input$available_sessions, sessions_dir(), shared_data$snvs_data, shared_data$svs_data)
+      if (!is.null(loaded)) {
+        update_search_params(loaded$snv_filters, session, type="snv")
+        update_search_params(loaded$sv_filters, session, type="sv")
+        # Both snv and sv have same HPO terms. Hence use snv terms
+        phenos(c(loaded$snv_filters[["HPO Terms"]]))
+        shared_data$snvs_data_filtered <- loaded$snvs_data
+        shared_data$svs_data_filtered <- loaded$svs_data
+        showNotification(sprintf("Session '%s' loaded.", input$available_sessions), type = "message")
+        if (isTRUE(input$load_and_apply)) {
+          cat("[filtServer] Load and apply filter is checked. Applying filters...\n")
+          isolate({
+            shinyjs::delay(100, shinyjs::click("apply_filter"))
+          })
+        }
+      }
+    })
+
 
     alleleCustomTable <- function(ns, pedigree) {
       tagList(
@@ -29,7 +94,8 @@ selectFiltersServer <- function(id, shared_data) {
 
     output$allele_ui <- renderUI({
       req(input$inher)
-      ped <- pedigree()  # Reactive
+      req(shared_data$samples)
+      ped <- convert_samples_to_pedigree(shared_data$samples)
       if (input$inher == "") return(NULL)
       if (input$inher == "Custom") {
         # Render input radio buttons for custom allele counts
@@ -74,76 +140,49 @@ selectFiltersServer <- function(id, shared_data) {
       counts
     }
 
-    phenos <- reactiveVal()
-
     observeEvent(input$apply, {
-      ped <- pedigree()
+      req(shared_data$snvs_data)
+      req(shared_data$svs_data)
+      req(shared_data$panel_app_genes)
+      req(shared_data$vep_consequences)
+      req(shared_data$phenotype_data)
+      req(shared_data$pedigree)
+      cat("[filterServer] Apply filters clicked\n")
+      ped <- convert_samples_to_pedigree(shared_data$samples)
       allele_counts <- getAlleleCounts(ped, input)
       cat("class of allele_counts:", class(allele_counts), "\n")
       cat("Allele counts:\n")
       print(allele_counts)
 
       # Legacy filtering function
-      snv_filters <- list(
-        clinvar_filter = input$clinvar_checkboxes,
-        af_value = as.numeric(input$af),
-        annotation_filter = input$conseq_checkboxes,
-        revel_value = input$revel,
-        sift_filter = input$sift,
-        polyphen_filter = input$polyphen,
-        spliceai_filter = input$spliceai_score,
-        inheritance_filter = input$inher,
-        panelapp_filter = input$panelapp,
-        genotype_quality_value = input$genotype_quality,
-        allele_balance_value = input$allele_balance,
-        hpo_terms_list = phenos()
+      snv_filters <- get_snv_filters(input, phenos())
+      sv_filters <- get_sv_filters(input, phenos())
+      
+      allele_counts_dt <- data.table(
+        sample_id = names(allele_counts),
+        allele_count = unlist(allele_counts, use.names = FALSE)
       )
-
-      sv_filters <- list(
-        inheritance_filter = input$inher,
-        panelapp_filter = input$panelapp,
-        annotation_filter = input$sv_conseq_checkboxes,
-        sv_features = input$sv_features_checkboxes,
-        min_svlen = input$min_svlen,
-        max_svlen = input$max_svlen,
-        genotype_quality_value = input$sv_genotype_quality,
-        allele_balance_value = input$sv_allele_balance,
-        af_value = as.numeric(input$sv_af),
-        hpo_terms_list = phenos()
-      )
-      if (exists("processed_data", envir = .GlobalEnv)) {
-        processed_data <- get("processed_data", envir = .GlobalEnv)
-        cat("Applying legacy filter_dataset on processed_data with", nrow(processed_data), "rows\n")
-        cat("class of processed_data:", class(processed_data), "\n")
-        cat("colnames of processed_data:", paste(colnames(processed_data), collapse=", "), "\n")
-        # browser()
-        allele_counts_dt <- data.table(
-          sample_id = names(allele_counts),
-          allele_count = unlist(allele_counts, use.names = FALSE)
-        )
-        pedigree_dt <- rbindlist(ped, fill = TRUE)
-        d <- processed_data
-        cat("nrow(d):", nrow(d), "\n")
-        filtered_data <- apply_filter_legacy(data=d,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree_dt, allele_tab=allele_counts_dt, panel_app_genes=NULL, vep_consequences=shared_data$vep_consequences, phenotype_data=NULL)
-        shared_data$legacy_snvs_data_filtered <- filtered_data$snv_filtered_data
-        shared_data$legacy_svs_data_filtered <- filtered_data$sv_filtered_data
-      } else {
-        warning("processed_data not available yet in GlobalEnv")
+      snvs_data <- data.table::as.data.table(shared_data$snvs_data)
+      svs_data <- data.table::as.data.table(shared_data$svs_data)
+      panel_app_genes <- data.table::as.data.table(shared_data$panel_app_genes)
+      vep_consequences <- data.table::as.data.table(shared_data$vep_consequences)
+      phenotype_data <- data.table::as.data.table(shared_data$phenotype_data)
+      pedigree <- data.table::as.data.table(shared_data$pedigree)
+      filtered_data <- apply_filter_legacy_mode2(input=input, snvs_data=snvs_data, svs_data=svs_data,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      shared_data$legacy_snvs_data_filtered <- filtered_data$snv_filtered_data
+      shared_data$legacy_svs_data_filtered <- filtered_data$sv_filtered_data
+      shared_data$snvs_data_filtered <- filtered_data$snv_filtered_data
+      shared_data$svs_data_filtered <- filtered_data$sv_filtered_data
+      # add a check if columns order is same as before error out
+      col_order <- colnames(shared_data$snvs_data)
+      col_order_filtered <- colnames(shared_data$snvs_data_filtered)
+      if (!identical(col_order, col_order_filtered)) {
+        cat("original:", paste(col_order, collapse = ", "), "\n")
+        cat("filtered:", paste(col_order_filtered, collapse = ", "), "\n")
+        stop("Column order changed after filtering!")
       }
-      # legacy end
-
-      # new filtering function
-      # snv_filtered_0 <- apply_filter_0(dt=shared_data$snvs_data, input$inher)
-      # sv_filtered_0  <- apply_filter_0(dt=shared_data$svs_data, input$inher)
-      # snv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=snv_filtered_0, filters=snvf, type="snv", vep_consequences=shared_data$vep_map)
-      # sv_filtered <- apply_filters(pedigree=ped, allele_counts=allele_counts, dt=sv_filtered_0, filters=svf, type="sv", vep_consequences=shared_data$vep_map)
-      # shared_data$snvs_data_filtered <- snv_filtered
-      # shared_data$svs_data_filtered  <- sv_filtered
-      # showNotification(sprintf("snv_filtered to %s rows", nrow(snv_filtered)), type = "message")
-      # showNotification(sprintf("sv_filtered to %s rows", nrow(sv_filtered)), type = "message")
       showNotification(sprintf("legacy_snvs_data_filtered to %s rows", nrow(shared_data$legacy_snvs_data_filtered)), type = "message")
       showNotification(sprintf("legacy_svs_data_filtered to %s rows", nrow(shared_data$legacy_svs_data_filtered)), type = "message")
-      # print(allele_counts)
 
     })
 
@@ -168,7 +207,7 @@ selectFiltersServer <- function(id, shared_data) {
     })
 
     observeEvent(input$pathogenicity, {
-      cat(sprintf("[homeServer] Pathogenicity filter chan`ged: %s\n", input$pathogenicity))
+      cat(sprintf("[homeServer] Pathogenicity filter changed: %s\n", input$pathogenicity))
       pathogenicity_map <- list(
         "Pathogenic/Likely pathogenic" = c("Pathogenic", "Likely pathogenic"),
         "Not benign" = c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting")
@@ -176,6 +215,119 @@ selectFiltersServer <- function(id, shared_data) {
       select <- pathogenicity_map[[input$pathogenicity]]
       if (is.null(select)) select <- character(0)
       updateCheckboxGroupInput(session, "clinvar_checkboxes", selected = select)
+    })
+
+    ##################### PanelApp
+    observe({
+      req(shared_data$panel_app_genes)  # Ensure data is available
+      cat("[filtServer] Observing panel_app_genes for updates\n")
+      locs <- c("", unique(shared_data$panel_app_genes$Level4))
+      updateSelectizeInput(session, "panelapp", choices = locs, selected = NULL)
+      cat("[filtServer] Updated PanelApp selection options\n")
+    })
+
+    observeEvent(input$panelapp, {
+      req(shared_data$panel_app_genes)
+      cat("[filtServer] PanelApp filter updated\n")
+      tmp <- shared_data$panel_app_genes[Level4 %in% input$panelapp]
+      green_genes(sort(unique(tmp[Sources == "Green", Entity_Name])))
+      red_genes(sort(unique(tmp[Sources == "Red", Entity_Name])))
+      amber_genes(sort(unique(tmp[Sources == "Amber", Entity_Name])))
+      unclassified_genes(sort(unique(tmp[!(Sources %in% c("Green", "Red", "Amber")),
+                                         Entity_Name])))
+    }, ignoreNULL = FALSE)
+    
+    # Render UI outputs for each gene category
+    output$green_genes <- renderText({
+      val <- green_genes()
+      # cat("[debug] renderText green_genes():", paste(val, collapse=", "), "\n")
+      paste(val, collapse="; ")
+    })
+    output$red_genes <- renderText({ paste(red_genes(), collapse = "; ") })
+    output$amber_genes <- renderText({ paste(amber_genes(), collapse = "; ") })
+    output$unclassified_genes <- renderText({ paste(unclassified_genes(), collapse = "; ") })
+
+    ##################### Phenotype
+    # Add multiple IDs to the phenotype list
+    observeEvent(input$phenotype_add, {
+      cat("[filtServer] Adding phenotype terms\n")
+      req(shared_data$phenotype_data)
+      # cat("[filtServer] Available HPO IDs:", paste(head(shared_data$phenotype_data$hpo_id, 10), collapse = ", "), "\n")
+      new_ids <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))
+      new_ids <- trimws(new_ids)
+      #print(new_ids)
+      if (length(new_ids) > 0) {
+        current_ids <- phenos()
+        valid_new_ids <- new_ids[new_ids %in% shared_data$phenotype_data$hpo_id & !(new_ids %in% current_ids)]
+        if (length(valid_new_ids) > 0) {
+          phenos(c(current_ids, valid_new_ids))
+          updateTextInput(session, "phenotype_var", value = "")
+        }
+      }
+    })
+
+    observeEvent(input$phenotype_remove, {
+      cat("[filtServer] Removing phenotype terms\n")
+      current_ids <- phenos()
+      ids_to_remove <- unlist(strsplit(input$phenotype_var, split = "\\s+|,|;"))  # Split by spaces, commas, or semicolons
+      ids_to_remove <- ids_to_remove[ids_to_remove %in% current_ids]
+      if (length(ids_to_remove) > 0) {
+        ids_to_remove <- trimws(ids_to_remove)  # Remove leading/trailing spaces
+        ids_to_remove <- ids_to_remove[ids_to_remove != ""]  # Remove empty strings
+        # Remove the terms that are in the current list
+        updated_ids <- setdiff(current_ids, ids_to_remove)
+        # Update the current phenotype terms list
+        phenos(updated_ids)
+        # Clear the input field
+        updateTextInput(session, "phenotype_var", value = "")
+      }
+    })
+    # Display the list of HPO terms
+    output$phenotype <- renderText({
+      paste(phenos(), collapse="; ")
+    })
+
+    ##################### Pre-saved searches
+    # Update UI dropdown with available searches
+    observeEvent(available_searches(),{
+      #req(length(available_searches()) > 0)
+      choices <- c("", names(available_searches()))
+      updateSelectizeInput(session, "pre_saved_search", choices = choices, selected = "")
+      cat("[filtServer] Updated UI dropdowns for SNV available searches\n")
+    }, once = TRUE)
+
+    observeEvent(sv_available_searches(), {
+      #req(length(sv_available_searches()) > 0)
+      choices <- c("", names(sv_available_searches()))
+      updateSelectizeInput(session, "sv_pre_saved_search", choices = choices, selected = "")
+      cat("[filtServer] Updated UI dropdowns for SV available searches\n")
+    }, once = TRUE)
+
+    # Handle search selection
+    observeEvent(input$pre_saved_search, {
+      selected_search <- input$pre_saved_search
+      cat(sprintf("[filtServer] Update selected pre-saved SNV search: %s\n", selected_search))
+      #if (is.null(selected_search) || selected_search == "") return()
+      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
+      search_params <- available_searches()[[selected_search]]
+      update_search_params(search_params, session)
+    },ignoreInit = TRUE)
+
+    observeEvent(input$sv_pre_saved_search, {
+      selected_search <- input$sv_pre_saved_search
+      cat(sprintf("[filtServer] Update selected pre-saved SV search: %s\n", selected_search))
+      #if (is.null(selected_search) || selected_search == "") return()
+      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
+      search_params <- sv_available_searches()[[selected_search]]
+      update_search_params(search_params, session, type="sv")
+    },ignoreInit = TRUE)
+
+    observeEvent(input$reset, {
+      cat("[filtServer] Reset all filters clicked\n")
+      items <- read_reset_search_files()
+      update_search_params(items$snv, session, type="snv")
+      update_search_params(items$sv, session, type="sv")
+      phenos(character(0))
     })
 
   })

@@ -1,3 +1,7 @@
+format_time <- function(time) {
+  paste(round(time["elapsed"], 3), "seconds")
+}
+
 # Helper function: Generate condition for allele count filtering
 compare_allele_count <- function(col, values) {
   values <- as.numeric(unlist(strsplit(values, "-")))
@@ -54,6 +58,12 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
   return(NULL)
 }
 
+# Helper function: Apply text-based filters
+text_filter <- function(column, values) {
+  if (length(values) == 0) return(NULL)
+  return(sprintf("grepl('%s', %s, ignore.case = TRUE)", paste(values, collapse = "|"), column))
+}
+
 # Helper function: Handle panel app gene filtering
 panelapp_filter <- function(filters, panel_app_genes) {
   if (length(filters$panelapp_filter) > 0) {
@@ -61,39 +71,21 @@ panelapp_filter <- function(filters, panel_app_genes) {
     genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
     genes_search <- genes[,GENE_SYMBOL]
     panel_app_condition <- "GENE_SYMBOL %in% genes_search"
+    genes <- data.table::as.data.table(genes)
     return(list(panel_app_condition,genes_search,genes))
   } else {
     return(NULL)
   }
 }
 
-# Helper function: Handle frequency and quality filters
-quality_filters <- function(filters, data) {
-  conditions <- list()
-
-  if (!is.null(filters$af_value) && filters$af_value < 1) 
-    conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
-
-  if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0) 
-    conditions <- c(conditions, sprintf("QUAL >= %f", filters$genotype_quality_value))
-
-  if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0) {
-    vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
-    conditions <- c(conditions, paste(sprintf("get('%s') >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
-  }
-
-  return(paste(conditions, collapse = " & "))
-}
-
-
-text_filter <- function(column, values) {
-  if (is.null(values) || length(values) == 0 || nzchar(values) == 0) return(NULL)
-  return(sprintf("grepl('%s', %s, ignore.case = TRUE)", paste(values, collapse = "|"), column))
-}
-
 # Generic filter function for SNVs and SVs
 filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
-  # browser()
+  # Return NULL immediately if input is NULL
+  if (is.null(data)) return(NULL)
+  if (nrow(data) == 0) return(data)
+  if (!is.character(data$GENE_SYMBOL)) {
+    stop("Error: data$GENE_SYMBOL must be of type character, but is ", class(data$GENE_SYMBOL))
+  }
   cat(sprintf("[filtServer][filter_dataset] Filtering dataset (SNV: %s)\n", is_snv))
 
   filter_expression <- "TRUE"
@@ -121,24 +113,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   filter_expression <- add_filter_condition(filter_expression, quality_filters(filters, data))
 
   # Apply VEP Annotation filter (for both SNVs and SVs)
-  if (!is.null(filters$annotation_filter) && length(filters$annotation_filter) > 0) {
-    cat("[filtServer][filter_dataset] Applying VEP annotation filter\n")
-
-    # filter_expression <- add_filter_condition(filter_expression, text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term]))
-    conseq_col <- "consequence"  # name of the column to filter on
-    term_col <- "term"            # name of the column to extract
-
-    terms <- vep_consequences[
-      vep_consequences[[conseq_col]] %in% filters$annotation_filter,
-      term_col,
-      with = FALSE
-    ][[1]]
-
-    filter_expression <- add_filter_condition(
-      filter_expression,
-      text_filter("CONSEQUENCE", terms)
-    )
-  }
+  cat("[filtServer][filter_dataset] Applying VEP annotation filter\n")
+  filter_expression <- add_filter_condition(filter_expression, text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term]))
 
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL
@@ -146,7 +122,6 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   if (is_snv) {
     cat("[filtServer][filter_dataset] Applying SNV-specific filters\n")
     # SNV-specific filters
-    # browser()
     filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
     filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
 
@@ -263,80 +238,64 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   # Apply filtering
   #print(combined_expression)
   cat(sprintf("[filtServer][filter_dataset] Filter expression: %s\n", combined_expression))
-  
-  #added to debug
-  # combined_expression <- prefix_data_cols(combined_expression, data)
-  # cat("Rewritten expression:", combined_expression, "\n")
-  cat("Class of data:", class(data), "\n")
-  cat("Number of rows in data:", nrow(data), "\n")
-  # filtered_data <- data[eval(parse(text = combined_expression))]
-  filtered_data <- with(data, data[eval(parse(text = combined_expression)), ])
-  cat("Class of filtered_data:", class(filtered_data), "\n")
-  cat("Number of rows after filtering:", nrow(filtered_data), "\n")
-  # Compute filtered out rows (the complement)
-  # filtered_out <- with(data, data[!eval(parse(text = combined_expression)), ])
-  # cat("Number of rows filtered out:", nrow(filtered_out), "\n")
-  # cat("Preview of filtered_out rows:\n")
-  # print(head(filtered_out, 10))
-  cat("first eval done\n")
-  # browser()
-  # Add panel app and HPO information
-  if (length(filters$panelapp_filter) > 0) {
-    setkey(filtered_data, GENE_SYMBOL)
-    setkey(genes, GENE_SYMBOL)
-    filtered_data <- merge(filtered_data, genes, by = "GENE_SYMBOL", all.x = TRUE)
-  } else {
-    # filtered_data[, PANEL_APP := NA]
-    # filtered_data[, INHERITANCE := NA]
-    filtered_data$PANEL_APP <- if(nrow(filtered_data) == 0) character(0) else NA_character_
-    filtered_data$INHERITANCE <- if(nrow(filtered_data) == 0) character(0) else NA_character_
+  filtered_data <- data[eval(parse(text = combined_expression))]
+
+  if (!is.character(filtered_data$GENE_SYMBOL)) {
+    stop("Error: filtered_data$GENE_SYMBOL must be of type character, but is ", class(filtered_data$GENE_SYMBOL))
   }
 
+  # Add panel app and HPO information
+  # if (length(filters$panelapp_filter) > 0) {
+  #   setkey(filtered_data, GENE_SYMBOL)
+  #   setkey(genes, GENE_SYMBOL)
+  #   filtered_data <- merge(filtered_data, genes, by = "GENE_SYMBOL", all.x = TRUE)
+  # } else {
+  #   filtered_data[, PANEL_APP := NA]
+  #   filtered_data[, INHERITANCE := NA]
+  # }
+  if (length(filters$panelapp_filter) > 0) {
+    filtered_data[genes, on = "GENE_SYMBOL", `:=`(
+      PANEL_APP   = i.PANEL_APP,
+      INHERITANCE = i.INHERITANCE
+    )]
+  }
+
+  # if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
+  #   split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list, "; "))
+  #   hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list & gene_symbol %in% filtered_data$GENE_SYMBOL, .(HPO_ID = hpo_id, GENE_SYMBOL = gene_symbol)]
+  #   hpo_terms_summary <- hpo_terms_data[, .(HPO_ID = paste(HPO_ID, collapse = ";"), HPO_COUNT = .N), by = GENE_SYMBOL]
+  #   setkey(hpo_terms_summary, GENE_SYMBOL)
+  #   filtered_data <- merge(filtered_data, hpo_terms_summary, by = "GENE_SYMBOL", all.x = TRUE)
+  #   filtered_data[is.na(HPO_COUNT), HPO_COUNT := 0]
+  # } else {
+  #   filtered_data[, HPO_ID := NA]
+  #   filtered_data[, HPO_COUNT := 0]
+  # }
   if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
     split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list, "; "))
     hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list & gene_symbol %in% filtered_data$GENE_SYMBOL, .(HPO_ID = hpo_id, GENE_SYMBOL = gene_symbol)]
-    hpo_terms_summary <- hpo_terms_data[, .(HPO_ID = paste(HPO_ID, collapse = ";"), HPO_COUNT = .N), by = GENE_SYMBOL]
-    setkey(hpo_terms_summary, GENE_SYMBOL)
-    filtered_data <- merge(filtered_data, hpo_terms_summary, by = "GENE_SYMBOL", all.x = TRUE)
-    filtered_data[is.na(HPO_COUNT), HPO_COUNT := 0]
-  } else {
-    # filtered_data[, HPO_ID := NA]
-    # filtered_data[, HPO_COUNT := 0]
-    filtered_data$HPO_ID <- if(nrow(filtered_data) == 0) character(0) else NA_character_
-    filtered_data$HPO_COUNT <- if(nrow(filtered_data) == 0) integer(0) else 0
-
+    hpo_terms_summary <- hpo_terms_data[, .(HPO_ID = paste(HPO_ID, collapse=";"), HPO_COUNT = .N), by = GENE_SYMBOL]
+    filtered_data[hpo_terms_summary, on = "GENE_SYMBOL", `:=`(HPO_ID = i.HPO_ID, HPO_COUNT = i.HPO_COUNT)][is.na(HPO_COUNT), HPO_COUNT := 0]
   }
 
   # filtered_data[, clinvar_override := FALSE]
   # filtered_data[, spliceai_override := FALSE]
-  
-
   # if (!is.null(clinvar_override_condition)) {
   #   filtered_data[eval(parse(text = clinvar_override_condition)),
   #                 clinvar_override := TRUE]
   # }
-
   # if (!is.null(spliceai_override_condition)) {
   #   filtered_data[eval(parse(text = spliceai_override_condition)),
   #                 spliceai_override := TRUE]
   # }
-  # Initialize columns
-  # filtered_data$clinvar_override <- FALSE
-  # filtered_data$spliceai_override <- FALSE
-  filtered_data$clinvar_override <- if(nrow(filtered_data) == 0) logical(0) else FALSE
-  filtered_data$spliceai_override <- if(nrow(filtered_data) == 0) logical(0) else FALSE
+  # Initialize existing columns
+  filtered_data[, `:=`(clinvar_override = FALSE, spliceai_override = FALSE)]
 
-  # Apply conditions if provided
-  if (!is.null(clinvar_override_condition) && nrow(filtered_data) > 0) {
-    # Create a logical vector for the condition
-    idx <- with(filtered_data, eval(parse(text = clinvar_override_condition)))
-    filtered_data$clinvar_override[idx] <- TRUE
-  }
+  # Apply ClinVar override if condition exists
+  if (!is.null(clinvar_override_condition)) filtered_data[eval(parse(text = clinvar_override_condition)), clinvar_override := TRUE]
 
-  if (!is.null(spliceai_override_condition) && nrow(filtered_data) > 0) {
-    idx <- with(filtered_data, eval(parse(text = spliceai_override_condition)))
-    filtered_data$spliceai_override[idx] <- TRUE
-  }
+  # Apply SpliceAI override if condition exists
+  if (!is.null(spliceai_override_condition)) filtered_data[eval(parse(text = spliceai_override_condition)), spliceai_override := TRUE]
 
   cat(sprintf("[filtServer][filter_dataset] Filtering complete: %d variants retained\n", nrow(filtered_data)))
   return(filtered_data)
@@ -351,163 +310,375 @@ sv_filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_gen
   filter_dataset(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = FALSE)
 }
 
-apply_filter_legacy <- function(data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
-  snv_filtered_data <- snv_filter_dataset(data=data[data$CATEGORY=="SNV & Indel",],filters=snv_filters,pedigree=pedigree_dt, allele_tab=allele_counts_dt, panel_app_genes=NULL, vep_consequences=vep_consequences, phenotype_data=NULL)
-  sv_filtered_data <- sv_filter_dataset(data=data[data$CATEGORY=="SV",],filters=sv_filters,pedigree=pedigree_dt, allele_tab=allele_counts_dt, panel_app_genes=NULL, vep_consequences=vep_consequences, phenotype_data=NULL)
-  return(list(snv_filtered_data=snv_filtered_data, sv_filtered_data=sv_filtered_data))
+# Function to apply compound heterozygous filtering to a filtered dataset
+apply_compound_het <- function(all_filtered_data, pedigree, inheritance_type) {
+  if (inheritance_type != "Compound Heterozygous" || nrow(all_filtered_data) == 0) return(all_filtered_data)
+  is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
+  if (!is_trio) {
+    comp_hets_1 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "1|0", .(VAR_COUNT_1 = .N), by = GENE_SYMBOL]
+    comp_hets_2 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "0|1", .(VAR_COUNT_2 = .N), by = GENE_SYMBOL]
+    comp_hets <- merge(comp_hets_1, comp_hets_2, by = "GENE_SYMBOL", all = TRUE)[VAR_COUNT_1 > 0 & VAR_COUNT_2 > 0]
+    all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% comp_hets$GENE_SYMBOL]
+  } else {
+    comp_hets <- all_filtered_data[
+      alt_allele_count_1 == 1 &  # Proband is heterozygous
+        ((GT_2 == "1|0" & GT_3 == "0|1") | (GT_2 == "0|1" & GT_3 == "1|0")),  # Opposite inheritance from parents
+      .(VAR_COUNT = .N), by = GENE_SYMBOL]
+    # Keep genes where at least 2 variants exist and are inherited from different parents
+    valid_genes <- comp_hets[VAR_COUNT > 1, GENE_SYMBOL]
+    all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% valid_genes]
+  }
+  return(all_filtered_data)
 }
 
-# observeEvent(input$apply_filter, {
+apply_filter_legacy_mode2 <- function(input, snvs_data, svs_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
+  snv_total_time <- system.time({
+    snv_filtered_data <- snv_filter_dataset(data=snvs_data,filters=snv_filters,pedigree=pedigree, allele_tab=allele_tab, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+  })
+  cat("nrow(snv_filtered_data):", nrow(snv_filtered_data), "\n")
+  cat(paste("Total snv_filtered_data execution time:", format_time(snv_total_time), "\n"))
 
-#       showNotification("Filtering...", duration = NULL, id = ns("notify_filter"),
-#                        type = "message")
-      
-#       # If Custom inheritance, update allele_tab from custom_allele_tab
-#       if (input$inher == "Custom") {
-#         allele_tab(custom_allele_tab())
-#       }
+  sv_total_time <- system.time({
+    sv_filtered_data <- sv_filter_dataset(data=svs_data,filters=sv_filters,pedigree=pedigree, allele_tab=allele_tab, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+  })
+  cat("nrow(sv_filtered_data):", nrow(sv_filtered_data), "\n")
+  cat(paste("Total sv_filter_dataset execution time:", format_time(sv_total_time), "\n"))
 
-#       # Define filters
-#       snv_filters <- list(
-#         clinvar_filter = input$clinvar_checkboxes,
-#         af_value = as.numeric(input$af),
-#         annotation_filter = input$conseq_checkboxes,
-#         revel_value = input$revel,
-#         sift_filter = input$sift,
-#         polyphen_filter = input$polyphen,
-#         spliceai_filter = input$spliceai_score,
-#         inheritance_filter = input$inher,
-#         panelapp_filter = input$panelapp,
-#         genotype_quality_value = input$genotype_quality,
-#         allele_balance_value = input$allele_balance,
-#         hpo_terms_list = phenos()
-#       )
-      
-      
-#       if (nrow(dataset[CATEGORY == "SNV & Indel"]) > 0) {
-#         print("")
-#         snv_total_time <- system.time({
-#           snv_filtered_data <- snv_filter_dataset(dataset[CATEGORY=="SNV & Indel"],snv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
-#         })
-#         #cat(paste("Total execution time:", format_time(snv_total_time), "\n"))
-#         message("[filtServer] Time for SNV filtering: ", format_time(snv_total_time))
-#       } else {
-#         message("[filtServer] No SNV & Indel data found — skipping SNV filtering")
-#       }
+  # convert to data.table if not already
+  if (!is.data.table(snv_filtered_data)) snv_filtered_data <- data.table(snv_filtered_data)
+  if (!is.data.table(sv_filtered_data)) sv_filtered_data <- data.table(sv_filtered_data)
 
-#       # Define filters for SV
-#       sv_filters <- list(
-#         inheritance_filter = input$inher,
-#         panelapp_filter = input$panelapp,
-#         annotation_filter = input$sv_conseq_checkboxes,
-#         sv_features = input$sv_features_checkboxes,
-#         min_svlen = input$min_svlen,
-#         max_svlen = input$max_svlen,
-#         genotype_quality_value = input$sv_genotype_quality,
-#         allele_balance_value = input$sv_allele_balance,
-#         af_value = as.numeric(input$sv_af),
-#         hpo_terms_list = phenos()
-#       )
+  cat("col orders in snv_filtered_data:", paste(colnames(snv_filtered_data), collapse = ", "), "\n")
+  snv_filtered_comphet <- apply_compound_het(snv_filtered_data, pedigree, snv_filters$inheritance_filter)
 
-#       # Filter SVs
-#       if (nrow(dataset[CATEGORY == "SV"]) > 0) {
-#         sv_total_time <- system.time({
-#           sv_filtered_data <- sv_filter_dataset(dataset[CATEGORY == "SV"],sv_filters,pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data)
-#         })
-#         #cat(paste("Total execution time:", format_time(sv_total_time), "\n"))
-#         message("[filtServer] Time for SV filtering: ", format_time(sv_total_time))
-#       } else {
-#         message("[filtServer] No SV data found — skipping SV filtering")
-#       }
-      
-#       filtered_list <- list()
-      
-#       if (exists("snv_filtered_data") && is.data.table(snv_filtered_data) && nrow(snv_filtered_data) > 0) {
-#         filtered_list[[length(filtered_list) + 1]] <- snv_filtered_data
-#       }
-      
-#       if (exists("sv_filtered_data") && is.data.table(sv_filtered_data) && nrow(sv_filtered_data) > 0) {
-#         filtered_list[[length(filtered_list) + 1]] <- sv_filtered_data
-#       }
-      
-#       if (length(filtered_list) > 0) {
-#         all_filtered_data <- rbindlist(filtered_list, use.names = TRUE, fill = TRUE)
-#       } else {
-#         removeNotification(ns("notify_filter"))
-#         showNotification("No variants passed filtering", type = "warning")
-#         showNotification("Showing all variants", type = "warning")
-#         filtered_table_output(dataset)
-#         return()  # Exit the observeEvent early
-#       }
-      
-#       #all_filtered_data <- rbind(snv_filtered_data,sv_filtered_data)
-      
-#       #print("past filtering")
+  cat("nrow(snv_filtered_comphet):", nrow(snv_filtered_comphet), "\n")
+  sv_filtered_comphet <- apply_compound_het(sv_filtered_data, pedigree, sv_filters$inheritance_filter)
 
-#       if (input$inher=="Compound Heterozygous") {
-#         cat("[filtServer] Applying compound heterozygous filtering...\n")
-#         is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
-#         if (!is_trio) {
-#           comp_hets_1 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "1|0", .(VAR_COUNT_1 = .N), by = GENE_SYMBOL]
-#           comp_hets_2 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "0|1", .(VAR_COUNT_2 = .N), by = GENE_SYMBOL]
-#           comp_hets <- merge(comp_hets_1, comp_hets_2, by = "GENE_SYMBOL", all = TRUE)[VAR_COUNT_1 > 0 & VAR_COUNT_2 > 0]
-#           all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% comp_hets$GENE_SYMBOL]
-#         } else {
-#           comp_hets <- all_filtered_data[
-#             alt_allele_count_1 == 1 &  # Proband is heterozygous
-#               ((GT_2 == "1|0" & GT_3 == "0|1") | (GT_2 == "0|1" & GT_3 == "1|0")),  # Opposite inheritance from parents
-#             .(VAR_COUNT = .N), by = GENE_SYMBOL]
-#           # Keep genes where at least 2 variants exist and are inherited from different parents
-#           valid_genes <- comp_hets[VAR_COUNT > 1, GENE_SYMBOL]
-#           all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% valid_genes]
-#         }
-#       }
+  return(list(snv_filtered_data=snv_filtered_comphet, sv_filtered_data=sv_filtered_comphet))
 
-#       # Handle PRIORITY and NOTES
-#       filtered_data <- data.table(filtered_table_output())
-#       #print(filtered_data)
+}
 
-#       if (!is.null(filtered_data) && all(c("PRIORITY", "NOTES") %in% colnames(filtered_data))) {
-#         # Extract flagged rows
-#         current_flagged_rows <- filtered_data[,
-#           .(ID, CURRENT_PRIORITY=PRIORITY,CURENT_NOTES=NOTES)
-#         ]
-#         # current_flagged_rows[, CURENT_NOTES := as.character(CURENT_NOTES)]
-#         # current_flagged_rows[is.na(CURENT_NOTES),CURENT_NOTES:=""]
-#         #str(current_flagged_rows)
+read_search_files <- function(directory, type=NULL) {
+  if (is.null(directory)) {
+    directory <- system.file("extdata", "pre_saved_searches", package = "puzzleapp")
+  }
 
-#         # Check for changes in flagged rows
-#         previous_flagged_rows <- flagged_rows_reactive()
-#         #str(previous_flagged_rows)
-#         if (!is.null(previous_flagged_rows)) {
-#           # Identify new or updated rows
-#           merged_flagged_rows <- merge(
-#             previous_flagged_rows, current_flagged_rows,
-#             by = "ID", all = TRUE)
-#         }
-#         current_flagged_rows <- merged_flagged_rows[,.(ID,
-#             PRIORITY = fifelse(is.na(PRIORITY) | (PRIORITY != CURRENT_PRIORITY & !is.na(CURRENT_PRIORITY)), CURRENT_PRIORITY, PRIORITY),
-#             NOTES = fifelse(is.na(NOTES) | (NOTES != CURENT_NOTES & !is.na(CURENT_NOTES)), CURENT_NOTES, NOTES))]
+  file_pattern <- if (!is.null(type)) {
+    paste0(".*\\.", type, "_search.tsv$")
+  } else {
+    ".*_search\\.tsv$"
+  }
+  # List all TSV files in the directory
+  files <- list.files(directory, pattern = file_pattern, full.names = TRUE)
+  # Initialize an empty list to store results
+  search_data <- list()
+  # Iterate over each file
+  for (file in files) {
+    # Read the file into a dataframe
+    df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+    # Convert the data to a named list
+    file_data <- setNames(as.list(df$Value), df$Key)
+    # Extract the Label field as the key
+    label <- file_data[["Label"]]
+    if (!is.null(label)) {
+      # Store the data inside the main list, using label as key
+      search_data[[label]] <- file_data
+    } else {
+      warning(sprintf("Skipping file %s as it has no 'Label' field", file))
+    }
+  }
+  return(search_data)
+}
 
-#         # Update flagged rows reactive value
-#         flagged_rows_reactive(copy(current_flagged_rows))
+# Generalized function to update UI elements
+update_search_params <- function(search_params, session, type="snv") {
+  # Define default values for clearing selections
+  default_values <- list(
+    "Inheritance" = "",
+    "Annotation" = character(0),
+    "Pathogenicity" = character(0),
+    "SpliceAI score" = 0,
+    "gnomADv4 AF" = "1",
+    "Affected only" = FALSE,
+    "Allele balance" = 0,
+    "Genotype quality" = 0,
+    "Filter value" = ""
+  )
 
-#         # Merge flagged rows back into the filtered data
-#         all_filtered_data <- merge(current_flagged_rows, all_filtered_data, by = "ID", all.y = TRUE)
-#         all_filtered_data[is.na(PRIORITY), PRIORITY := 0]
-#         all_filtered_data[PRIORITY > 0, PRIORITYFlag := TRUE]
-#         all_filtered_data[PRIORITY < 0, PRIORITYFlag := FALSE]
-#       } else {
-#         # Fallback if no PRIORITY or NOTES columns exist
-#         all_filtered_data <- data.table(PRIORITY = 0, NOTES = "", all_filtered_data)
-#       }
+  if (type == "snv") {
+    update_mapping <- list(
+      # "Inheritance" = list(func = updateSelectInput, id = "inher", selected = TRUE),
+      "Inheritance" = list(func = updateRadioButtons, id = "inher", selected = TRUE),
+      # "Annotation" = list(func = updatePrettyCheckboxGroup, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
+      "Annotation" = list(func = updateCheckboxGroupInput, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
+      "Pathogenicity" = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE),
+      "SpliceAI score" = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE),
+      "REVEL" = list(func = updateNumericInput, id = "revel", value = TRUE, as_numeric = TRUE),
+      "AlphaMissense" = list(func = updateNumericInput, id = "alpha_missense", value = TRUE, as_numeric = TRUE),
+      "SIFT" = list(func = updateSelectInput, id = "sift", selected = TRUE),
+      "PolyPhen" = list(func = updateSelectInput, id = "polyphen", selected = TRUE),
+      "gnomADv4 AF" = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
+      # "Affected only" = list(func = updateMaterialSwitch, id = "affected_switch", value = TRUE, as_logical = TRUE),
+      "Affected only" = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
+      "Allele balance" = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
+      "Genotype quality" = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
+      "Filter value" = list(func = updateSelectInput, id = "pass_variants", selected = TRUE),
+      "PanelApp Genes" = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE),
+      "HPO Terms" = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
+    )
+  } else {
+    update_mapping <- list(
+      "Inheritance" = list(func = updateRadioButtons, id = "inher", selected = TRUE),
+      "Annotation" = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE),
+      "gnomADv4 AF" = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE),
+      "SV type" = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE),
+      "Min SV Length" = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE),
+      "Max SV Length" = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE),
+      "Affected only" = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE),
+      "Allele balance" = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE),
+      "Genotype quality" = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE),
+      "Filter value" = list(func = updateSelectInput, id = "sv_pass_variants", selected = TRUE),
+      "PanelApp Genes" = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE),
+      "HPO Terms" = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
+    )
+  }
 
-#       filtered_table_output(copy(all_filtered_data))
-#       #print("after")
+  # If search_params is NULL or empty string, clear selections
+  if (is.null(search_params) || length(search_params) == 0) {
+    search_params <- default_values
+  }
 
-#       removeNotification(ns("notify_filter"))
-#       showNotification("Data filtered", type = "message")
-#     }) 
+  for (param in names(update_mapping)) {
+    if (!is.null(search_params[[param]])) {
+      update_info <- update_mapping[[param]]
+      value <- search_params[[param]]
 
-#     return(filtered_table_output)
-#   })
+      # Convert value if necessary
+      if (!is.null(update_info$as_numeric)) value <- as.numeric(value)
+      if (!is.null(update_info$as_logical)) value <- as.logical(value)
+      if (!is.null(update_info$split)) value <- unlist(strsplit(value, ";"))
+
+      if (param %in% c("Annotation", "Pathogenicity") && is.null(value)) {
+        value <- character(0)
+      }
+
+      # Apply updates explicitly based on argument type
+      if (!is.null(update_info$selected)) {
+        update_info$func(session, update_info$id, selected = value)
+      } else if (!is.null(update_info$value)) {
+        update_info$func(session, update_info$id, value = value)
+      }
+    } 
+  }
+}
+
+
+get_snv_filters <- function(input, phenos) {
+  snv_filters <- list(
+    clinvar_filter = input$clinvar_checkboxes,
+    af_value = as.numeric(input$af),
+    annotation_filter = input$conseq_checkboxes,
+    revel_value = input$revel,
+    sift_filter = input$sift,
+    polyphen_filter = input$polyphen,
+    spliceai_filter = input$spliceai_score,
+    inheritance_filter = input$inher,
+    panelapp_filter = input$panelapp,
+    genotype_quality_value = input$genotype_quality,
+    allele_balance_value = input$allele_balance,
+    hpo_terms_list = phenos
+  )
+  return(snv_filters)
+}
+
+get_sv_filters <- function(input, phenos) {
+  sv_filters <- list(
+    inheritance_filter = input$inher,
+    panelapp_filter = input$panelapp,
+    annotation_filter = input$sv_conseq_checkboxes,
+    sv_features = input$sv_features_checkboxes,
+    min_svlen = input$min_svlen,
+    max_svlen = input$max_svlen,
+    genotype_quality_value = input$sv_genotype_quality,
+    allele_balance_value = input$sv_allele_balance,
+    af_value = as.numeric(input$sv_af),
+    hpo_terms_list = phenos
+  )
+  return(sv_filters)
+}
+
+list_files <- function(dir) {
+  if (dir.exists(dir)) {
+    list.files(dir, full.names = FALSE)
+  } else {
+    character(0)
+  }
+}
+
+save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data, phenos) {
+  session_dir <- sprintf("%s/%s", sessions_dir, session_name)
+  cat(sprintf("[filtServer] Saving session: %s\n", session_name))
+
+  if (!dir.exists(session_dir)) {
+    if (!dir.create(session_dir, recursive = TRUE, showWarnings = FALSE)) {
+      showNotification("Failed to create session directory", type = "error")
+      return(FALSE)
+    }
+    message(sprintf("Created session directory: %s", session_dir))
+  } else {
+    message(sprintf("Session directory already exists: %s", session_dir))
+  }
+
+  # Capture SNV filter states
+  snv_filters <- list(
+    "Inheritance" = input$inher,
+    "Annotation" = if (!is.null(input$conseq_checkboxes)) paste(input$conseq_checkboxes, collapse = ";") else "",
+    "Pathogenicity" = if (!is.null(input$clinvar_checkboxes)) paste(input$clinvar_checkboxes, collapse = ";") else "",
+    "SpliceAI score" = input$spliceai_score,
+    "REVEL" = input$revel,
+    "AlphaMissense" = input$alpha_missense,
+    "SIFT" = input$sift,
+    "PolyPhen" = input$polyphen,
+    "gnomADv4 AF" = input$af,
+    "Affected only" = input$affected_switch,
+    "Allele balance" = input$allele_balance,
+    "Genotype quality" = input$genotype_quality,
+    "Filter value" = input$pass_variants,
+    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
+    # "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
+    "HPO Terms" = paste(phenos, collapse="; ")
+  )
+
+  # Capture SV filter states
+  sv_filters <- list(
+    "Inheritance" = input$inher,
+    "Annotation" = if (!is.null(input$sv_conseq_checkboxes)) paste(input$sv_conseq_checkboxes, collapse = ";") else "",
+    "SV type" = if (!is.null(input$sv_features_checkboxes)) paste(input$sv_features_checkboxes, collapse = ";") else "",
+    "Min SV Length" = input$min_svlen,
+    "Max SV Length" = input$max_svlen,
+    "gnomADv4 AF" = input$sv_af,
+    "Affected only" = input$sv_affected_switch,
+    "Allele balance" = input$sv_allele_balance,
+    "Genotype quality" = input$sv_genotype_quality,
+    "Filter value" = input$sv_pass_variants,
+    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
+    # "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
+    "HPO Terms" = paste(phenos, collapse="; ")
+  )
+
+  # Convert filter lists to data.table
+  snv_filters_dt <- data.table(
+    Variable = names(snv_filters),
+    Value = vapply(snv_filters, function(x) if (is.null(x)) "" else paste(x, collapse = ";"), FUN.VALUE = character(1))
+  )
+  sv_filters_dt <- data.table(
+    Variable = names(sv_filters),
+    Value = vapply(sv_filters, function(x) if (is.null(x)) "" else paste(x, collapse = ";"), FUN.VALUE = character(1))
+  )
+
+  # Save filter tables
+  fwrite(snv_filters_dt, file = file.path(session_dir, "snv_filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
+  fwrite(sv_filters_dt, file = file.path(session_dir, "sv_filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
+
+  # Save flagged rows if any
+  save_flagged_rows <- function(data, data_type) {
+    if (!is.null(data) && all(c("PRIORITY", "NOTES") %in% colnames(data))) {
+      fwrite(data[PRIORITY != 0 | NOTES != "", .(ID, PRIORITY, NOTES)],
+        file = file.path(session_dir, sprintf("flagged_rows_%s.tsv", data_type)),
+        sep = "\t", quote = FALSE, col.names = TRUE)
+      message("Flagged rows saved successfully.")
+    } else {
+      message("No flagged rows to save.")
+    }
+  }
+  save_flagged_rows(snvs_data, "snvs_data")
+  save_flagged_rows(svs_data, "svs_data")
+
+  return(TRUE)
+}
+
+update_flagged_rows <- function(original_dt, flagged_rows_file) {
+  stopifnot(is.data.table(original_dt))  # must be data.table
+  
+  # Check required columns
+  required_cols <- c("ID", "PRIORITY", "NOTES")
+  missing_cols <- setdiff(required_cols, names(original_dt))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("Original data is missing required columns: %s",
+                 paste(missing_cols, collapse = ", ")))
+  }
+  
+  # Return early if no file
+  if (!file.exists(flagged_rows_file)) {
+    message("Flagged rows file does not exist. Returning original data.")
+    return(copy(original_dt))
+  }
+  
+  # Read flagged rows
+  flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = NULL, nThread = 8)
+  if (nrow(flagged_rows_dt) == 0) {
+    message("Flagged rows file is empty. Returning original data.")
+    return(copy(original_dt))
+  }
+  
+  # Type consistency
+  if (!is.numeric(flagged_rows_dt$PRIORITY)) {
+    flagged_rows_dt[, PRIORITY := as.numeric(PRIORITY)]
+  }
+  if (!is.character(flagged_rows_dt$NOTES)) {
+    flagged_rows_dt[, NOTES := as.character(NOTES)]
+    flagged_rows_dt[is.na(NOTES), NOTES := ""]
+  }
+  
+  # Update only overlapping IDs
+  original_dt <- merge(
+    original_dt[, !c("PRIORITY", "NOTES"), with = FALSE],
+    flagged_rows_dt[, .(ID, PRIORITY, NOTES)],
+    by = "ID",
+    all.x = TRUE
+  )
+  
+  return(original_dt)
+}
+
+
+load_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data) {
+  session_to_load <- sprintf("%s/%s", sessions_dir, session_name)
+  cat(sprintf("[filtServer] Loading session: %s\n", session_to_load))
+  if (! dir.exists(session_to_load)) {
+    showNotification("Session directory does not exist", type = "error")
+    return(NULL)
+  }
+  snv_file <- file.path(session_to_load, "snv_filters.tsv")
+  sv_file <- file.path(session_to_load, "sv_filters.tsv")
+  snv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_snvs_data.tsv")
+  sv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_svs_data.tsv")
+  snv_flagged_rows_exists <- file.exists(snv_flagged_rows_file)
+  sv_flagged_rows_exists <- file.exists(sv_flagged_rows_file)
+  if (file.exists(snv_file)) {
+      snv_df <- read.delim(snv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+      snv_df <- setNames(as.list(snv_df$Value), snv_df$Key)
+      # update_search_params(snv_df, session, type="snv")
+  }
+  if (file.exists(sv_file)) {
+      sv_df <- read.delim(sv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+      sv_df <- setNames(as.list(sv_df$Value), sv_df$Key)
+      # update_search_params(sv_df, session, type="sv")
+  }
+  snvs_data <- update_flagged_rows(snvs_data, snv_flagged_rows_file)
+  svs_data <- update_flagged_rows(svs_data, sv_flagged_rows_file)
+  return(list(snv_filters=snv_df, sv_filters=sv_df, snvs_data=snvs_data, svs_data=svs_data))
+
+}
+
+read_reset_search_files <- function() {
+  file <- system.file("extdata", "pre_saved_searches", "Reset.snv_search_including_panelapp_hpo.tsv", package = "puzzleapp")
+  df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+  search_data_snv <- setNames(as.list(df$Value), df$Key)
+
+  file <- system.file("extdata", "pre_saved_searches", "Reset.sv_search_including_panelapp_hpo.tsv", package = "puzzleapp")
+  df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+  search_data_sv <- setNames(as.list(df$Value), df$Key)
+
+  return(list(snv=search_data_snv, sv=search_data_sv))
+}
