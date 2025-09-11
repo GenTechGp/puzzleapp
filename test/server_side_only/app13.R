@@ -206,42 +206,31 @@ filterModuleServer <- function(id, shared_data) {
 # ---------------------------
 dataModuleUI <- function(id) {
   ns <- NS(id)
-  tagList(
-    # Hide the selectize remove 'x' so selectize acts only as an ordering widget
-    tags$head(tags$style(HTML("
-      /* Hide the selectize item remove 'x' so users don't try to delete items here */
-      .selectize-control .item .remove { display: none !important; }
-      .selectize-control .item .remove { cursor: default !important; }
-
-      .selectize-control.multi .selectize-input {
-        white-space: normal;
-        overflow-x: visible;
-        overflow-y: auto;
-        max-height: 420px;
-      }
-      .selectize-control.multi .selectize-input .item {
-        display: inline-block;
-        white-space: normal;
-        margin-right: 6px;
-        margin-bottom: 6px;
-      }
-
-      .btn-row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; margin-bottom:8px; }
-      .checkbox-grid-label { margin-bottom:6px; display:block; font-weight:600; }
-      .checkbox-group .shiny-options-group label { font-size: 13px; }
-    "))),
-    # Static area: controls that should persist (apply_to_source moved here)
-    div(style = "margin-bottom:8px;",
-        checkboxInput(ns("apply_to_source"), "Apply edits to original data", value = FALSE)
+  
+  sidebarLayout(
+    # Sidebar panel (left)
+    sidebarPanel(
+      width = 3,
+      uiOutput(ns("col_controls"))
     ),
-    uiOutput(ns("col_controls")),
-    DTOutput(ns("data_table"))
+    
+    # Main panel (right)
+    mainPanel(
+      width = 9,
+      DTOutput(ns("data_table"))
+    )
   )
 }
+
+
 
 dataModuleServer <- function(id, shared_data) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
+
+    observe({
+      cat("[DEBUG] All input names:", names(reactiveValuesToList(input)), "\n")
+    })
 
     # Local helper: apply ordering/visibility and row-limiting using display_row_pct
     # Ensure .rowid is preserved (and placed first) to map edits reliably.
@@ -315,142 +304,142 @@ dataModuleServer <- function(id, shared_data) {
     }
 
     # Build the controls UI; choices/selected values are computed in renderUI so UI reflects state.
-    output$col_controls <- renderUI({
-      df <- shared_data$data
-      file_cols <- if (!is.null(df)) setdiff(colnames(df), ".rowid") else character(0)
+    # output$col_controls <- renderUI({
+    #   df <- shared_data$data
+    #   file_cols <- if (!is.null(df)) setdiff(colnames(df), ".rowid") else character(0)
 
-      # committed and preferred values (may be NULL)
-      committed_visible <- shared_data$committed_visible
-      committed_order <- shared_data$display_order
-      committed_pct <- shared_data$display_row_pct
-      preferred_cols <- shared_data$preferred_cols
-      preferred_pct <- shared_data$preferred_pct
+    #   # committed and preferred values (may be NULL)
+    #   committed_visible <- shared_data$committed_visible
+    #   committed_order <- shared_data$display_order
+    #   committed_pct <- shared_data$display_row_pct
+    #   preferred_cols <- shared_data$preferred_cols
+    #   preferred_pct <- shared_data$preferred_pct
 
-      # current draft inputs (may be NULL on first render)
-      current_checked <- isolate(input$cols)
-      current_selectize <- isolate(input$order_selectize)
-      current_slider <- isolate(input$percent_slider)
+    #   # current draft inputs (may be NULL on first render)
+    #   current_checked <- isolate(input$cols)
+    #   current_selectize <- isolate(input$order_selectize)
+    #   current_slider <- isolate(input$percent_slider)
 
-      # --- Slider value: draft -> committed -> preferred -> 100 ---
-      if (!is.null(current_slider)) {
-        slider_start <- as.numeric(current_slider)
-        if (is.na(slider_start)) {
-          slider_start <- if (!is.null(committed_pct)) as.numeric(committed_pct) %||% NA else NA
-          if (is.na(slider_start) && !is.null(preferred_pct)) slider_start <- as.numeric(preferred_pct)
-        }
-      } else if (!is.null(committed_pct)) {
-        slider_start <- as.numeric(committed_pct)
-      } else if (!is.null(preferred_pct)) {
-        slider_start <- as.numeric(preferred_pct)
-      } else {
-        slider_start <- 100
-      }
-      if (is.na(slider_start)) slider_start <- 100
-      slider_start <- as.integer(round(slider_start))
-      if (is.na(slider_start) || slider_start < 1L) slider_start <- 1L
-      if (slider_start > 100L) slider_start <- 100L
+    #   # --- Slider value: draft -> committed -> preferred -> 100 ---
+    #   if (!is.null(current_slider)) {
+    #     slider_start <- as.numeric(current_slider)
+    #     if (is.na(slider_start)) {
+    #       slider_start <- if (!is.null(committed_pct)) as.numeric(committed_pct) %||% NA else NA
+    #       if (is.na(slider_start) && !is.null(preferred_pct)) slider_start <- as.numeric(preferred_pct)
+    #     }
+    #   } else if (!is.null(committed_pct)) {
+    #     slider_start <- as.numeric(committed_pct)
+    #   } else if (!is.null(preferred_pct)) {
+    #     slider_start <- as.numeric(preferred_pct)
+    #   } else {
+    #     slider_start <- 100
+    #   }
+    #   if (is.na(slider_start)) slider_start <- 100
+    #   slider_start <- as.integer(round(slider_start))
+    #   if (is.na(slider_start) || slider_start < 1L) slider_start <- 1L
+    #   if (slider_start > 100L) slider_start <- 100L
 
-      # --- Checkbox selected: draft -> committed -> preferred -> file_cols ---
-      if (!is.null(current_checked) && length(current_checked) > 0) {
-        checkbox_selected <- intersect(current_checked, file_cols)
-        # if draft becomes empty after filtering, fall back to committed/preferred/file
-        if (length(checkbox_selected) == 0L) {
-          if (!is.null(committed_visible) && length(committed_visible) > 0) {
-            checkbox_selected <- intersect(committed_visible, file_cols)
-          } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
-            checkbox_selected <- intersect(preferred_cols, file_cols)
-          } else {
-            checkbox_selected <- file_cols
-          }
-        }
-      } else if (!is.null(committed_visible) && length(committed_visible) > 0) {
-        checkbox_selected <- intersect(committed_visible, file_cols)
-        if (length(checkbox_selected) == 0L && !is.null(preferred_cols) && length(preferred_cols) > 0) {
-          checkbox_selected <- intersect(preferred_cols, file_cols)
-        }
-        if (length(checkbox_selected) == 0L) checkbox_selected <- file_cols
-      } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
-        checkbox_selected <- intersect(preferred_cols, file_cols)
-        if (length(checkbox_selected) == 0L) checkbox_selected <- file_cols
-      } else {
-        checkbox_selected <- file_cols
-      }
+    #   # --- Checkbox selected: draft -> committed -> preferred -> file_cols ---
+    #   if (!is.null(current_checked) && length(current_checked) > 0) {
+    #     checkbox_selected <- intersect(current_checked, file_cols)
+    #     # if draft becomes empty after filtering, fall back to committed/preferred/file
+    #     if (length(checkbox_selected) == 0L) {
+    #       if (!is.null(committed_visible) && length(committed_visible) > 0) {
+    #         checkbox_selected <- intersect(committed_visible, file_cols)
+    #       } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
+    #         checkbox_selected <- intersect(preferred_cols, file_cols)
+    #       } else {
+    #         checkbox_selected <- file_cols
+    #       }
+    #     }
+    #   } else if (!is.null(committed_visible) && length(committed_visible) > 0) {
+    #     checkbox_selected <- intersect(committed_visible, file_cols)
+    #     if (length(checkbox_selected) == 0L && !is.null(preferred_cols) && length(preferred_cols) > 0) {
+    #       checkbox_selected <- intersect(preferred_cols, file_cols)
+    #     }
+    #     if (length(checkbox_selected) == 0L) checkbox_selected <- file_cols
+    #   } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
+    #     checkbox_selected <- intersect(preferred_cols, file_cols)
+    #     if (length(checkbox_selected) == 0L) checkbox_selected <- file_cols
+    #   } else {
+    #     checkbox_selected <- file_cols
+    #   }
 
-      # ensure checkbox_choices is file_cols (always)
-      checkbox_choices <- file_cols
+    #   # ensure checkbox_choices is file_cols (always)
+    #   checkbox_choices <- file_cols
 
-      # --- Selectize selected (ordering): draft -> committed order restricted -> preferred restricted -> file order ---
-      if (!is.null(current_selectize) && length(current_selectize) > 0) {
-        sel_order_preserved <- intersect(current_selectize, checkbox_selected)
-        remaining <- setdiff(checkbox_selected, sel_order_preserved)
-        if (length(remaining) > 0) sel_order_preserved <- c(sel_order_preserved, intersect(file_cols, remaining))
-        selectize_selected <- sel_order_preserved
-      } else if (!is.null(committed_order) && length(committed_order) > 0) {
-        selectize_selected <- intersect(committed_order, checkbox_selected)
-        remaining <- setdiff(checkbox_selected, selectize_selected)
-        if (length(remaining) > 0) selectize_selected <- c(selectize_selected, intersect(file_cols, remaining))
-        if (length(selectize_selected) == 0L && !is.null(preferred_cols) && length(preferred_cols) > 0) {
-          selectize_selected <- intersect(preferred_cols, checkbox_selected)
-          if (length(selectize_selected) == 0L) selectize_selected <- intersect(file_cols, checkbox_selected)
-        }
-      } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
-        selectize_selected <- intersect(preferred_cols, checkbox_selected)
-        remaining <- setdiff(checkbox_selected, selectize_selected)
-        if (length(remaining) > 0) selectize_selected <- c(selectize_selected, intersect(file_cols, remaining))
-        if (length(selectize_selected) == 0L) selectize_selected <- intersect(file_cols, checkbox_selected)
-      } else {
-        selectize_selected <- intersect(file_cols, checkbox_selected)
-      }
+    #   # --- Selectize selected (ordering): draft -> committed order restricted -> preferred restricted -> file order ---
+    #   if (!is.null(current_selectize) && length(current_selectize) > 0) {
+    #     sel_order_preserved <- intersect(current_selectize, checkbox_selected)
+    #     remaining <- setdiff(checkbox_selected, sel_order_preserved)
+    #     if (length(remaining) > 0) sel_order_preserved <- c(sel_order_preserved, intersect(file_cols, remaining))
+    #     selectize_selected <- sel_order_preserved
+    #   } else if (!is.null(committed_order) && length(committed_order) > 0) {
+    #     selectize_selected <- intersect(committed_order, checkbox_selected)
+    #     remaining <- setdiff(checkbox_selected, selectize_selected)
+    #     if (length(remaining) > 0) selectize_selected <- c(selectize_selected, intersect(file_cols, remaining))
+    #     if (length(selectize_selected) == 0L && !is.null(preferred_cols) && length(preferred_cols) > 0) {
+    #       selectize_selected <- intersect(preferred_cols, checkbox_selected)
+    #       if (length(selectize_selected) == 0L) selectize_selected <- intersect(file_cols, checkbox_selected)
+    #     }
+    #   } else if (!is.null(preferred_cols) && length(preferred_cols) > 0) {
+    #     selectize_selected <- intersect(preferred_cols, checkbox_selected)
+    #     remaining <- setdiff(checkbox_selected, selectize_selected)
+    #     if (length(remaining) > 0) selectize_selected <- c(selectize_selected, intersect(file_cols, remaining))
+    #     if (length(selectize_selected) == 0L) selectize_selected <- intersect(file_cols, checkbox_selected)
+    #   } else {
+    #     selectize_selected <- intersect(file_cols, checkbox_selected)
+    #   }
 
-      # compute number of columns for grid so there are at most 10 rows
-      ncols <- if (length(checkbox_choices) == 0) 1 else ceiling(length(checkbox_choices) / 10)
-      if (ncols < 1) ncols <- 1
+    #   # compute number of columns for grid so there are at most 10 rows
+    #   ncols <- if (length(checkbox_choices) == 0) 1 else ceiling(length(checkbox_choices) / 10)
+    #   if (ncols < 1) ncols <- 1
 
-      tagList(
-        # Visible columns (checkbox grid)
-        tags$div(
-          tags$span("Visible columns", class = "checkbox-grid-label"),
-          div(style = sprintf("column-count: %d; -webkit-column-count: %d; column-gap: 20px;", ncols, ncols),
-              checkboxGroupInput(ns("cols"), NULL, choices = checkbox_choices, selected = checkbox_selected)
-          )
-        ),
-        br(),
+    #   tagList(
+    #     # Visible columns (checkbox grid)
+    #     tags$div(
+    #       tags$span("Visible columns", class = "checkbox-grid-label"),
+    #       div(style = sprintf("column-count: %d; -webkit-column-count: %d; column-gap: 20px;", ncols, ncols),
+    #           checkboxGroupInput(ns("cols"), NULL, choices = checkbox_choices, selected = checkbox_selected)
+    #       )
+    #     ),
+    #     br(),
 
-        # selectize area - ordering widget
-        tags$div(
-          tags$label("Column order (drag to reorder)"),
-          div(style = "width:100%;",
-              selectizeInput(ns("order_selectize"),
-                            NULL,
-                            choices = checkbox_selected,
-                            selected = selectize_selected,
-                            multiple = TRUE,
-                            options = list(plugins = list('drag_drop'),
-                                            placeholder = 'Drag to reorder selected items'),
-                            width = "100%")
-          )
-        ),
+    #     # selectize area - ordering widget
+    #     tags$div(
+    #       tags$label("Column order (drag to reorder)"),
+    #       div(style = "width:100%;",
+    #           selectizeInput(ns("order_selectize"),
+    #                         NULL,
+    #                         choices = checkbox_selected,
+    #                         selected = selectize_selected,
+    #                         multiple = TRUE,
+    #                         options = list(plugins = list('drag_drop'),
+    #                                         placeholder = 'Drag to reorder selected items'),
+    #                         width = "100%")
+    #       )
+    #     ),
 
-        # Percent slider (draft)
-        div(style = "margin-top:8px;",
-            sliderInput(ns("percent_slider"),
-                        "Display rows (%) (draft)",
-                        min = 1, max = 100, value = slider_start, step = 1)
-        ),
+    #     # Percent slider (draft)
+    #     div(style = "margin-top:8px;",
+    #         sliderInput(ns("percent_slider"),
+    #                     "Display rows (%) (draft)",
+    #                     min = 1, max = 100, value = slider_start, step = 1)
+    #     ),
 
-        # buttons
-        div(class = "btn-row",
-            actionButton(ns("select_all"), "Select all"),
-            actionButton(ns("select_none"), "Select none"),
-            actionButton(ns("reset_pref"), "Reset to preferred"),
-            actionButton(ns("reset_file"), "Reset to file order"),
-            actionButton(ns("save_pref"), "Save as preferred"),
-            actionButton(ns("update_table"), "Update table", class = "btn-primary"),
-            downloadButton(ns("download_table"), "Download table"),
-            actionButton(ns("save_table"), "Save table")
-        )
-      )
-    })
+    #     # buttons
+    #     div(class = "btn-row",
+    #         actionButton(ns("select_all"), "Select all"),
+    #         actionButton(ns("select_none"), "Select none"),
+    #         actionButton(ns("reset_pref"), "Reset to preferred"),
+    #         actionButton(ns("reset_file"), "Reset to file order"),
+    #         actionButton(ns("save_pref"), "Save as preferred"),
+    #         actionButton(ns("update_table"), "Update table", class = "btn-primary"),
+    #         downloadButton(ns("download_table"), "Download table"),
+    #         actionButton(ns("save_table"), "Save table")
+    #     )
+    #   )
+    # })
 
     # Helper: compute preference-valid columns in file order
     pref_valid_in_file <- function() {
@@ -737,7 +726,7 @@ dataModuleServer <- function(id, shared_data) {
       datatable(
         committed_view,
         # filter = list(position = "top", clear = TRUE),
-        # filter = "top",
+        filter = "top",
         editable = list(target = "cell", disable = list(columns = editable_disable)),
         options = list(dom = 'lfrtip', pageLength = 15, scrollX = TRUE, ordering = TRUE,
         # options = list(dom = 'rtip', scrollX = FALSE, ordering = TRUE,
