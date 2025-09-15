@@ -366,8 +366,8 @@ dataServer <- function(id, shared_store, shared_rx) {
       choices <- names(shared_store$data_for_data)
       choices <- sort(choices %||% character(0))
 
-      # Update UI select choices; prefer "default"
-      preferred <- if ("default" %in% choices) "default" else (choices[1] %||% "")
+      # Update UI select choices; prefer "[Synthetic] Boundary"
+      preferred <- if ("[Synthetic] Boundary" %in% choices) "[Synthetic] Boundary" else (choices[1] %||% "")
       current_sel <- input$dataset_select %||% preferred
       if (!nzchar(current_sel) || !(current_sel %in% choices)) current_sel <- preferred
 

@@ -84,7 +84,7 @@ homeServer <- function(id, shared_store, shared_rx) {
 
       # Install under shared_store$data_for_data
       shared_store$data_for_data <- list()  # reset
-      shared_store$data_for_data[["default"]]  <- default_dt
+      shared_store$data_for_data[["[Synthetic] Boundary"]]  <- default_dt
       shared_store$data_for_data[["datasetA"]] <- datasetA_dt
       shared_store$data_for_data[["datasetB"]] <- datasetB_dt
 
@@ -133,7 +133,7 @@ homeServer <- function(id, shared_store, shared_rx) {
     observeEvent(input$delete_datasets, {
       shared_store$data_for_data <- list()
       default_dt <- make_boundary_table(data.table::as.data.table(iris), round_base = 10, slice_pct = 10)
-      shared_store$data_for_data[["default"]]  <- default_dt
+      shared_store$data_for_data[["[Synthetic] Boundary"]]  <- default_dt
       bump_version()
       cat("[Home] Deleted all datasets\n")
       showNotification("Deleted all datasets.", type = "message", duration = 2)
