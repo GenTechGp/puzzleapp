@@ -5,3 +5,4 @@ README.html
 .RData
 .Ruserdata
 inst/extdata/phenotype_to_genes.txt
+test/puzzleapp_work_dir

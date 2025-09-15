@@ -58,7 +58,6 @@ dataServer <- function(id, shared_store, shared_rx) {
         ds <- shared_store[[act0]]
         if (is.null(ds)) data.frame(.row_id = integer()) else ds
       })
-      # Fast initial slice for performance
       df0 <- isolate(apply_slice(df_full0, slice_pct()))
       initial_colnames <<- names(df0)
 
@@ -86,99 +85,153 @@ dataServer <- function(id, shared_store, shared_rx) {
         id_snapshot <- ns("tbl_snapshot")
         id_edit_row <- ns("tbl_edit_row_id")
         id_edit_col <- ns("tbl_edit_col_orig0")
+        id_open_modal <- ns("open_data_modal")
         id_ready <- ns("tbl_ready")
 
-        # Pre-encode strings for safe JS embedding
-        id_snapshot_json <- jsonlite::toJSON(id_snapshot, auto_unbox = TRUE)
-        id_edit_row_json <- jsonlite::toJSON(id_edit_row, auto_unbox = TRUE)
-        id_edit_col_json <- jsonlite::toJSON(id_edit_col, auto_unbox = TRUE)
-        id_ready_json    <- jsonlite::toJSON(id_ready,    auto_unbox = TRUE)
+        cb <- JS(sprintf("
+          var tbl = table;
+          var ridIdx0 = %d; // original index (0-based) of .row_id
 
-        cb_code <- paste0(
-          "var tbl = table;",
-          "var ridIdx0 = ", rid_idx0, ";",
-          "var preferredInit = ", pref_js, ";",
+          // Preferred columns provided at render time (one-time)
+          var preferredInit = %s;
 
-          "function computeSnapshot(reason){",
-          " try{",
-          "  var headers=[];",
-          "  tbl.columns(':visible').every(function(idx){",
-          "    var label=(this.header() && this.header().textContent)?this.header().textContent.trim():(''+idx);",
-          "    headers.push(label);",
-          "  });",
-          "  var orderAll = tbl.colReorder ? tbl.colReorder.order() : null;",
-          "  if(!orderAll){ orderAll=[]; var nCols=tbl.columns().count(); for(var i=0;i<nCols;i++) orderAll.push(i); }",
-          "  var dataSrc = tbl.columns().dataSrc();",
-          "  if(dataSrc && dataSrc.toArray) dataSrc = dataSrc.toArray();",
-          "  Shiny.setInputValue(", id_snapshot_json, ", {",
-          "    headers: headers, orderAll: orderAll, dataSrc: dataSrc, reason: reason || 'unspecified', version: 'exact-colrow-v3', ts: Date.now()",
-          "  }, {priority:'event'});",
-          " }catch(e){ console && console.error && console.error('computeSnapshot error', e); }",
-          "}",
+          function computeSnapshot(reason) {
+            try {
+              var headers = [];
+              tbl.columns(':visible').every(function(idx){
+                var label = (this.header() && this.header().textContent) ? this.header().textContent.trim() : ('' + idx);
+                headers.push(label);
+              });
 
-          "function captureEditCtx(node){",
-          " try{",
-          "  var $td=$(node).closest('td');",
-          "  if($td.length===0) return;",
-          "  var cell=tbl.cell($td);",
-          "  if(!cell || !cell.any()) return;",
-          "  var idx=cell.index();",
-          "  var colDisp=idx.column;",
-          "  var colOrig=(tbl.colReorder && tbl.colReorder.transpose)?tbl.colReorder.transpose(colDisp,'toOriginal'):colDisp;",
-          "  var rowData=tbl.row(idx.row).data();",
-          "  if(!rowData || ridIdx0==null || isNaN(ridIdx0)) return;",
-          "  var rid=rowData[ridIdx0];",
-          "  if(rid!=null){",
-          "    Shiny.setInputValue(", id_edit_row_json, ", rid, {priority:'event'});",
-          "    Shiny.setInputValue(", id_edit_col_json, ", colOrig, {priority:'event'});",
-          "  }",
-          " }catch(e){ console && console.error && console.error('captureEditCtx error', e); }",
-          "}",
+              var orderAll = tbl.colReorder ? tbl.colReorder.order() : null;
+              if (!orderAll) {
+                orderAll = [];
+                var nCols = tbl.columns().count();
+                for (var i = 0; i < nCols; i++) orderAll.push(i);
+              }
 
-          "function applyPreferredOnce(){",
-          " try{",
-          "  if(applyPreferredOnce.done) return;",
-          "  var preferred = Array.isArray(preferredInit)?preferredInit:[];",
-          "  if(!preferred.length) return;",
-          "  var nCols=tbl.columns().count();",
-          "  var headersAll=[];",
-          "  tbl.columns().every(function(i){",
-          "    var h=this.header();",
-          "    headersAll.push(h && h.textContent ? h.textContent.trim() : (''+i));",
-          "  });",
-          "  var nameToIdx={};",
-          "  for(var i=0;i<headersAll.length;i++){ var nm=headersAll[i]; if(nameToIdx[nm]==null) nameToIdx[nm]=i; }",
-          "  var prefIdx=[];",
-          "  for(var k=0;k<preferred.length;k++){ var idx=nameToIdx[preferred[k]]; if(idx!=null && prefIdx.indexOf(idx)===-1) prefIdx.push(idx); }",
-          "  var allIdx=[]; for(var j=0;j<nCols;j++) allIdx.push(j);",
-          "  var restIdx=allIdx.filter(function(j){ return prefIdx.indexOf(j)===-1; });",
-          "  var toHide=restIdx.filter(function(j){ return j!==ridIdx0; });",
-          "  if(toHide.length){ tbl.columns(toHide).visible(false, false); }",
-          "  var orderVec=prefIdx.concat(restIdx);",
-          "  if(tbl.colReorder && typeof tbl.colReorder.order==='function'){ tbl.colReorder.order(orderVec, true); }",
-          "  tbl.columns.adjust().draw(false);",
-          "  applyPreferredOnce.done=true;",
-          "  console.log('[DT] preferred applied once:', preferred);",
-          " }catch(errApply){ console && console.error && console.error('applyPreferredOnce error', errApply); }",
-          "}",
+              var dataSrc = tbl.columns().dataSrc();
+              if (dataSrc && dataSrc.toArray) dataSrc = dataSrc.toArray();
 
-          "tbl.on('init.dt', function(){ applyPreferredOnce(); computeSnapshot('init'); Shiny.setInputValue(", id_ready_json, ", Date.now(), {priority:'event'}); });",
-          "tbl.on('column-reorder.dt', function(){ computeSnapshot('colreorder'); });",
-          "tbl.on('column-visibility.dt', function(){ computeSnapshot('colvisibility'); });",
-          "tbl.on('order.dt', function(){ computeSnapshot('order'); });",
-          "tbl.on('search.dt', function(){ computeSnapshot('search'); });",
-          "tbl.on('draw.dt', function(){ computeSnapshot('draw'); Shiny.setInputValue(", id_ready_json, ", Date.now(), {priority:'event'}); });",
+              Shiny.setInputValue('%s', {
+                headers: headers,
+                orderAll: orderAll,
+                dataSrc: dataSrc,
+                reason: reason || 'unspecified',
+                version: 'exact-colrow-v3',
+                ts: Date.now()
+              }, {priority: 'event'});
+            } catch (e) {
+              console && console.error && console.error('computeSnapshot error', e);
+            }
+          }
 
-          "tbl.on('mousedown.dt','tbody td',function(e){ captureEditCtx(this); });",
-          "tbl.on('focusin.dt','tbody td',function(e){ captureEditCtx(this); });",
-          "tbl.on('focusin.dt','tbody input, tbody textarea',function(e){ captureEditCtx(this); });",
+          function captureEditCtx(node) {
+            try {
+              var $td = $(node).closest('td');
+              if ($td.length === 0) return;
 
-          "setTimeout(function(){ computeSnapshot('tick0'); }, 0);",
-          "setTimeout(function(){ computeSnapshot('tick50'); }, 50);",
-          "computeSnapshot('manual');"
-        )
+              var cell = tbl.cell($td);
+              if (!cell || !cell.any()) return;
+              var idx = cell.index(); // {row: r, column: c}
 
-        cb <- JS(cb_code)
+              var colDisp = idx.column;
+              var colOrig = (tbl.colReorder && tbl.colReorder.transpose)
+                ? tbl.colReorder.transpose(colDisp, 'toOriginal')
+                : colDisp;
+
+              var rowData = tbl.row(idx.row).data();
+              if (!rowData || ridIdx0 == null || isNaN(ridIdx0)) return;
+              var rid = rowData[ridIdx0];
+
+              if (rid != null) {
+                Shiny.setInputValue('%s', rid, {priority: 'event'});
+                Shiny.setInputValue('%s', colOrig, {priority: 'event'});
+              }
+            } catch (e) {
+              console && console.error && console.error('captureEditCtx error', e);
+            }
+          }
+
+          // Apply preferred columns once (hide non-preferred first using ORIGINAL indexes, then reorder)
+          function applyPreferredOnce() {
+            try {
+              if (applyPreferredOnce.done) return;
+              var preferred = Array.isArray(preferredInit) ? preferredInit : [];
+              if (!preferred.length) return;
+
+              var nCols = tbl.columns().count();
+
+              // Map header text -> original index (0-based)
+              var headersAll = [];
+              tbl.columns().every(function(i){
+                var h = this.header();
+                headersAll.push(h && h.textContent ? h.textContent.trim() : ('' + i));
+              });
+
+              var nameToIdx = {};
+              for (var i = 0; i < headersAll.length; i++) {
+                var nm = headersAll[i];
+                if (nameToIdx[nm] == null) nameToIdx[nm] = i;
+              }
+
+              var prefIdx = [];
+              for (var k = 0; k < preferred.length; k++) {
+                var idx = nameToIdx[preferred[k]];
+                if (idx != null && prefIdx.indexOf(idx) === -1) prefIdx.push(idx);
+              }
+
+              var allIdx = [];
+              for (var j = 0; j < nCols; j++) allIdx.push(j);
+
+              var restIdx = allIdx.filter(function(j){ return prefIdx.indexOf(j) === -1; });
+
+              // Hide non-preferred by ORIGINAL indices BEFORE reordering (keeps indexing aligned)
+              var toHide = restIdx.filter(function(j){ return j !== ridIdx0; });
+              if (toHide.length) {
+                tbl.columns(toHide).visible(false, false);
+              }
+
+              // Now reorder so preferred are first (still uses ORIGINAL index order)
+              var orderVec = prefIdx.concat(restIdx);
+              if (tbl.colReorder && typeof tbl.colReorder.order === 'function') {
+                tbl.colReorder.order(orderVec, true);
+              }
+
+              tbl.columns.adjust().draw(false);
+              applyPreferredOnce.done = true;
+              console.log('[DT] preferred applied once:', preferred);
+            } catch (errApply) {
+              console && console.error && console.error('applyPreferredOnce error', errApply);
+            }
+          }
+
+          // Snapshot events
+          tbl.on('init.dt',               function(){ applyPreferredOnce(); computeSnapshot('init'); Shiny.setInputValue('%s', Date.now(), {priority: 'event'}); });
+          tbl.on('column-reorder.dt',     function(){ computeSnapshot('colreorder'); });
+          tbl.on('column-visibility.dt',  function(){ computeSnapshot('colvisibility'); });
+          tbl.on('order.dt',              function(){ computeSnapshot('order'); });
+          tbl.on('search.dt',             function(){ computeSnapshot('search'); });
+          tbl.on('draw.dt',               function(){ computeSnapshot('draw'); Shiny.setInputValue('%s', Date.now(), {priority: 'event'}); });
+
+          // Capture row/col context near edits
+          tbl.on('mousedown.dt', 'tbody td', function(e){ captureEditCtx(this); });
+          tbl.on('focusin.dt',   'tbody td', function(e){ captureEditCtx(this); });
+          tbl.on('focusin.dt',   'tbody input, tbody textarea', function(e){ captureEditCtx(this); });
+
+          // Seed early snapshot
+          setTimeout(function(){ computeSnapshot('tick0'); }, 0);
+          setTimeout(function(){ computeSnapshot('tick50'); }, 50);
+          computeSnapshot('manual');
+        ",
+        rid_idx0,          # %d
+        pref_js,           # %s (preferredInit)
+        id_snapshot,       # %s
+        id_edit_row,       # %s
+        id_edit_col,       # %s
+        id_ready,          # %s (init)
+        id_ready           # %s (draw)
+        ))
 
         # Filename function for TSV export
         filename_js <- JS("
@@ -304,7 +357,6 @@ dataServer <- function(id, shared_store, shared_rx) {
       # Create proxy now that the table exists (IMPORTANT: scope with session)
       proxy <<- dataTableProxy("tbl", session = session)
       rendered(TRUE)
-      cat("[Data] DT rendered in UI (proxy created)\n")
 
       # Note: No initial push here; dt_ready gate will handle the first update
     }

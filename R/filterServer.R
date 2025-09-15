@@ -6,8 +6,9 @@
 source("R/filter_utility.R")
 source("R/inheritance_utility.R")
 source("R/filter_utility_legacy.R")
+source("R/db_utility.R")  # for read_search_files
 
-selectFiltersServer <- function(id, shared_data) {
+selectFiltersServer <- function(id, shared_data, shared_store, shared_rx) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -183,6 +184,10 @@ selectFiltersServer <- function(id, shared_data) {
       }
       showNotification(sprintf("legacy_snvs_data_filtered to %s rows", nrow(shared_data$legacy_snvs_data_filtered)), type = "message")
       showNotification(sprintf("legacy_svs_data_filtered to %s rows", nrow(shared_data$legacy_svs_data_filtered)), type = "message")
+
+      shared_store$A <- filtered_data$snv_filtered_data
+      shared_store$B <- filtered_data$sv_filtered_data
+      bump_version(shared_rx)
 
     })
 

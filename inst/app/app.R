@@ -31,7 +31,8 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("Home", home_ui("home")),
     tabPanel("Filter", selectFiltersUI("filter")),
-    tabPanel("SNV and Indels", tabUI("legacy_snv_variants", "SNVs & Indels")),
+    tabPanel("Variants", dataUI("Variants")),
+    # tabPanel("SNV and Indels", tabUI("legacy_snv_variants", "SNVs & Indels")),
     # tabPanel("SVs", variants_ui("legacy_sv_variants")),
     # tabPanel("(snvs)", variants_ui("snv_variants")),
     # tabPanel("(svs)", variants_ui("sv_variants")),
@@ -61,28 +62,34 @@ server <- function(input, output, session) {
     work_dir = NULL,
     paths = list()
   )
+  # Shared storage (plain variables) and reactive version token
+  shared_store <- new.env(parent = emptyenv())  # holds $A and $B as plain data.frames
+  shared_rx <- list(
+    version = reactiveVal(0L)                   # bump when A/B are updated in Home
+  )
 
-  home_server("home", shared_data)
-  selectFiltersServer("filter", shared_data)
-  observe({
-      req(shared_data$pref)  # wait until pref is available
-      req(shared_data$pref$variants)
-      req(shared_data$pref$working_dir)
-      req(shared_data$legacy_snvs_data_filtered)
-      selected <- isolate(shared_data$pref$variants)
-      pref <- isolate(shared_data$pref)
-      filtered_data <- reactiveVal(NULL)
-      filtered_data(shared_data$legacy_snvs_data_filtered)
-      # browser()
-      tabServer(
-        id = "legacy_snv_variants",
-        filtered_data = filtered_data,
-        selected = selected,
-        pref = pref,
-        selected_igv_id = reactive(input$igv_sample),
-        exclude = NULL
-      )
-    })
+  home_server("home", shared_data, shared_store, shared_rx)
+  selectFiltersServer("filter", shared_data, shared_store, shared_rx)
+  dataServer("Variants", shared_store, shared_rx)
+  # observe({
+  #     req(shared_data$pref)  # wait until pref is available
+  #     req(shared_data$pref$variants)
+  #     req(shared_data$pref$working_dir)
+  #     req(shared_data$legacy_snvs_data_filtered)
+  #     selected <- isolate(shared_data$pref$variants)
+  #     pref <- isolate(shared_data$pref)
+  #     filtered_data <- reactiveVal(NULL)
+  #     filtered_data(shared_data$legacy_snvs_data_filtered)
+  #     # browser()
+  #     tabServer(
+  #       id = "legacy_snv_variants",
+  #       filtered_data = filtered_data,
+  #       selected = selected,
+  #       pref = pref,
+  #       selected_igv_id = reactive(input$igv_sample),
+  #       exclude = NULL
+  #     )
+  #   })
   
   
   # variants_server("legacy_sv_variants", reactive(shared_data$legacy_svs_data_filtered), reactiveVal(shared_data$pref$variants))

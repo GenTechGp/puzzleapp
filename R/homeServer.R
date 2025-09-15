@@ -6,7 +6,7 @@
 
 source("R/db_utility.R")
 
-home_server <- function(id, shared_data) {
+home_server <- function(id, shared_data, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -40,6 +40,12 @@ home_server <- function(id, shared_data) {
       shared_data$config_samples <- NULL
       shared_data$config_samples <- list(list(sample_id="",kinship="unknown",status="unknown",sex="unknown",code=1,bam="",coverage=""))
       cat("Inputs cleared and shared_data reset.\n")
+
+      shared_store$A <- NULL
+      shared_store$B <- NULL
+      bump_version(shared_rx)
+      cat("[Home] Deleted datasets A and B\n")
+
     })
 
     # Feedback to user
@@ -157,6 +163,23 @@ home_server <- function(id, shared_data) {
 
       # shared_data$legacy_snvs_data_filtered <- shared_data$snvs_data_filtered
       # to support legacy end
+      # add_row_id <- function(df) {
+      #   df$.row_id <- seq_len(nrow(df))
+      #   df
+      # }
+      # sample_base <- function(n) {
+      #   n <- max(1, min(n, nrow(iris)))
+      #   iris[sample.int(nrow(iris), n, replace = FALSE), , drop = FALSE]
+      # }
+      # base0 <- add_row_id(sample_base(30))
+      # shared_store$A <- base0
+      # shared_store$B <- base0
+
+
+      shared_store$A <- collected$snvs_data
+      shared_store$B <- collected$svs_data
+      shared_store$preferred_cols <- selected_pref_variant_cols
+      bump_version(shared_rx)
 
       cat("Data loaded into shared_data.\n")
     })

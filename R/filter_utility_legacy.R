@@ -64,6 +64,24 @@ text_filter <- function(column, values) {
   return(sprintf("grepl('%s', %s, ignore.case = TRUE)", paste(values, collapse = "|"), column))
 }
 
+# Helper function: Handle frequency and quality filters
+quality_filters <- function(filters, data) {
+  conditions <- list()
+
+  if (!is.null(filters$af_value) && filters$af_value < 1) 
+    conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
+
+  if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0) 
+    conditions <- c(conditions, sprintf("QUAL >= %f", filters$genotype_quality_value))
+
+  if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0) {
+    vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
+    conditions <- c(conditions, paste(sprintf("get('%s') >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
+  }
+
+  return(paste(conditions, collapse = " & "))
+}
+
 # Helper function: Handle panel app gene filtering
 panelapp_filter <- function(filters, panel_app_genes) {
   if (length(filters$panelapp_filter) > 0) {

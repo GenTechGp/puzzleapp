@@ -8,6 +8,10 @@
 #'
 #' @param file Path to the VEP annotations TSV file. If NULL, loads the default file from the package.
 #' @return A named list where each key is a consequence and the value is a vector of terms.
+#' 
+
+nthreads <- 8  # Number of threads for data.table operations
+
 load_vep_consequences <- function(file = NULL) {
   if (is.null(file)) {
     # Locate the TSV file inside inst/extdata/
@@ -15,28 +19,10 @@ load_vep_consequences <- function(file = NULL) {
   }
   stopifnot(file.exists(file))
   # Read the file
-  dt <- data.table::fread(file = file, header = TRUE)
+  dt <- data.table::fread(file = file, header = TRUE, nThread = nthreads)
   # Debug print removed for production use
   return(dt)
 }
-
-# #' Load Phenotype Data
-# #'
-# #' Utility function to load phenotype-to-genes data from a TSV file.
-# #'
-# #' @param file Path to the phenotype TSV file. If NULL, loads the default file from the package.
-# #' @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
-# load_phenotype_data <- function(file = NULL) {
-#   if (is.null(file)) {
-#     cat("Loading default HPO data.\n")
-#     # Locate the TSV file inside inst/extdata/
-#     file <- system.file("extdata", "phenotype_to_genes.txt", package = "puzzleapp")
-#   }
-#   stopifnot(file.exists(file))
-#   # Read the file
-#   df <- read.delim(file, stringsAsFactors = FALSE, sep = "\t")
-#   return(df)
-# }
 
 #' Load Phenotype Data
 #'
@@ -58,7 +44,7 @@ load_phenotype_data <- function(file = NULL) {
 
   stopifnot(file.exists(file))
   # Read the file
-  dt <- fread(file, nThread = 2, header = TRUE)
+  dt <- fread(file, header = TRUE, nThread = nthreads)
   return(dt)
 }
 
@@ -81,7 +67,7 @@ load_panel_app_data <- function(file = NULL) {
   }
   stopifnot(file.exists(file))
   # read as data.table and ensure it's data.table-aware
-  panel_app <- data.table::fread(file, header = TRUE, nThread = 2, data.table = TRUE)
+  panel_app <- data.table::fread(file, header = TRUE, data.table = TRUE, nThread = nthreads)
   # required columns
   required_cols <- c("Entity_Name", "Sources", "Level4", "Model_Of_Inheritance")
   missing <- setdiff(required_cols, names(panel_app))
@@ -153,7 +139,8 @@ collect_inputs <- function(input) {
   snvs_data <- NULL
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
-      snvs_data <- data.table::fread(input$snvs_tsv)
+      snvs_data <- data.table::fread(input$snvs_tsv, nThread = nthreads)
+      snvs_data <- add_row_id(snvs_data)
       snvs_data <- add_extra_columns(snvs_data)
     } else {
       # shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
@@ -165,7 +152,8 @@ collect_inputs <- function(input) {
   svs_data <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
-      svs_data <- data.table::fread(input$svs_tsv)
+      svs_data <- data.table::fread(input$svs_tsv, nThread = nthreads)
+      svs_data <- add_row_id(svs_data)
       svs_data <- add_extra_columns(svs_data)
     } else {
       # shiny::showNotification("SVs TSV file not found.", type = "error")
@@ -239,4 +227,14 @@ prepare_table <- function(dt, selected_cols) {
   # Subset and reorder the data table using [[ ]] style
   dt_subset <- dt[, existing_cols, with = FALSE]
   dt_subset
+}
+
+bump_version <- function(shared_rx) {
+  shared_rx$version(shared_rx$version() + 1L)
+}
+
+
+add_row_id <- function(df) {
+  df$.row_id <- seq_len(nrow(df))
+  df
 }

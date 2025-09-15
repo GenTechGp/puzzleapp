@@ -1,9 +1,33 @@
+# data_module.R
+# Multi-dataset Data module using shared_store$data_for_data (named list of datasets).
+# Preserves existing editing, reordering, snapshotting, slice modal, export TSV, and DT readiness logic.
+# Changes from A/B:
+# - Replaced "Switch dataset A/B" with selectInput + Apply button.
+# - Active dataset is a name from shared_store$data_for_data; default preferred.
+# - Choices are alphabetical; no schema validation (guard remains to avoid replaceData on mismatch).
+# - Reads/writes datasets via shared_store$data_for_data[[active()]]
+
 dataUI <- function(id) {
   ns <- NS(id)
   tagList(
     fluidRow(
-      column(3, actionButton(ns("switch"), "Switch dataset A/B", icon = icon("exchange"))),
-      column(3, tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)))
+      column(
+        6,
+        selectInput(
+          ns("dataset_select"),
+          label = "Select dataset",
+          choices = character(0)
+        )
+      ),
+      column(
+        2,
+        br(),
+        actionButton(ns("apply_dataset"), "Apply", icon = icon("check"))
+      ),
+      column(
+        4,
+        tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE))
+      )
     ),
     DTOutput(ns("tbl"))
   )
@@ -15,13 +39,13 @@ dataServer <- function(id, shared_store, shared_rx) {
     `%||%` <- function(x, y) if (is.null(x)) y else x
 
     # ---- Data module local state ----
-    active <- reactiveVal("A")           # Data module owns switching
-    slice_pct <- reactiveVal(c(0, 10))   # default: first 10%
-    rendering_counter <- reactiveVal(0L) # no UI; used only for logging
-    rendered <- reactiveVal(FALSE)       # has the table been rendered once?
-    dt_ready <- reactiveVal(FALSE)       # DataTables in browser is initialized
+    active <- reactiveVal(NULL)           # active dataset key from shared_store$data_for_data
+    slice_pct <- reactiveVal(c(0, 10))    # default: first 10%
+    rendering_counter <- reactiveVal(0L)  # no UI; used only for logging
+    rendered <- reactiveVal(FALSE)        # has the table been rendered once?
+    dt_ready <- reactiveVal(FALSE)        # DataTables in browser is initialized
 
-    output$active_label <- renderText({ active() })
+    output$active_label <- renderText({ active() %||% "<none>" })
 
     # ---- Helpers (private to Data) ----
     apply_slice <- function(df_full, slice) {
@@ -34,7 +58,7 @@ dataServer <- function(id, shared_store, shared_rx) {
       if (j < i) j <- i              # enforce ≥ 1 row
       if (i < 1L) i <- 1L
       if (j > n) j <- n
-      base_idx <- order(df_full$.row_id)
+      base_idx <- if (".row_id" %in% names(df_full)) order(df_full$.row_id) else seq_len(n)
       sel <- base_idx[i:j]
       df_full[sel, , drop = FALSE]
     }
@@ -54,8 +78,10 @@ dataServer <- function(id, shared_store, shared_rx) {
       if (rendered()) return(invisible(NULL))
 
       act0 <- isolate(active())
+      if (is.null(act0)) return(invisible(NULL))
+
       df_full0 <- isolate({
-        ds <- shared_store[[act0]]
+        ds <- shared_store$data_for_data[[act0]]
         if (is.null(ds)) data.frame(.row_id = integer()) else ds
       })
       # Fast initial slice for performance
@@ -96,7 +122,7 @@ dataServer <- function(id, shared_store, shared_rx) {
 
         cb_code <- paste0(
           "var tbl = table;",
-          "var ridIdx0 = ", rid_idx0, ";",
+          "var ridIdx0 = ", ifelse(length(rid_idx0), rid_idx0, "null"), ";",
           "var preferredInit = ", pref_js, ";",
 
           "function computeSnapshot(reason){",
@@ -315,7 +341,8 @@ dataServer <- function(id, shared_store, shared_rx) {
       if (!rendered() || !dt_ready() || is.null(proxy)) return(invisible(NULL))
       cat("102\n")
       act <- active()
-      df_full <- shared_store[[act]]
+      if (is.null(act)) return(invisible(NULL))
+      df_full <- shared_store$data_for_data[[act]]
       if (is.null(df_full)) return(invisible(NULL))
       view_df <- apply_slice(df_full, slice_pct())
 
@@ -333,25 +360,51 @@ dataServer <- function(id, shared_store, shared_rx) {
       cat("104\n")
     }
 
-    # ---- Dataset switch (A <-> B) ----
-    observeEvent(input$switch, {
-      act_now <- active()
-      active(if (identical(act_now, "A")) "B" else "A")
-    })
-    observeEvent(active(), {
-      cat(sprintf("[Data] Switch -> active=%s\n", active()))
-      update_view(resetPaging = FALSE)
-    }, ignoreInit = TRUE)
-
-    # ---- React to dataset changes from Home (version bump) ----
+    # ---- Dataset selection UI sync on version bumps ----
     observeEvent(shared_rx$version(), {
+      # Discover datasets under shared_store$data_for_data
+      choices <- names(shared_store$data_for_data)
+      choices <- sort(choices %||% character(0))
+
+      # Update UI select choices; prefer "default"
+      preferred <- if ("default" %in% choices) "default" else (choices[1] %||% "")
+      current_sel <- input$dataset_select %||% preferred
+      if (!nzchar(current_sel) || !(current_sel %in% choices)) current_sel <- preferred
+
+      updateSelectInput(session, "dataset_select", choices = choices, selected = current_sel)
+
+      # Initialize/fix active dataset
+      if (is.null(active()) || !(active() %in% choices)) {
+        active(current_sel)
+      }
+
+      # Render or update view
       if (!rendered()) {
-        cat(sprintf("[Data] First version bump detected (%d): rendering table\n", shared_rx$version()))
-        render_tbl_once()
+        if (length(choices)) {
+          cat(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$version(), active()))
+          render_tbl_once()
+        }
       } else {
         cat(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$version(), active()))
         update_view(resetPaging = TRUE)
       }
+    }, ignoreInit = FALSE)
+
+    # ---- Apply button: switch active dataset ----
+    observeEvent(input$apply_dataset, {
+      sel <- input$dataset_select
+      choices <- names(shared_store$data_for_data)
+      choices <- sort(choices %||% character(0))
+      if (length(choices) == 0) return()
+      if (!is.null(sel) && sel %in% choices) {
+        active(sel)
+      }
+    })
+
+    # When active changes, update the view (keep pagination)
+    observeEvent(active(), {
+      cat(sprintf("[Data] Switch -> active=%s\n", active()))
+      update_view(resetPaging = FALSE)
     }, ignoreInit = TRUE)
 
     # ---- % Data Shown modal ----
@@ -422,7 +475,8 @@ dataServer <- function(id, shared_store, shared_rx) {
       col_orig0 <- isolate(input$tbl_edit_col_orig0)
 
       act <- active()
-      df_full <- shared_store[[act]]
+      if (is.null(act)) return()
+      df_full <- shared_store$data_for_data[[act]]
       if (is.null(df_full)) return()
       cn <- colnames(df_full)
       scn <- isolate(snapshot_counter())
@@ -446,7 +500,7 @@ dataServer <- function(id, shared_store, shared_rx) {
       row_id <- as.integer(row_id)
       col_orig0 <- as.integer(col_orig0)
 
-      row_idx <- match(row_id, df_full$.row_id)
+      row_idx <- if (".row_id" %in% names(df_full)) match(row_id, df_full$.row_id) else NA_integer_
       col_idx1 <- col_orig0 + 1L
       if (is.na(row_idx) || row_idx < 1 || row_idx > nrow(df_full)) {
         cat("[edit] .row_id not found in data; rejecting edit\n")
@@ -481,7 +535,7 @@ dataServer <- function(id, shared_store, shared_rx) {
       row_before <- df_full[row_idx, , drop = FALSE]
       cat("[row before] ", fmt_row(row_before), "\n", sep = "")
 
-      # Validation + commit
+      # Validation + commit (keep original behavior)
       if (identical(colname, "Sepal.Width")) {
         new_num <- suppressWarnings(as.numeric(value_raw))
         if (!is.finite(new_num) || new_num < 2 || new_num > 4) {
@@ -506,7 +560,7 @@ dataServer <- function(id, shared_store, shared_rx) {
       cat("[row after ] ", fmt_row(row_after), "\n", sep = "")
 
       # Persist back to shared store and update view
-      shared_store[[act]] <- df_full
+      shared_store$data_for_data[[act]] <- df_full
       update_view(resetPaging = FALSE)
 
       cat(sprintf("[Edit OK] .row_id=%d row=%d col=%s old=%s new=%s\n",

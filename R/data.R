@@ -304,7 +304,6 @@ dataServer <- function(id, shared_store, shared_rx) {
       # Create proxy now that the table exists (IMPORTANT: scope with session)
       proxy <<- dataTableProxy("tbl", session = session)
       rendered(TRUE)
-      cat("[Data] DT rendered in UI (proxy created)\n")
 
       # Note: No initial push here; dt_ready gate will handle the first update
     }
