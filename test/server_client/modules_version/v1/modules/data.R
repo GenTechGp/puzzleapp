@@ -320,7 +320,8 @@ dataServer <- function(id, shared_store, shared_rx) {
               c("10", "15", "25", "50", "100", "1,000", "10,000", "All")
             ),
             deferRender = TRUE,
-            scrollX = TRUE,
+            # scrollX = TRUE,
+            autoWidth = TRUE,
             columnDefs = column_defs
           ),
           callback = cb
@@ -368,13 +369,11 @@ dataServer <- function(id, shared_store, shared_rx) {
 
       # Update UI select choices; prefer "[Synthetic] Boundary"
       preferred <- if ("[Synthetic] Boundary" %in% choices) "[Synthetic] Boundary" else (choices[1] %||% "")
-      current_sel <- input$dataset_select %||% preferred
-      if (!nzchar(current_sel) || !(current_sel %in% choices)) current_sel <- preferred
-
+      current_sel <- preferred
       updateSelectInput(session, "dataset_select", choices = choices, selected = current_sel)
-
       # Initialize/fix active dataset
       if (is.null(active()) || !(active() %in% choices)) {
+        cat("[Data] Active dataset reset to ", current_sel, "\n", sep = "")
         active(current_sel)
       }
 
@@ -434,12 +433,29 @@ dataServer <- function(id, shared_store, shared_rx) {
       update_view(resetPaging = TRUE)
     })
 
+    # ---- Manual dataset setter (for first render after dt_ready) ----
+    manual_set_dataset <- function() {
+      choices <- names(shared_store$data_for_data)
+      choices <- sort(choices %||% character(0))
+      # Update UI select choices; prefer "[Synthetic] Boundary"
+      preferred <- if ("datasetA" %in% choices) "datasetA" else (choices[1] %||% "")
+      cat(sprintf("[Data] manual_set_dataset: choices=%s | preferred=%s\n", paste(choices, collapse = ", "), preferred))
+      current_sel <- preferred
+      cat("current_sel =", current_sel, "\n")
+      # drop [Synthetic] Boundary from choices
+      choices <- setdiff(choices, "[Synthetic] Boundary")
+      updateSelectInput(session, "dataset_select", choices = choices, selected = current_sel)
+      active(current_sel)
+      cat("[Data] manual_set_dataset applied\n")
+    }
+
     # ---- Dedicated DT readiness gate (decoupled from logging) ----
     observeEvent(input$tbl_ready, {
       if (!dt_ready()) {
         dt_ready(TRUE)
         cat("[Data] DT is ready in browser; enabling replaceData updates.\n")
         update_view(resetPaging = TRUE)
+        manual_set_dataset()
       }
     }, once = TRUE, ignoreInit = FALSE)
 
