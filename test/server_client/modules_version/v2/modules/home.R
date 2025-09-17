@@ -13,6 +13,15 @@ homeUI <- function(id) {
           choices = character(0),
           multiple = TRUE
         )
+      ),
+      column(
+        6,
+        textInput(
+          ns("tsv_path"),
+          label = "TSV file path (optional)",
+          placeholder = "/path/to/file.tsv"
+        ),
+        actionButton(ns("use_tsv"), "Use TSV", icon = icon("file-import"))
       )
     ),
     fluidRow(
@@ -36,16 +45,13 @@ homeServer <- function(id, shared_store, shared_rx) {
     `%||%` <- function(x, y) if (is.null(x)) y else x
     bump_version <- function() shared_rx$version(shared_rx$version() + 1L)
 
-    # ---- Dataset (single-line definition; swap here in future) ----
-    dataset_df <- penguins 
-    base_full_dt <- data.table::as.data.table(dataset_df)
+    # ---- Default dataset (single line; swap here if needed) ----
+    dataset_df <- iris
+    default_base_dt <- data.table::as.data.table(dataset_df)
 
-    # Initialize UI defaults based on dataset (UI stays dataset-agnostic)
-    # - preferred_cols choices from dataset colnames
-    # - clamp numericInput max to dataset size
+    # Initialize preferred_cols choices from default dataset (UI remains dataset-agnostic)
     try({
-      updateSelectizeInput(session, "preferred_cols", choices = names(base_full_dt), server = TRUE)
-      updateNumericInput(session, "n", max = nrow(base_full_dt))
+      updateSelectizeInput(session, "preferred_cols", choices = names(default_base_dt), server = TRUE)
     }, silent = TRUE)
 
     # Ensure .row_id exists and is the last column (data.table)
@@ -57,14 +63,14 @@ homeServer <- function(id, shared_store, shared_rx) {
       dt
     }
 
-    # Sample base from the configured dataset
-    sample_base_dt <- function(n) {
-      n_max <- nrow(base_full_dt)
-      n <- max(1, min(n, n_max))
-      if (n_max <= 0) return(base_full_dt[0])
+    # Sample base from given data.table
+    sample_base_dt <- function(n, base_dt) {
+      stopifnot(inherits(base_dt, "data.table"))
+      n_max <- nrow(base_dt)
+      n <- max(1, min(n %||% 1, n_max))
+      if (n_max <= 0) return(base_dt[0])
       idx <- sample.int(n_max, n, replace = FALSE)
-      dt <- base_full_dt[idx, , drop = FALSE]
-      data.table::as.data.table(dt)
+      base_dt[idx, , drop = FALSE]
     }
 
     # Make a noisy variant (keep .row_id stable)
@@ -81,8 +87,56 @@ homeServer <- function(id, shared_store, shared_rx) {
       dt
     }
 
+    # ---- Use TSV: read header to populate preferred column choices; record chosen path ----
+    observeEvent(input$use_tsv, {
+      path <- trimws(input$tsv_path %||% "")
+      if (identical(path, "") || !file.exists(path)) {
+        showNotification("TSV path is empty or does not exist.", type = "error", duration = 3)
+        return()
+      }
+      # Try reading only the header (fast)
+      dt_hdr <- NULL
+      ok <- TRUE
+      tryCatch({
+        dt_hdr <- data.table::fread(path, sep = "\t", nrows = 0L, showProgress = FALSE)
+      }, error = function(e) {
+        ok <<- FALSE
+        showNotification(sprintf("Failed to read TSV header: %s", e$message), type = "error", duration = 4)
+      })
+      if (!ok || is.null(dt_hdr)) return()
+
+      cols <- names(dt_hdr) %||% character(0)
+      updateSelectizeInput(session, "preferred_cols", choices = cols, server = TRUE)
+
+      # Record explicitly chosen path
+      shared_store$selected_tsv_path <- path
+      showNotification("TSV columns loaded. Remember to click 'Load datasets' to apply.", type = "message", duration = 3)
+      cat(sprintf("[Home] Use TSV: path set to '%s' with %d columns\n", path, length(cols)))
+    })
+
     # ---- Load datasets (default + datasetA + datasetB) ----
     observeEvent(input$load, {
+      # Determine the base dataset: use confirmed TSV if present, else default
+      base_full_dt <- NULL
+      path <- shared_store$selected_tsv_path %||% NULL
+      if (!is.null(path) && file.exists(path)) {
+        ok <- TRUE
+        tryCatch({
+          base_full_dt <- data.table::fread(path, sep = "\t", showProgress = FALSE)
+        }, error = function(e) {
+          ok <<- FALSE
+          showNotification(sprintf("Failed to read TSV. Falling back to default dataset. Error: %s", e$message), type = "warning", duration = 5)
+          cat(sprintf("[Home][WARN] TSV read failed: %s\n", e$message))
+        })
+        if (!ok) base_full_dt <- default_base_dt
+      } else {
+        base_full_dt <- default_base_dt
+      }
+      base_full_dt <- data.table::as.data.table(base_full_dt)
+
+      # Persist the base used for subsequent operations
+      shared_store$base_full_dt <- base_full_dt
+
       # Capture preferred columns once at load
       shared_store$preferred_cols <- input$preferred_cols %||% character(0)
       n <- input$n %||% 30
@@ -90,7 +144,7 @@ homeServer <- function(id, shared_store, shared_rx) {
       # Build datasets
       default_dt <- make_boundary_table(base_full_dt, round_base = 10, slice_pct = 10)
 
-      base_dt <- add_row_id_dt(sample_base_dt(n))
+      base_dt <- add_row_id_dt(sample_base_dt(n, base_full_dt))
       datasetA_dt <- data.table::copy(base_dt)  # base real
       datasetB_dt <- make_variant_from_dt(data.table::copy(base_dt), sd_noise = 0.15, seed_offset = 1L)  # variant real
 
@@ -101,15 +155,23 @@ homeServer <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["datasetB"]] <- datasetB_dt
 
       bump_version()
-      cat(sprintf("[Home] Loaded datasets: %s (n=%d default, %d A, %d B)\n",
+      src_lab <- if (!is.null(path) && file.exists(path)) sprintf("TSV (%s)", path) else "default dataset"
+      cat(sprintf("[Home] Loaded datasets from %s: %s (n=%d default, %d A, %d B)\n",
+                  src_lab,
                   paste(names(shared_store$data_for_data), collapse = ", "),
                   nrow(default_dt), nrow(datasetA_dt), nrow(datasetB_dt)))
+      showNotification(sprintf("Datasets loaded from %s.", src_lab), type = "message", duration = 3)
     })
 
     # ---- Resample (recreate datasetA and datasetB only) ----
     observeEvent(input$resample, {
+      base_full_dt <- shared_store$base_full_dt
+      if (is.null(base_full_dt)) {
+        showNotification("Please 'Load datasets' first.", type = "warning", duration = 3)
+        return()
+      }
       n <- input$n %||% 30
-      base_dt <- add_row_id_dt(sample_base_dt(n))
+      base_dt <- add_row_id_dt(sample_base_dt(n, base_full_dt))
       shared_store$data_for_data[["datasetA"]] <- data.table::copy(base_dt)
       shared_store$data_for_data[["datasetB"]] <- make_variant_from_dt(data.table::copy(base_dt), sd_noise = 0.15, seed_offset = 1L)
       bump_version()
@@ -141,7 +203,7 @@ homeServer <- function(id, shared_store, shared_rx) {
       }
     })
 
-    # ---- Delete all datasets ----
+    # ---- Delete all datasets (reuse existing Synthetic Boundary; don't recompute) ----
     observeEvent(input$delete_datasets, {
       default_dt <- shared_store$data_for_data[["[Synthetic] Boundary"]]
       shared_store$data_for_data <- list()

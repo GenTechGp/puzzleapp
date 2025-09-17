@@ -10,24 +10,31 @@
 dataUI <- function(id) {
   ns <- NS(id)
   tagList(
+    tags$style(HTML("
+      /* DT ColVis dropdown: single column with ~20 items visible and vertical scroll */
+      div.dt-button-collection {
+        max-height: 640px;   /* ~20 rows depending on line-height */
+        overflow-y: auto;
+        overflow-x: hidden;
+      }
+      ")),
     fluidRow(
-      column(
-        6,
-        selectInput(
-          ns("dataset_select"),
-          label = "Select dataset",
-          choices = character(0)
-        )
+      column(5,),
+      # column(1,
+      #   tags$div(strong("Select dataset:")),
+      # ),
+      column(2,
+        tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)),
       ),
-      column(
-        2,
-        br(),
-        actionButton(ns("apply_dataset"), "Apply", icon = icon("check"))
+      column(2,
+        tags$div(strong("Slice summary:"), textOutput(ns("slice_summary"), inline = TRUE))
       ),
-      column(
-        4,
-        tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE))
-      )
+      column(2,
+        selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
+      ),
+      column(1,
+        actionButton(ns("use_dataset"), "Switch dataset", icon = icon("check"))
+      ),
     ),
     DTOutput(ns("tbl"))
   )
@@ -210,7 +217,7 @@ dataServer <- function(id, shared_store, shared_rx) {
         filename_js <- JS("
           function() {
             var ts = new Date().toISOString().replace(/[:.]/g, '-');
-            return 'export-' + ts;
+            return 'export-' + ts; // no extension here; Buttons will append .tsv
           }
         ")
 
@@ -294,11 +301,10 @@ dataServer <- function(id, shared_store, shared_rx) {
               ),
               list(
                 extend = "csvHtml5",
-                text = "Export TSV — visible + current page",
+                text = "Download (visible current page)",
                 fieldSeparator = "\t",
-                fieldBoundary = "\"",
+                extension = ".tsv",   # key line: let Buttons append .tsv
                 bom = TRUE,
-                extension = "tsv",
                 title = NULL,
                 filename = filename_js,
                 exportOptions = list(
@@ -321,7 +327,7 @@ dataServer <- function(id, shared_store, shared_rx) {
             ),
             deferRender = TRUE,
             # scrollX = TRUE,
-            autoWidth = TRUE,
+            # autoWidth = TRUE,
             columnDefs = column_defs
           ),
           callback = cb
@@ -426,7 +432,7 @@ dataServer <- function(id, shared_store, shared_rx) {
     }, ignoreInit = FALSE)
 
     # ---- Apply button: switch active dataset ----
-    observeEvent(input$apply_dataset, {
+    observeEvent(input$use_dataset, {
       sel <- input$dataset_select
       visible_choices <- isolate({
         # Rebuild visibility the same way as sync (without side effects)
@@ -465,6 +471,15 @@ dataServer <- function(id, shared_store, shared_rx) {
         ),
         easyClose = TRUE
       ))
+    })
+
+    # In dataServer(), add this renderText (anywhere inside moduleServer after slice_pct is defined)
+    output$slice_summary <- renderText({
+      rng <- slice_pct()
+      if (is.null(rng) || length(rng) != 2) return("")
+      lo <- as.integer(min(rng, na.rm = TRUE))
+      hi <- as.integer(max(rng, na.rm = TRUE))
+      sprintf("Showing %d–%d%%", lo, hi)
     })
 
     observeEvent(input$confirm_data_percentage, {
