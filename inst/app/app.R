@@ -7,6 +7,7 @@ library(jsonlite)
 library(reactable)
 library(stringr)
 library(dplyr)
+library(lobstr)
 
 ui <- fluidPage(
   tags$script(HTML("
@@ -46,11 +47,9 @@ server <- function(input, output, session) {
   shared_data <- reactiveValues(
     samples = NULL,
     pedigree = NULL,
-    dependencies = NULL,
     snvs_data = NULL,
     svs_data = NULL,
     snvs_data_filtered = NULL,
-    svs_data = NULL,
     svs_data_filtered = NULL,
     panel_app_data = NULL,
     vep_map = NULL,
@@ -63,41 +62,28 @@ server <- function(input, output, session) {
     paths = list()
   )
   # Shared storage (plain variables) and reactive version token
-  shared_store <- new.env(parent = emptyenv())  # holds $A and $B as plain data.frames
+  shared_store <- new.env(parent = emptyenv())
+  shared_store$data_for_data  <- list()
+  shared_store$original_data  <- list()
+  shared_store$preferred_cols <- character(0)
+  shared_store$samples <- NULL
+  shared_store$pedigree <- NULL
+  shared_store$panel_app_data <- NULL
+  shared_store$vep_map <- NULL
+  shared_store$phenotype_data <- NULL
+  shared_store$vep_consequences <- NULL
+  shared_store$work_dir <- NULL
+  shared_store$verbose_level <- 0L
   shared_rx <- list(
-    version = reactiveVal(0L)                   # bump when A/B are updated in Home
+    data_version = reactiveVal(0L),
+    panelapp_version = reactiveVal(0L)
+
   )
 
   home_server("home", shared_data, shared_store, shared_rx)
   selectFiltersServer("filter", shared_data, shared_store, shared_rx)
   dataServer("Variants", shared_store, shared_rx)
-  # observe({
-  #     req(shared_data$pref)  # wait until pref is available
-  #     req(shared_data$pref$variants)
-  #     req(shared_data$pref$working_dir)
-  #     req(shared_data$legacy_snvs_data_filtered)
-  #     selected <- isolate(shared_data$pref$variants)
-  #     pref <- isolate(shared_data$pref)
-  #     filtered_data <- reactiveVal(NULL)
-  #     filtered_data(shared_data$legacy_snvs_data_filtered)
-  #     # browser()
-  #     tabServer(
-  #       id = "legacy_snv_variants",
-  #       filtered_data = filtered_data,
-  #       selected = selected,
-  #       pref = pref,
-  #       selected_igv_id = reactive(input$igv_sample),
-  #       exclude = NULL
-  #     )
-  #   })
   
-  
-  # variants_server("legacy_sv_variants", reactive(shared_data$legacy_svs_data_filtered), reactiveVal(shared_data$pref$variants))
-  
-  # variants_server("sv_variants", reactive(shared_data$svs_data_filtered))
-  
-  # variants_server("panelapp", reactive(shared_data$panel_app_data))
-  # variants_server("phenotype", reactive(shared_data$phenotype_data))
 }
 
 shinyApp(ui, server)

@@ -12,4 +12,5 @@ Imports:
     shiny,
     data.table,
     DT,
-    shinyjs
+    shinyjs,
+    lobstr

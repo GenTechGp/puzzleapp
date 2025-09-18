@@ -27,7 +27,7 @@ dataUI <- function(id) {
         selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
       ),
       column(1,
-        actionButton(ns("use_dataset"), "Switch dataset")
+        actionButton(ns("use_dataset"), "Switch dataset", icon = icon("check"))
       )
     ),
     DTOutput(ns("tbl"))
@@ -92,7 +92,6 @@ dataServer <- function(id, shared_store, shared_rx) {
         ds <- shared_store$data_for_data[[act0]]
         if (is.null(ds)) data.frame(.row_id = integer()) else ds
       })
-
       # Fast initial slice for performance
       df0 <- isolate(apply_slice(df_full0, slice_pct()))
       initial_colnames <<- names(df0)
@@ -357,48 +356,47 @@ dataServer <- function(id, shared_store, shared_rx) {
 
       
       # fetch filtered start
-      # total_n <- nrow(df_full)
-      # # --- Retrieve mask (may not exist yet) ---
-      # mask_list <- shared_store$filter_for_data
-      # mask <- if (!is.null(mask_list)) mask_list[[act]] else NULL
-      # valid_mask <- !is.null(mask) && is.logical(mask) && length(mask) == total_n
-      # if (!valid_mask) {
-      #   # Fallback: no mask → treat all rows as passing
-      #   filtered_idx <- if (total_n) seq_len(total_n) else integer(0)
-      # } else {
-      #   # Missing column policy was "all FALSE" for missing; that's already in mask
-      #   # Just take rows with TRUE
-      #   filtered_idx <- which(mask)
-      # }
-      # filtered_n <- length(filtered_idx)
-      # # --- Build filtered subset BEFORE slicing ---
-      # if (filtered_n == 0) {
-      #   # Preserve column structure (important for replaceData)
-      #   df_filtered <- df_full[0, , drop = FALSE]
-      # } else {
-      #   # NOTE: filtered_idx is in ascending order already (which() behavior)
-      #   df_filtered <- df_full[filtered_idx, , drop = FALSE]
-      # }
-      # # --- Apply existing percentage slice logic to filtered subset ---
-      # # Reuse apply_slice WITHOUT modifying its internal logic:
-      # # It treats input data as the "universe", so now the universe is df_filtered
-      # view_df <- apply_slice(df_filtered, slice_pct())
+      total_n <- nrow(df_full)
+      # --- Retrieve mask (may not exist yet) ---
+      mask_list <- shared_store$filter_for_data
+      mask <- if (!is.null(mask_list)) mask_list[[act]] else NULL
+      valid_mask <- !is.null(mask) && is.logical(mask) && length(mask) == total_n
+      if (!valid_mask) {
+        # Fallback: no mask → treat all rows as passing
+        filtered_idx <- if (total_n) seq_len(total_n) else integer(0)
+      } else {
+        # Missing column policy was "all FALSE" for missing; that's already in mask
+        # Just take rows with TRUE
+        filtered_idx <- which(mask)
+      }
+      filtered_n <- length(filtered_idx)
+      # --- Build filtered subset BEFORE slicing ---
+      if (filtered_n == 0) {
+        # Preserve column structure (important for replaceData)
+        df_filtered <- df_full[0, , drop = FALSE]
+      } else {
+        # NOTE: filtered_idx is in ascending order already (which() behavior)
+        df_filtered <- df_full[filtered_idx, , drop = FALSE]
+      }
+      # --- Apply existing percentage slice logic to filtered subset ---
+      # Reuse apply_slice WITHOUT modifying its internal logic:
+      # It treats input data as the "universe", so now the universe is df_filtered
+      view_df <- apply_slice(df_filtered, slice_pct())
       # fetch filtered end
       
-      view_df <- apply_slice(df_full, slice_pct())
+      # view_df <- apply_slice(df_full, slice_pct())
 
-      # cat(sprintf(
-      #   "[Data] update_view total=%d filtered=%d slice_rows=%d cols=%d\n",
-      #   total_n, filtered_n, nrow(view_df), ncol(view_df)
-      # ))
+      cat(sprintf(
+        "[Data] update_view total=%d filtered=%d slice_rows=%d cols=%d\n",
+        total_n, filtered_n, nrow(view_df), ncol(view_df)
+      ))
 
       # Diagnostics: structure and column equality with initial table
       cat(sprintf("[Data] update_view rows=%d cols=%d\n", nrow(view_df), ncol(view_df)))
       if (!is.null(initial_colnames) && !identical(names(view_df), initial_colnames)) {
-        cat("[Data][ERROR] Column mismatch in update_view:\n")
+        cat("[Data][WARN] Column mismatch in update_view:\n")
         cat("  initial: ", paste(initial_colnames, collapse = ", "), "\n", sep = "")
         cat("  current: ", paste(names(view_df), collapse = ", "), "\n", sep = "")
-        showNotification("Column mismatch in Data update_view; see console.", type = "error", duration = NULL)
         return(invisible(NULL))
       }
       replaceData(proxy, data = view_df, resetPaging = resetPaging, rownames = FALSE, clearSelection = "none")
@@ -444,18 +442,18 @@ dataServer <- function(id, shared_store, shared_rx) {
     }
 
     # ---- Dataset selection UI sync on version bumps ----
-    observeEvent(shared_rx$data_version(), {
+    observeEvent(shared_rx$version(), {
       sync_choices_and_active("version")
 
       # Render or update view
       choices_all <- names(shared_store$data_for_data)
       if (!rendered()) {
         if (length(choices_all)) {
-          cat(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$data_version(), active()))
+          cat(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$version(), active()))
           render_tbl_once()
         }
       } else {
-        cat(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$data_version(), active()))
+        cat(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$version(), active()))
         update_view(resetPaging = TRUE)
       }
     }, ignoreInit = FALSE)
@@ -566,7 +564,7 @@ dataServer <- function(id, shared_store, shared_rx) {
       # if act is [Synthetic] Boundary, reject edits
       if (identical(act, "[Synthetic] Boundary")) {
         cat("[edit] Attempt to edit synthetic dataset blocked; rejecting\n")
-        showNotification("Edits to this dummy dataset will not be saved on server.", type = "warning", duration = 2)
+        showNotification("This dataset is not editable.", type = "warning", duration = 2)
         return()
       }
 

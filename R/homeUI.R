@@ -50,7 +50,7 @@ home_ui <- function(id) {
     ),
 
     shiny::fluidRow(
-      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("work_dir"), "Working directory:", width = "100%")),
+      shiny::column(6, style = "padding: 1;", shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%")),
       shiny::column(6)  # empty space
       # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_sample"), "IGV Sample ID:", placeholder = "optional. leave blank to disable IGV integration", width = "100%"))
     ),

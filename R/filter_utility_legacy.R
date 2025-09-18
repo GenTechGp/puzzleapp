@@ -526,6 +526,8 @@ get_sv_filters <- function(input, phenos) {
 }
 
 list_files <- function(dir) {
+  if(is.null(dir)) return(character(0))
+  cat(sprintf("[filtServer] Listing files in directory: %s\n", dir))
   if (dir.exists(dir)) {
     list.files(dir, full.names = FALSE)
   } else {
@@ -632,12 +634,14 @@ update_flagged_rows <- function(original_dt, flagged_rows_file) {
     return(copy(original_dt))
   }
   
-  # Read flagged rows
+  # Read flagged rows as data.table
   flagged_rows_dt <- fread(flagged_rows_file, sep = "\t", header = TRUE, na.strings = NULL, nThread = 8)
+  flagged_rows_dt <- setDT(flagged_rows_dt)
   if (nrow(flagged_rows_dt) == 0) {
     message("Flagged rows file is empty. Returning original data.")
     return(copy(original_dt))
   }
+  cat("Read", nrow(flagged_rows_dt), "flagged rows from file:", flagged_rows_file, "\n")
   
   # Type consistency
   if (!is.numeric(flagged_rows_dt$PRIORITY)) {
@@ -648,14 +652,24 @@ update_flagged_rows <- function(original_dt, flagged_rows_file) {
     flagged_rows_dt[is.na(NOTES), NOTES := ""]
   }
   
-  # Update only overlapping IDs
-  original_dt <- merge(
-    original_dt[, !c("PRIORITY", "NOTES"), with = FALSE],
-    flagged_rows_dt[, .(ID, PRIORITY, NOTES)],
-    by = "ID",
-    all.x = TRUE
-  )
+  # Update only overlapping IDs and merge to retain only the original_dts rows
+  # original_dt <- merge(
+  #   original_dt[, !c("PRIORITY", "NOTES"), with = FALSE],
+  #   flagged_rows_dt[, .(ID, PRIORITY, NOTES)],
+  #   by = "ID",
+  #   all.x = TRUE
+  # )
+  # Update only overlapping IDs and keep PRIORITY/NOTES for others
+  original_dt[flagged_rows_dt, 
+              `:=`(PRIORITY = i.PRIORITY, NOTES = i.NOTES), 
+              on = "ID"]
   
+  original_dt[, PRIORITYFlag := fifelse(
+    is.na(PRIORITY) | PRIORITY == 0, NA,
+    fifelse(PRIORITY > 0, TRUE, FALSE)
+  )]
+
+  cat("Updated flagged rows from file:", flagged_rows_file, "\n")
   return(original_dt)
 }
 
@@ -683,7 +697,9 @@ load_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
       sv_df <- setNames(as.list(sv_df$Value), sv_df$Key)
       # update_search_params(sv_df, session, type="sv")
   }
+  cat("updating flagged rows for snv data\n")
   snvs_data <- update_flagged_rows(snvs_data, snv_flagged_rows_file)
+  cat("updating flagged rows for sv data\n")
   svs_data <- update_flagged_rows(svs_data, sv_flagged_rows_file)
   return(list(snv_filters=snv_df, sv_filters=sv_df, snvs_data=snvs_data, svs_data=svs_data))
 
