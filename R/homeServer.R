@@ -6,7 +6,7 @@
 
 source("R/db_utility.R")
 
-home_server <- function(id, shared_data, shared_store, shared_rx) {
+home_server <- function(id, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
@@ -16,13 +16,7 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
     # a new reactive to store config samples from YAML or user input
     config_samples <- shiny::reactiveVal(list())
 
-    clear_shared_data <- function() {
-      # Clear shared_data reactiveValues
-      fields <- c("samples", "dependencies", "snvs_data", "svs_data", "snvs_data_filtered", "svs_data_filtered", "panel_app_data", "vep_map", "phenotype_data", "vep_consequences", "legacy_snvs_data_filtered", "legacy_svs_data_filtered", "work_dir")
-      for (f in fields) shared_data[[f]] <- NULL
-      shared_data$paths <- list()
-      shared_data$pref <- list(variants = NULL, panelapp = NULL, phenotype = NULL, outdir = "")
-
+    clear_shared_store <- function() {
       default_dt <- shared_store$data_for_data[["[Synthetic] Boundary"]]
       shared_store$data_for_data  <- list()
       shared_store$data_for_data[["[Synthetic] Boundary"]] <- default_dt
@@ -51,8 +45,8 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
       shiny::updateTextInput(session, "vep_consequences", value = "")
       shiny::updateTextInput(session, "phenotype_data", value = "")
       shiny::updateTextInput(session, "outdir", value = "")
-      # Clear shared_data
-      clear_shared_data()
+      # Clear shared_store
+      clear_shared_store()
       config_samples(NULL)
       config_samples(list(list(sample_id="",kinship="unknown",status="unknown",sex="unknown",code=1,bam="",coverage="")))
 
@@ -66,16 +60,16 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
     shiny::observeEvent(shared_rx$data_version(), {
       output$status <- shiny::renderText({
         msgs <- c()
-        msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$data_for_data[["SNV"]]), "rows and", ncol(shared_store$data_for_data[["SNV"]]), "columns."))
-        msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$data_for_data[["SV"]]), "rows and", ncol(shared_store$data_for_data[["SV"]]), "columns."))
-        if (length(msgs) == 0) {
-          "No data loaded yet."
-        } else {
-          paste(msgs, collapse = "\n")
+        # check if shared_store$original_data is empty list
+        if (length(shared_store$original_data) == 0) {
+          return("No data loaded yet.")
         }
+        msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
+        msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
+        paste(msgs, collapse = "\n")
       })
     })
-    # Load YAML: populate shared_data with all variables
+
     shiny::observeEvent(input$load_yml, {
       yml_path <- NULL
 
@@ -123,7 +117,7 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
         shiny::showNotification("No data files specified to load.", type = "error")
         return()
       }
-      clear_shared_data()
+      clear_shared_store()
       if (nzchar(input$work_dir) == 0) {
         # shiny::showNotification("Please specify a working directory.", type = "error")
         # return()
@@ -133,46 +127,14 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
       } else {
         shared_store$work_dir <- input$work_dir
       }
-      # Store in shared_data
+      # Store in shared_store
       collected <- collect_inputs(input)
-
-      for (msg in collected$messages) {
-        shiny::showNotification(msg, type = "error")
-      }
-
-      # Fill shared_data reactives
-      shared_data$samples <- collected$samples
-      shared_data$pedigree <- collected$pedigree
-      shared_data$snvs_data <- collected$snvs_data
-      shared_data$snvs_data_filtered <- collected$snvs_data
-      shared_data$svs_data <- collected$svs_data
-      shared_data$svs_data_filtered <- collected$svs_data
-      shared_data$panel_app_genes <- collected$panel_app_data
-      shared_data$vep_consequences <- collected$vep_consequences
-      shared_data$phenotype_data <- collected$phenotype_data
-
-
-      resolve_colnames <- function(selected, available) {
-        unlist(sapply(selected, function(col) {
-          grep(paste0("^", col, "$|^", col, "_[0-9]+$"), available, value = TRUE)
-        }))
-      }
-      snvs_cols <- if (!is.null(shared_data$snvs_data)) colnames(shared_data$snvs_data) else character(0)
-      svs_cols  <- if (!is.null(shared_data$svs_data)) colnames(shared_data$svs_data) else character(0)
-      available_cols <- sort(unique(c(snvs_cols, svs_cols)))
-      selected_pref_variant_cols <- resolve_colnames(input$variants_preferences, available_cols)
-      cat("Selected variant columns based on preferences:", selected_pref_variant_cols, "\n")
-      shared_data$pref$variants <- selected_pref_variant_cols
-      shared_data$pref$panelapp <- input$panelapp_preferences
-      shared_data$pref$phenotype <- input$phenotype_preferences
-      shared_data$pref$working_dir <- shared_data$work_dir
 
       shared_store$data_for_data[["[Synthetic] Boundary"]] <- collected$default_dt
       shared_store$data_for_data[["SNV"]] <- collected$snvs_data
       shared_store$data_for_data[["SV"]] <- collected$svs_data
       shared_store$original_data[["SNV"]] <- data.table::copy(collected$snvs_data)
       shared_store$original_data[["SV"]] <- data.table::copy(collected$svs_data)
-      shared_store$preferred_cols <- selected_pref_variant_cols
 
       shared_store$samples <- collected$samples
       shared_store$pedigree <- collected$pedigree
@@ -186,6 +148,26 @@ home_server <- function(id, shared_data, shared_store, shared_rx) {
           lobstr::obj_addr(shared_store$original_data[["SNV"]])
         )
       )
+
+      for (msg in collected$messages) {
+        shiny::showNotification(msg, type = "error")
+      }
+
+      resolve_colnames <- function(selected, available) {
+        unlist(sapply(selected, function(col) {
+          grep(paste0("^", col, "$|^", col, "_[0-9]+$"), available, value = TRUE)
+        }))
+      }
+      snvs_cols <- if (!is.null(shared_store$original_data[["SNV"]])) colnames(shared_store$original_data[["SNV"]]) else character(0)
+      svs_cols  <- if (!is.null(shared_store$original_data[["SV"]])) colnames(shared_store$original_data[["SV"]]) else character(0)
+      available_cols <- sort(unique(c(snvs_cols, svs_cols)))
+      selected_pref_variant_cols <- resolve_colnames(input$variants_preferences, available_cols)
+      cat("Selected variant columns based on preferences:", selected_pref_variant_cols, "\n")
+      # shared_data$pref$variants <- selected_pref_variant_cols
+      # shared_data$pref$panelapp <- input$panelapp_preferences
+      # shared_data$pref$phenotype <- input$phenotype_preferences
+
+      shared_store$preferred_cols <- selected_pref_variant_cols
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)

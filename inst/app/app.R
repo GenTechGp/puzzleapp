@@ -43,24 +43,7 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
-  # shared reactive store
-  shared_data <- reactiveValues(
-    samples = NULL,
-    pedigree = NULL,
-    snvs_data = NULL,
-    svs_data = NULL,
-    snvs_data_filtered = NULL,
-    svs_data_filtered = NULL,
-    panel_app_data = NULL,
-    vep_map = NULL,
-    phenotype_data = NULL,
-    vep_consequences = NULL,
-    legacy_snvs_data_filtered = NULL,
-    legacy_svs_data_filtered = NULL,
-    pref = list(variants = NULL, panelapp = NULL, phenotype = NULL, working_dir = ""),
-    work_dir = NULL,
-    paths = list()
-  )
+  
   # Shared storage (plain variables) and reactive version token
   shared_store <- new.env(parent = emptyenv())
   shared_store$data_for_data  <- list()
@@ -80,8 +63,8 @@ server <- function(input, output, session) {
 
   )
 
-  home_server("home", shared_data, shared_store, shared_rx)
-  selectFiltersServer("filter", shared_data, shared_store, shared_rx)
+  home_server("home", shared_store, shared_rx)
+  selectFiltersServer("filter", shared_store, shared_rx)
   dataServer("Variants", shared_store, shared_rx)
   
 }

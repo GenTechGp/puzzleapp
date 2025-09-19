@@ -10,7 +10,7 @@ dataUI <- function(id) {
       /* DT ColVis dropdown: single column with ~20 items visible and vertical scroll */
       div.dt-button-collection {
         max-height: 640px;   /* ~20 rows depending on line-height */
-        overflow-y: auto; !important;
+        overflow-y: auto !important;
         overflow-x: hidden;
       }
     ")),
@@ -21,16 +21,29 @@ dataUI <- function(id) {
         tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)),
       ),
       column(2,
-        tags$div(strong("Slice summary:"), textOutput(ns("slice_summary"), inline = TRUE))
-      ),
-      column(2,
         selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
       ),
       column(1,
         actionButton(ns("use_dataset"), "Switch dataset")
       )
     ),
-    DTOutput(ns("tbl"))
+    DTOutput(ns("tbl")),
+    tags$script(HTML(sprintf("
+    Shiny.addCustomMessageHandler('%s', function(txt) {
+      if (typeof txt === 'undefined') return;
+      var sel = '#%s';
+      var el = $(sel);
+      if (!el.length) {
+        // Button not yet in DOM; retry shortly
+        setTimeout(function(){
+          var el2 = $(sel);
+          if (el2.length) el2.text(txt);
+        }, 200);
+      } else {
+        el.text(txt);
+      }
+    });
+    ", ns("updateSliceBtn"), ns("slice_summary_btn"))))
   )
 }
 
@@ -298,10 +311,22 @@ dataServer <- function(id, shared_store, shared_rx) {
                 columns = ":not(.noVis)",
                 text = "Columns"
               ),
+              # list(
+              #   extend = "collection",
+              #   text = "% Data Shown",
+              #   action = JS(sprintf("function (e, dt, node, config) { Shiny.setInputValue('%s', true, {priority: 'event'}); }", ns("open_data_modal")))
+              # ),
               list(
                 extend = "collection",
-                text = "% Data Shown",
-                action = JS(sprintf("function (e, dt, node, config) { Shiny.setInputValue('%s', true, {priority: 'event'}); }", ns("open_data_modal")))
+                text = "% Data Shown",   # initial placeholder; will be overwritten
+                attr = list(id = ns("slice_summary_btn")),
+                className = "btn-slice-summary",
+                action = JS(sprintf(
+                  "function (e, dt, node, config) { 
+                    Shiny.setInputValue('%s', true, {priority: 'event'});
+                  }",
+                  ns("open_data_modal")
+                ))
               ),
               list(
                 extend = "csvHtml5",
@@ -502,12 +527,14 @@ dataServer <- function(id, shared_store, shared_rx) {
       ))
     })
 
-    output$slice_summary <- renderText({
+    observe({
       rng <- slice_pct()
-      if (is.null(rng) || length(rng) != 2) return("")
+      req(!is.null(rng), length(rng) == 2)
+      cat("triggered slice summary update:", paste(rng, collapse = ","), "\n")
       lo <- as.integer(min(rng, na.rm = TRUE))
       hi <- as.integer(max(rng, na.rm = TRUE))
-      sprintf("Showing %d–%d%%", lo, hi)
+      label <- sprintf("%d–%d%% filtered data", lo, hi)
+      session$sendCustomMessage(ns("updateSliceBtn"), label)
     })
 
     observeEvent(input$confirm_data_percentage, {

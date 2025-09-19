@@ -3,7 +3,7 @@
 #' @export
 #' @import shiny
 
-selectFiltersServer <- function(id, shared_data, shared_store, shared_rx) {
+selectFiltersServer <- function(id, shared_store, shared_rx) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
 
