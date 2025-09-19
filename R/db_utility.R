@@ -425,12 +425,12 @@ add_extra_columns <- function(dt) {
 
   # Define extra columns with their default types
   extra_columns <- list(
-    PRIORITY = NA_integer_,            # integer
+    PRIORITY = 0L,            # integer
     NOTES = NA_character_,
     INHERITANCE = NA_character_,
     PANEL_APP = NA_character_,
     HPO_ID = NA_character_,
-    HPO_COUNT = NA_real_,        # numeric
+    HPO_COUNT = 0L,        # numeric
     spliceai_override = FALSE,      # logical
     clinvar_override = FALSE,       # logical
     PRIORITYFlag = as.logical(NA)           # logical later

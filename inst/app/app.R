@@ -32,7 +32,8 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("Home", home_ui("home")),
     tabPanel("Filter", selectFiltersUI("filter")),
-    tabPanel("Variants", dataUI("Variants")),
+    tabPanel("SNV", dataUI("snv_variants")),
+    tabPanel("SV", dataUI("sv_variants")),
     # tabPanel("SNV and Indels", tabUI("legacy_snv_variants", "SNVs & Indels")),
     # tabPanel("SVs", variants_ui("legacy_sv_variants")),
     # tabPanel("(snvs)", variants_ui("snv_variants")),
@@ -65,7 +66,8 @@ server <- function(input, output, session) {
 
   home_server("home", shared_store, shared_rx)
   selectFiltersServer("filter", shared_store, shared_rx)
-  dataServer("Variants", shared_store, shared_rx)
+  dataServer("snv_variants", shared_store, shared_rx, "SNV")
+  dataServer("sv_variants", shared_store, shared_rx, "SV")
   
 }
 

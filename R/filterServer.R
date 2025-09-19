@@ -171,7 +171,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       # Legacy filtering function
       snv_filters <- get_snv_filters(input, phenos())
       sv_filters <- get_sv_filters(input, phenos())
-      
+
       allele_counts_dt <- data.table(
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)

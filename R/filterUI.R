@@ -203,9 +203,11 @@ preSavedSearchesUI <- function(ns) {
           selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE)),
           actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;"),
         ),
-        checkboxInput(ns("load_and_apply"), "Load and apply filter", value = FALSE)
+        # checkboxInput(ns("load_and_apply"), "Load and apply filter", value = FALSE)
       ),
-      column(4)
+      column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
+      column(3)
+
     )
   )
 }
@@ -245,7 +247,7 @@ selectFiltersUI <- function(id) {
 
     fluidRow(
       column(1, actionButton(ns("reset"), "Reset all filters", class = "btn-secondary")),
-      column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
+      # column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
       column(10)
     )
   )

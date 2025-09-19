@@ -15,18 +15,18 @@ dataUI <- function(id) {
       }
     ")),
     if (exists("dataset_specific_css")) dataset_specific_css(),
-    fluidRow(
-      column(5,),
-      column(2,
-        tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)),
-      ),
-      column(2,
-        selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
-      ),
-      column(1,
-        actionButton(ns("use_dataset"), "Switch dataset")
-      )
-    ),
+    # fluidRow(
+    #   column(5,),
+    #   column(2,
+    #     tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)),
+    #   ),
+    #   column(2,
+    #     selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
+    #   ),
+    #   column(1,
+    #     actionButton(ns("use_dataset"), "Switch dataset")
+    #   )
+    # ),
     DTOutput(ns("tbl")),
     tags$script(HTML(sprintf("
     Shiny.addCustomMessageHandler('%s', function(txt) {
@@ -47,7 +47,7 @@ dataUI <- function(id) {
   )
 }
 
-dataServer <- function(id, shared_store, shared_rx) {
+dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -65,6 +65,16 @@ dataServer <- function(id, shared_store, shared_rx) {
     rendering_counter <- reactiveVal(0L)  # no UI; used only for logging
     rendered <- reactiveVal(FALSE)        # has the table been rendered once?
     dt_ready <- reactiveVal(FALSE)        # DataTables in browser is initialized
+
+    synthetic_key <- "[Synthetic] Boundary"
+    include_synthetic <- TRUE
+    allowed_dataset_names <- eventReactive(shared_rx$data_version(), {
+      all_current <- names(shared_store$data_for_data) %||% character(0)
+      allowed <- if (is.null(dataset_names)) all_current else intersect(all_current, dataset_names)
+      if (isTRUE(include_synthetic) && synthetic_key %in% all_current)
+        allowed <- union(allowed, synthetic_key)
+      sort(unique(allowed))
+    }, ignoreNULL = TRUE)
 
     output$active_label <- renderText({ active() %||% "<none>" })
 
@@ -431,41 +441,40 @@ dataServer <- function(id, shared_store, shared_rx) {
 
     # ---- Sync helper: choices, visibility, and active selection ----
     sync_choices_and_active <- function(reason = "unspecified") {
-      choices_all <- sort(names(shared_store$data_for_data) %||% character(0))
+      choices_all <- allowed_dataset_names()
       curr_active <- isolate(active())
+
       if (!rendered()) {
-        # Pre-render: prefer synthetic to show the demo first; keep all choices visible
         active_new <- if (!is.null(curr_active) && curr_active %in% choices_all) curr_active else {
-          if ("[Synthetic] Boundary" %in% choices_all) "[Synthetic] Boundary" else (choices_all[1] %||% NULL)
+          if (synthetic_key %in% choices_all) synthetic_key else (choices_all[1] %||% NULL)
         }
         visible_choices <- choices_all
       } else {
-        # Post-render: hide synthetic if any real dataset exists; prefer a sensible real dataset
-        non_synth <- setdiff(choices_all, "[Synthetic] Boundary")
+        non_synth <- setdiff(choices_all, synthetic_key)
         visible_choices <- if (length(non_synth) >= 1) non_synth else choices_all
         if (!is.null(curr_active) && curr_active %in% visible_choices) {
           active_new <- curr_active
         } else if (length(non_synth) > 0) {
           active_new <- non_synth[1]
-        } else if ("[Synthetic] Boundary" %in% choices_all) {
-          active_new <- "[Synthetic] Boundary"
+        } else if (synthetic_key %in% choices_all) {
+          active_new <- synthetic_key
         } else {
           active_new <- NULL
         }
       }
 
-      # UI selection must be among visible choices
-      selected_ui <- if (!is.null(active_new) && active_new %in% visible_choices) active_new else {
-        if (length(visible_choices) >= 1) visible_choices[1] else NULL
-      }
+      selected_ui <- if (!is.null(active_new) && active_new %in% visible_choices) {
+        active_new
+      } else if (length(visible_choices) >= 1) {
+        visible_choices[1]
+      } else NULL
+
       updateSelectInput(session, "dataset_select", choices = visible_choices, selected = selected_ui)
-      cat("active():", active(), "\n")
-      cat("active_new():", active_new, "\n")
+
       if (!identical(active(), active_new)) {
         cat(sprintf("[Data] sync(%s) -> active set to '%s'\n", reason, as.character(active_new %||% "<none>")))
         active(active_new)
       }
-
     }
 
     # ---- Dataset selection UI sync on version bumps ----
@@ -473,7 +482,8 @@ dataServer <- function(id, shared_store, shared_rx) {
       sync_choices_and_active("version")
 
       # Render or update view
-      choices_all <- names(shared_store$data_for_data)
+      choices_all <- allowed_dataset_names()
+      cat("[Data] data_version =", shared_rx$data_version(), "choices =", paste(choices_all, collapse = ", "), "\n")
       if (!rendered()) {
         if (length(choices_all)) {
           cat(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$data_version(), active()))
@@ -489,10 +499,9 @@ dataServer <- function(id, shared_store, shared_rx) {
     observeEvent(input$use_dataset, {
       sel <- input$dataset_select
       visible_choices <- isolate({
-        # Rebuild visibility the same way as sync (without side effects)
-        choices_all <- sort(names(shared_store$data_for_data) %||% character(0))
-        if (rendered() && length(setdiff(choices_all, "[Synthetic] Boundary")) >= 1) {
-          setdiff(choices_all, "[Synthetic] Boundary")
+        choices_all <- allowed_dataset_names()
+        if (rendered() && length(setdiff(choices_all, synthetic_key)) >= 1) {
+          setdiff(choices_all, synthetic_key)
         } else {
           choices_all
         }
@@ -523,7 +532,7 @@ dataServer <- function(id, shared_store, shared_rx) {
           modalButton("Cancel"),
           actionButton(ns("confirm_data_percentage"), "Apply")
         ),
-        easyClose = TRUE
+        easyClose = FALSE
       ))
     })
 
@@ -590,8 +599,7 @@ dataServer <- function(id, shared_store, shared_rx) {
 
       act <- active()
       if (is.null(act)) return()
-      # if act is [Synthetic] Boundary, reject edits
-      if (identical(act, "[Synthetic] Boundary")) {
+      if (identical(act, synthetic_key)) {
         cat("[edit] Attempt to edit synthetic dataset blocked; rejecting\n")
         showNotification("Edits to this dummy dataset will not be saved on server.", type = "warning", duration = 2)
         return()
