@@ -376,18 +376,18 @@ apply_filter_legacy_mode2 <- function(input, snvs_data, svs_data, snv_filters, s
 
 }
 
-read_search_files <- function(directory, type=NULL) {
-  if (is.null(directory)) {
-    directory <- system.file("extdata", "pre_saved_searches", package = "puzzleapp")
+read_search_files <- function(directory, flag_all=TRUE) {
+  file_pattern <- ".*\\.tsv$"
+  files_defaults <- character(0)
+  files_work_dir <- character(0)
+  if (flag_all) {
+    directory_default <- system.file("extdata", "pre_saved_filters", package = "puzzleapp")
+    files_defaults <- list.files(directory_default, pattern = file_pattern, full.names = TRUE)
   }
-
-  file_pattern <- if (!is.null(type)) {
-    paste0(".*\\.", type, "_search.tsv$")
-  } else {
-    ".*_search\\.tsv$"
+  if (!is.null(directory)) {
+    files_work_dir <- list.files(directory, pattern = file_pattern, full.names = TRUE)
   }
-  # List all TSV files in the directory
-  files <- list.files(directory, pattern = file_pattern, full.names = TRUE)
+  files <- unique(c(files_work_dir, files_defaults))  # Combine and remove duplicates
   # Initialize an empty list to store results
   search_data <- list()
   # Iterate over each file
@@ -396,100 +396,12 @@ read_search_files <- function(directory, type=NULL) {
     df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
     # Convert the data to a named list
     file_data <- setNames(as.list(df$Value), df$Key)
-    # Extract the Label field as the key
-    label <- file_data[["Label"]]
-    if (!is.null(label)) {
-      # Store the data inside the main list, using label as key
-      search_data[[label]] <- file_data
-    } else {
-      warning(sprintf("Skipping file %s as it has no 'Label' field", file))
-    }
+    # Extract the name of the file without extension to use as label
+    label <- tools::file_path_sans_ext(basename(file))
+    search_data[[label]] <- file_data
   }
   return(search_data)
 }
-
-# Generalized function to update UI elements
-update_search_params <- function(search_params, session, type="snv") {
-  # Define default values for clearing selections
-  default_values <- list(
-    "Inheritance" = "",
-    "Annotation" = character(0),
-    "Pathogenicity" = character(0),
-    "SpliceAI score" = 0,
-    "gnomADv4 AF" = "1",
-    "Affected only" = FALSE,
-    "Allele balance" = 0,
-    "Genotype quality" = 0,
-    "Filter value" = ""
-  )
-
-  if (type == "snv") {
-    update_mapping <- list(
-      # "Inheritance" = list(func = updateSelectInput, id = "inher", selected = TRUE),
-      "Inheritance" = list(func = updateRadioButtons, id = "inher", selected = TRUE),
-      # "Annotation" = list(func = updatePrettyCheckboxGroup, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
-      "Annotation" = list(func = updateCheckboxGroupInput, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
-      "Pathogenicity" = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE),
-      "SpliceAI score" = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE),
-      "REVEL" = list(func = updateNumericInput, id = "revel", value = TRUE, as_numeric = TRUE),
-      "AlphaMissense" = list(func = updateNumericInput, id = "alpha_missense", value = TRUE, as_numeric = TRUE),
-      "SIFT" = list(func = updateSelectInput, id = "sift", selected = TRUE),
-      "PolyPhen" = list(func = updateSelectInput, id = "polyphen", selected = TRUE),
-      "gnomADv4 AF" = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
-      # "Affected only" = list(func = updateMaterialSwitch, id = "affected_switch", value = TRUE, as_logical = TRUE),
-      "Affected only" = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
-      "Allele balance" = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
-      "Genotype quality" = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
-      "Filter value" = list(func = updateSelectInput, id = "pass_variants", selected = TRUE),
-      "PanelApp Genes" = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE),
-      "HPO Terms" = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
-    )
-  } else {
-    update_mapping <- list(
-      "Inheritance" = list(func = updateRadioButtons, id = "inher", selected = TRUE),
-      "Annotation" = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE),
-      "gnomADv4 AF" = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE),
-      "SV type" = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE),
-      "Min SV Length" = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE),
-      "Max SV Length" = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE),
-      "Affected only" = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE),
-      "Allele balance" = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE),
-      "Genotype quality" = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE),
-      "Filter value" = list(func = updateSelectInput, id = "sv_pass_variants", selected = TRUE),
-      "PanelApp Genes" = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE),
-      "HPO Terms" = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
-    )
-  }
-
-  # If search_params is NULL or empty string, clear selections
-  if (is.null(search_params) || length(search_params) == 0) {
-    search_params <- default_values
-  }
-
-  for (param in names(update_mapping)) {
-    if (!is.null(search_params[[param]])) {
-      update_info <- update_mapping[[param]]
-      value <- search_params[[param]]
-
-      # Convert value if necessary
-      if (!is.null(update_info$as_numeric)) value <- as.numeric(value)
-      if (!is.null(update_info$as_logical)) value <- as.logical(value)
-      if (!is.null(update_info$split)) value <- unlist(strsplit(value, ";"))
-
-      if (param %in% c("Annotation", "Pathogenicity") && is.null(value)) {
-        value <- character(0)
-      }
-
-      # Apply updates explicitly based on argument type
-      if (!is.null(update_info$selected)) {
-        update_info$func(session, update_info$id, selected = value)
-      } else if (!is.null(update_info$value)) {
-        update_info$func(session, update_info$id, value = value)
-      }
-    } 
-  }
-}
-
 
 get_snv_filters <- function(input, phenos) {
   snv_filters <- list(
@@ -535,6 +447,163 @@ list_files <- function(dir) {
   }
 }
 
+capture_filters <- function(input, phenos) {
+  # List of shared keys
+  shared_keys <- c("Inheritance", "PanelApp Genes", "HPO Terms")
+
+  # SNV filters (excluding shared)
+  snv_filters <- list(
+    "Annotation" = if (!is.null(input$conseq_checkboxes)) paste(input$conseq_checkboxes, collapse = ";") else "",
+    "Pathogenicity" = if (!is.null(input$clinvar_checkboxes)) paste(input$clinvar_checkboxes, collapse = ";") else "",
+    "SpliceAI score" = input$spliceai_score,
+    "REVEL" = input$revel,
+    "AlphaMissense" = input$alpha_missense,
+    "SIFT" = input$sift,
+    "PolyPhen" = input$polyphen,
+    "gnomADv4 AF" = input$af,
+    "Affected only" = input$affected_switch,
+    "Allele balance" = input$allele_balance,
+    "Genotype quality" = input$genotype_quality,
+    "Filter value" = input$pass_variants
+  )
+
+  # SV filters (excluding shared)
+  sv_filters <- list(
+    "Annotation" = if (!is.null(input$sv_conseq_checkboxes)) paste(input$sv_conseq_checkboxes, collapse = ";") else "",
+    "SV type" = if (!is.null(input$sv_features_checkboxes)) paste(input$sv_features_checkboxes, collapse = ";") else "",
+    "Min SV Length" = input$min_svlen,
+    "Max SV Length" = input$max_svlen,
+    "gnomADv4 AF" = input$sv_af,
+    "Affected only" = input$sv_affected_switch,
+    "Allele balance" = input$sv_allele_balance,
+    "Genotype quality" = input$sv_genotype_quality,
+    "Filter value" = input$sv_pass_variants
+  )
+
+  # Shared filters: always use unprefixed keys
+  shared_filters <- list(
+    "Inheritance" = input$inher,
+    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
+    "HPO Terms" = paste(phenos, collapse = "; ")
+  )
+
+  # Prefix SNV and SV keys
+  snv_prefixed <- setNames(snv_filters, paste0("SNV_", names(snv_filters)))
+  sv_prefixed <- setNames(sv_filters, paste0("SV_", names(sv_filters)))
+
+  # Combine all into one named list (order: SNV, SV, shared)
+  all_filters <- c(snv_prefixed, sv_prefixed, shared_filters)
+
+  # Return as a data.table
+  data.table(
+    Variable = names(all_filters),
+    Value = vapply(all_filters, function(x) if (is.null(x)) "" else as.character(x), FUN.VALUE = character(1))
+  )
+}
+
+update_filters_params <- function(search_params, session) {
+  # Mapping table: for each base param, SNV and SV update info, and shared update info for 3 params
+  param_mapping <- list(
+    "Annotation" = list(
+      snv = list(func = updateCheckboxGroupInput, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
+      sv  = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "Pathogenicity" = list(
+      snv = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "SpliceAI score" = list(
+      snv = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE)
+    ),
+    "REVEL" = list(
+      snv = list(func = updateNumericInput, id = "revel", value = TRUE, as_numeric = TRUE)
+    ),
+    "AlphaMissense" = list(
+      snv = list(func = updateNumericInput, id = "alpha_missense", value = TRUE, as_numeric = TRUE)
+    ),
+    "SIFT" = list(
+      snv = list(func = updateSelectInput, id = "sift", selected = TRUE)
+    ),
+    "PolyPhen" = list(
+      snv = list(func = updateSelectInput, id = "polyphen", selected = TRUE)
+    ),
+    "gnomADv4 AF" = list(
+      snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
+      sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
+    ),
+    "SV type" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "Min SV Length" = list(
+      sv  = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE)
+    ),
+    "Max SV Length" = list(
+      sv  = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE)
+    ),
+    "Affected only" = list(
+      snv = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
+      sv  = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE)
+    ),
+    "Allele balance" = list(
+      snv = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE)
+    ),
+    "Genotype quality" = list(
+      snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
+    ),
+    "Filter value" = list(
+      snv = list(func = updateSelectInput, id = "pass_variants", selected = TRUE),
+      sv  = list(func = updateSelectInput, id = "sv_pass_variants", selected = TRUE)
+    ),
+    "Inheritance" = list(
+      shared = list(func = updateRadioButtons, id = "inher", selected = TRUE)
+    ),
+    "PanelApp Genes" = list(
+      shared = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE)
+    ),
+    "HPO Terms" = list(
+      shared = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
+    )
+  )
+
+  # If search_params is NULL or empty, do nothing
+  if (is.null(search_params) || length(search_params) == 0) return(invisible())
+
+  for (param in names(search_params)) {
+    value <- search_params[[param]]
+    # Determine type by prefix
+    if (startsWith(param, "SNV_")) {
+      base_param <- substring(param, 5)
+      mapping_entry <- param_mapping[[base_param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$snv)) next
+      update_info <- mapping_entry$snv
+    } else if (startsWith(param, "SV_")) {
+      base_param <- substring(param, 4)
+      mapping_entry <- param_mapping[[base_param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
+      update_info <- mapping_entry$sv
+    } else {
+      # Shared param: only these three are allowed
+      if (!param %in% c("Inheritance", "PanelApp Genes", "HPO Terms")) next
+      mapping_entry <- param_mapping[[param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
+      update_info <- mapping_entry$shared
+    }
+
+    # Conversion logic
+    if (!is.null(update_info$as_numeric)) value <- as.numeric(value)
+    if (!is.null(update_info$as_logical)) value <- as.logical(value)
+    if (!is.null(update_info$split)) value <- unlist(strsplit(value, ";"))
+
+    # Apply updates explicitly based on argument type
+    if (!is.null(update_info$selected)) {
+      update_info$func(session, update_info$id, selected = value)
+    } else if (!is.null(update_info$value)) {
+      update_info$func(session, update_info$id, value = value)
+    }
+  }
+}
+
 save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data, phenos) {
   session_dir <- sprintf("%s/%s", sessions_dir, session_name)
   cat(sprintf("[filtServer] Saving session: %s\n", session_name))
@@ -549,56 +618,11 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
     message(sprintf("Session directory already exists: %s", session_dir))
   }
 
-  # Capture SNV filter states
-  snv_filters <- list(
-    "Inheritance" = input$inher,
-    "Annotation" = if (!is.null(input$conseq_checkboxes)) paste(input$conseq_checkboxes, collapse = ";") else "",
-    "Pathogenicity" = if (!is.null(input$clinvar_checkboxes)) paste(input$clinvar_checkboxes, collapse = ";") else "",
-    "SpliceAI score" = input$spliceai_score,
-    "REVEL" = input$revel,
-    "AlphaMissense" = input$alpha_missense,
-    "SIFT" = input$sift,
-    "PolyPhen" = input$polyphen,
-    "gnomADv4 AF" = input$af,
-    "Affected only" = input$affected_switch,
-    "Allele balance" = input$allele_balance,
-    "Genotype quality" = input$genotype_quality,
-    "Filter value" = input$pass_variants,
-    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
-    # "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
-    "HPO Terms" = paste(phenos, collapse="; ")
-  )
-
-  # Capture SV filter states
-  sv_filters <- list(
-    "Inheritance" = input$inher,
-    "Annotation" = if (!is.null(input$sv_conseq_checkboxes)) paste(input$sv_conseq_checkboxes, collapse = ";") else "",
-    "SV type" = if (!is.null(input$sv_features_checkboxes)) paste(input$sv_features_checkboxes, collapse = ";") else "",
-    "Min SV Length" = input$min_svlen,
-    "Max SV Length" = input$max_svlen,
-    "gnomADv4 AF" = input$sv_af,
-    "Affected only" = input$sv_affected_switch,
-    "Allele balance" = input$sv_allele_balance,
-    "Genotype quality" = input$sv_genotype_quality,
-    "Filter value" = input$sv_pass_variants,
-    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
-    # "HPO Terms" = if (!is.null(input$phenotype)) paste(input$phenotype, collapse = ";") else ""
-    "HPO Terms" = paste(phenos, collapse="; ")
-  )
-
-  # Convert filter lists to data.table
-  snv_filters_dt <- data.table(
-    Variable = names(snv_filters),
-    Value = vapply(snv_filters, function(x) if (is.null(x)) "" else paste(x, collapse = ";"), FUN.VALUE = character(1))
-  )
-  sv_filters_dt <- data.table(
-    Variable = names(sv_filters),
-    Value = vapply(sv_filters, function(x) if (is.null(x)) "" else paste(x, collapse = ";"), FUN.VALUE = character(1))
-  )
+  # Capture current filter states
+  filters_dt <- capture_filters(input, phenos)
 
   # Save filter tables
-  fwrite(snv_filters_dt, file = file.path(session_dir, "snv_filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
-  fwrite(sv_filters_dt, file = file.path(session_dir, "sv_filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
+  fwrite(filters_dt, file = file.path(session_dir, "filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
 
   # Save flagged rows if any
   save_flagged_rows <- function(data, data_type) {
@@ -617,8 +641,40 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
   return(TRUE)
 }
 
+save_filters <- function(input, phenos, file_path) {
+  filter_save_name <- input$filters_save_name
+  filters_dt <- capture_filters(input, phenos)
+
+  if (!dir.exists(file_path)) {
+    dir.create(file_path, recursive = TRUE)
+  }
+
+  # file_name = file_path + filter_save_name + .tsv
+  file_name <- file.path(file_path, paste0(filter_save_name, ".tsv"))
+  # add Label as the first row
+  fwrite(filters_dt, file = file_name, sep = "\t", quote = FALSE, col.names = FALSE)
+  
+}
+
+delete_filters <- function(filter_name, file_path) {
+  file_name <- file.path(file_path, paste0(filter_name, ".tsv"))
+  if (file.exists(file_name)) {
+    file.remove(file_name)
+    message(sprintf("Deleted filter file: %s", file_name))
+    return(TRUE)
+  } else {
+    message(sprintf("Filter file does not exist: %s", file_name))
+    return(FALSE)
+  }
+}
+
 update_flagged_rows <- function(original_dt, flagged_rows_file) {
   stopifnot(is.data.table(original_dt))  # must be data.table
+
+  # Reset PRIORITY and NOTES in the original data.table
+  original_dt[, PRIORITY := 0L]
+  original_dt[, NOTES := NA_character_]
+  original_dt[, PRIORITYFlag := as.logical(NA)]
   
   # Check required columns
   required_cols <- c("ID", "PRIORITY", "NOTES")
@@ -681,38 +737,36 @@ load_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
     showNotification("Session directory does not exist", type = "error")
     return(NULL)
   }
-  snv_file <- file.path(session_to_load, "snv_filters.tsv")
-  sv_file <- file.path(session_to_load, "sv_filters.tsv")
+  filters_file <- file.path(session_to_load, "filters.tsv")
+  if (!file.exists(filters_file)) {
+    showNotification("filters.tsv file does not exist in session directory", type = "error")
+    return(NULL)
+  }
   snv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_snvs_data.tsv")
   sv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_svs_data.tsv")
   snv_flagged_rows_exists <- file.exists(snv_flagged_rows_file)
   sv_flagged_rows_exists <- file.exists(sv_flagged_rows_file)
-  if (file.exists(snv_file)) {
-      snv_df <- read.delim(snv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
-      snv_df <- setNames(as.list(snv_df$Value), snv_df$Key)
-      # update_search_params(snv_df, session, type="snv")
-  }
-  if (file.exists(sv_file)) {
-      sv_df <- read.delim(sv_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
-      sv_df <- setNames(as.list(sv_df$Value), sv_df$Key)
-      # update_search_params(sv_df, session, type="sv")
-  }
+
+  filters_df <- read.delim(filters_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+  filters_df <- setNames(as.list(filters_df$Value), filters_df$Key)
+
   cat("updating flagged rows for snv data\n")
   snvs_data <- update_flagged_rows(snvs_data, snv_flagged_rows_file)
   cat("updating flagged rows for sv data\n")
   svs_data <- update_flagged_rows(svs_data, sv_flagged_rows_file)
-  return(list(snv_filters=snv_df, sv_filters=sv_df, snvs_data=snvs_data, svs_data=svs_data))
+  return(list(filters=filters_df, snvs_data=snvs_data, svs_data=svs_data))
 
 }
 
-read_reset_search_files <- function() {
-  file <- system.file("extdata", "pre_saved_searches", "Reset.snv_search_including_panelapp_hpo.tsv", package = "puzzleapp")
-  df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
-  search_data_snv <- setNames(as.list(df$Value), df$Key)
-
-  file <- system.file("extdata", "pre_saved_searches", "Reset.sv_search_including_panelapp_hpo.tsv", package = "puzzleapp")
-  df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
-  search_data_sv <- setNames(as.list(df$Value), df$Key)
-
-  return(list(snv=search_data_snv, sv=search_data_sv))
+delete_session_data <- function(session_name, sessions_dir) {
+  session_to_delete <- sprintf("%s/%s", sessions_dir, session_name)
+  cat(sprintf("[filtServer] Deleting session: %s\n", session_to_delete))
+  if (dir.exists(session_to_delete)) {
+    unlink(session_to_delete, recursive = TRUE)
+    message(sprintf("Deleted session directory: %s", session_to_delete))
+    return(TRUE)
+  } else {
+    message(sprintf("Session directory does not exist: %s", session_to_delete))
+    return(FALSE)
+  }
 }

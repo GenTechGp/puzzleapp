@@ -139,14 +139,6 @@ svOptsUI <- function(ns) {
   )
 }
 
-inherOptsUI <- function(ns) {
-  fluidRow(
-    column(1),
-    column(4, InherUI(ns)),
-    column(7)
-  )
-}
-
 panelBox <- function(id, label, color = "black", width = "100%", height = "30vh") {
   boxStyle <- paste("overflow-y: auto; max-height: calc(100% - 30px); color:", color, ";")
   panelStyle <- paste("width:", width, "; height:", height, "; padding: 5px;")
@@ -187,27 +179,39 @@ phenotypeOptsUI <- function(ns) {
   )
 }
 
-preSavedSearchesUI <- function(ns) {
+header_UI <- function(ns) {
   tagList(
     fluidRow(
-      column(4, 
-        selectizeInput(ns("pre_saved_search"), "SNVs & Indels pre-saved search:", choices = NULL, selected=NULL),
-        selectizeInput(ns("sv_pre_saved_search"), "SVs pre-saved search:", choices = NULL, selected=NULL)
-      ),
-      column(4,   
+      column(3, 
+        selectizeInput(ns("pre_saved_filters"), "Pre-saved filters found in working dir:", choices = NULL, selected=NULL),
+        # selectizeInput(ns("sv_pre_saved_search"), "SVs pre-saved search:", choices = NULL, selected=NULL),
         div(style = "display: flex; align-items: center;",
-          textInput(ns("session_name"), "Name session:", value = ""),
-          actionButton(ns("save_session"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
+          textInput(ns("filters_save_name"), "Name filters:", value = ""),
+          actionButton(ns("btn_save_filters"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
         ),
+        div(style = "display: flex; align-items: center;",
+          selectizeInput(ns("delete_pre_saved_filters"), "Delete filters:", choices = NULL, selected=NULL, options = list(create = FALSE)),
+          actionButton(ns("btn_delete_pre_saved_filters"), "delete", class = "btn-danger",style = "margin-left: 25px; margin-top: 10px;"),
+        ),
+      ),
+      column(3,   
         div(style = "display: flex; align-items: center;",
           selectizeInput(ns("available_sessions"), "Saved sessions:", choices = NULL, selected=NULL, options = list(create = FALSE)),
-          actionButton(ns("load_session"), "load", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;"),
+          actionButton(ns("btn_load_session"), "load", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;"),
         ),
-        # checkboxInput(ns("load_and_apply"), "Load and apply filter", value = FALSE)
+        div(style = "display: flex; align-items: center;",
+          textInput(ns("session_name"), "Name session:", value = ""),
+          actionButton(ns("btn_save_session"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
+        ),
+        div(style = "display: flex; align-items: center;",
+          selectizeInput(ns("delete_sessions"), "Delete session:", choices = NULL, selected=NULL, options = list(create = FALSE)),
+          actionButton(ns("btn_delete_session"), "delete", class = "btn-danger",style = "margin-left: 25px; margin-top: 10px;"),
+        ),
       ),
-      column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
-      column(3)
-
+      column(6,
+        shiny::strong("Inheritance model options:"),
+        InherUI(ns)
+      )
     )
   )
 }
@@ -217,13 +221,19 @@ selectFiltersUI <- function(id) {
 
   tagList(
     br(),
-    preSavedSearchesUI(ns),
+    fluidRow(
+      column(1, actionButton(ns("btn_reset"), "Reset all filters", class = "btn-secondary")),
+      column(1, actionButton(ns("btn_apply_filters"), "Apply filters", class = "btn-primary")),
+      column(10)
+    ),
+    br(),
+    header_UI(ns),
     br(),
     
-    div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_inher", "+", style="padding:0 6px;min-width:30px;"), span("Show Inheritance Options", id="toggle_inher_label")),
-    div(id="inher_container", style="display:none;margin-top:10px;", inherOptsUI(ns)),
-    tags$script(HTML("$('#toggle_inher').on('click',function(){var c=$('#inher_container');var b=$('#toggle_inher');var l=$('#toggle_inher_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide Inheritance Options');}else{b.text('+');l.text('Show Inheritance Model Options');}});")),
-    br(),
+    # div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_inher", "+", style="padding:0 6px;min-width:30px;"), span("Show Inheritance Options", id="toggle_inher_label")),
+    # div(id="inher_container", style="display:none;margin-top:10px;", inherOptsUI(ns)),
+    # tags$script(HTML("$('#toggle_inher').on('click',function(){var c=$('#inher_container');var b=$('#toggle_inher');var l=$('#toggle_inher_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide Inheritance Options');}else{b.text('+');l.text('Show Inheritance Model Options');}});")),
+    # br(),
 
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_panelapp", "+", style="padding:0 6px;min-width:30px;"), span("Show PanelApp Options", id="toggle_panelapp_label")),
     div(id="panelapp_container", style="max-height:0; overflow:hidden; transition:max-height 0.3s ease;", panelAppOptsUI(ns)),
@@ -244,11 +254,5 @@ selectFiltersUI <- function(id) {
     div(id="sv_container", style="display:none;margin-top:10px;", svOptsUI(ns)),
     tags$script(HTML("$('#toggle_sv').on('click',function(){var c=$('#sv_container');var b=$('#toggle_sv');var l=$('#toggle_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide SVs Filters');}else{b.text('+');l.text('Show SVs Filters');}});")),
     br(),
-
-    fluidRow(
-      column(1, actionButton(ns("reset"), "Reset all filters", class = "btn-secondary")),
-      # column(1, actionButton(ns("apply"), "Apply filters", class = "btn-primary")),
-      column(10)
-    )
   )
 }

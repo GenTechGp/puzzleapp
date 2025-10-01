@@ -476,7 +476,7 @@ collect_inputs <- function(input) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- data.table::fread(input$snvs_tsv, nThread = nthreads)
       snvs_data <- add_extra_columns(snvs_data)
-      default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 10, add_row_id = TRUE)
+      default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       snvs_data <- add_row_id(snvs_data)
     } else {
       # shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")

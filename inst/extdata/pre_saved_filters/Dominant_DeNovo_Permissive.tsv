@@ -1,0 +1,17 @@
+Label	Dominant/De Novo Permissive (MCRI)
+Inheritance	Dominant/De Novo
+SNV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant;Synonymous variant;5'UTR variant;3'UTR variant;Intron variant
+SNV_Pathogenicity	Pathogenic;Likely pathogenic;VUS;Conflicting
+SNV_SpliceAI score	0.1
+SNV_gnomADv4 AF	0.001
+SNV_Affected only	TRUE
+SNV_Filter value	All variants
+SNV_Genotype quality	20
+SNV_Allele balance	0
+SV_Inheritance	Dominant/De Novo
+SV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant;Synonymous variant;5'UTR variant;3'UTR variant;Intron variant
+SV_gnomADv4 AF	0.001
+SV_Affected only	TRUE
+SV_Filter value	All variants
+SV_Genotype quality	20
+SV_Allele balance	0

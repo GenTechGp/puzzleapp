@@ -59,9 +59,14 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     }
     logf <- function(...) if (isTRUE(log_enabled)) cat(...)
 
+    # ---- Constants ----
+    INITIAL_SLICE_PCT <- c(0, 100)
+    BIG_DB_INITIAL_SLICE_PCT <- c(0, 10)  # show first 10% for large datasets initially
+    DB_INITIAL_ROW_THRESHOLD <- 200000    # threshold for large datasets
+
     # ---- Data module local state ----
     active <- reactiveVal(NULL)           # active dataset key from shared_store$data_for_data
-    slice_pct <- reactiveVal(c(0, 10))    # default: first 10%
+    slice_pct <- reactiveVal(INITIAL_SLICE_PCT)    # default: first 100%
     rendering_counter <- reactiveVal(0L)  # no UI; used only for logging
     rendered <- reactiveVal(FALSE)        # has the table been rendered once?
     dt_ready <- reactiveVal(FALSE)        # DataTables in browser is initialized
@@ -328,7 +333,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
               # ),
               list(
                 extend = "collection",
-                text = "% Data Shown",   # initial placeholder; will be overwritten
+                text = "0-100% filtered data",   # initial placeholder; will be overwritten
                 attr = list(id = ns("slice_summary_btn")),
                 className = "btn-slice-summary",
                 action = JS(sprintf(
@@ -340,7 +345,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
               ),
               list(
                 extend = "csvHtml5",
-                text = "Download (visible current page)",
+                text = "Download (visible columns + current page)",
                 fieldSeparator = "\t",
                 extension = ".tsv",   # key line: let Buttons append .tsv
                 bom = TRUE,
@@ -359,7 +364,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
               )
             ),
             colReorder = TRUE,
-            pageLength = 10,
+            pageLength = 50,
             lengthMenu = list(
               c(10, 15, 25, 50, 100, 1000, 10000, -1),
               c("10", "15", "25", "50", "100", "1,000", "10,000", "All")
@@ -473,6 +478,14 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
       if (!identical(active(), active_new)) {
         cat(sprintf("[Data] sync(%s) -> active set to '%s'\n", reason, as.character(active_new %||% "<none>")))
+        # if reason is dt_ready
+        # get the active() dataset and check if its nrow > 200k. if so set slice_pct to c(0,10)
+        if (reason == "dt_ready") {  
+          df_active <- shared_store$data_for_data[[active_new]]
+          if (!is.null(df_active) && nrow(df_active) > DB_INITIAL_ROW_THRESHOLD) {
+            slice_pct(BIG_DB_INITIAL_SLICE_PCT)
+          }
+        }
         active(active_new)
       }
     }

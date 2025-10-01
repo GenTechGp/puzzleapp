@@ -13,14 +13,6 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     amber_genes <- reactiveVal()
     unclassified_genes <- reactiveVal()
 
-    cat("[filtServer] Loading available searches...\n")
-    # Load available searches on startup
-    available_searches <- reactive({
-      read_search_files(NULL, "snv")
-    })
-    sv_available_searches <- reactive({
-      read_search_files(NULL, "sv")
-    })
 
     # Sessions
     sessions_dir <- reactive({
@@ -44,9 +36,10 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     observe({
       updateSelectizeInput(session, "available_sessions", choices = c("", sessions()), selected = "")
       cat("[filtServer] Updated UI dropdowns for available sessions\n")
+      updateSelectizeInput(session, "delete_sessions", choices = c("", sessions()), selected = "")
     })
 
-    observeEvent(input$save_session, {
+    observeEvent(input$btn_save_session, {
       snvs_data <- shared_store$original_data[["SNV"]]
       svs_data <- shared_store$original_data[["SV"]]
       if (is.null(snvs_data) || is.null(svs_data)) {
@@ -59,7 +52,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       }
     })
 
-    observeEvent(input$load_session, {
+    observeEvent(input$btn_load_session, {
       snvs_data <- shared_store$original_data[["SNV"]]
       svs_data <- shared_store$original_data[["SV"]]
       if (is.null(snvs_data) || is.null(svs_data)) {
@@ -72,21 +65,30 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       }
       loaded <- load_session_data(input, input$available_sessions, sessions_dir(), snvs_data, svs_data)
       if (!is.null(loaded)) {
-        update_search_params(loaded$snv_filters, session, type="snv")
-        update_search_params(loaded$sv_filters, session, type="sv")
+        update_filters_params(loaded$filters, session)
         # Both snv and sv have same HPO terms. Hence use snv terms
-        phenos(c(loaded$snv_filters[["HPO Terms"]]))
+        phenos(c(loaded$filters[["HPO Terms"]]))
         shared_store$data_for_data[["SNV"]] <- loaded$snvs_data
         shared_store$data_for_data[["SV"]] <- loaded$svs_data
         showNotification(sprintf("Session '%s' loaded.", input$available_sessions), type = "message")
-        if (isTRUE(input$load_and_apply)) {
-          cat("[filtServer] Load and apply filter is checked. Applying filters...\n")
-          isolate({
-            shinyjs::delay(100, shinyjs::click("apply_filter"))
-          })
-        }
+        isolate({
+          shinyjs::delay(500, shinyjs::click("btn_apply_filters"))
+        })
       }
     })
+
+    observeEvent(input$btn_delete_session, {
+      if (is.null(input$delete_sessions) || input$delete_sessions == "") {
+        showNotification("Please select a session to delete.", type = "error")
+        return()
+      }
+      if (delete_session_data(input$delete_sessions, sessions_dir())) {
+        sessions(list_files(sessions_dir()))
+        message("Session deleted. It will be removed from the list automatically.")
+      }
+    })
+
+
 
 
     alleleCustomTable <- function(ns, pedigree) {
@@ -150,7 +152,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       counts
     }
 
-    observeEvent(input$apply, {
+    observeEvent(input$btn_apply_filters, {
+      cat("[filterServer] Apply filters clicked\n")
       snvs_data <- shared_store$original_data[["SNV"]]
       svs_data <- shared_store$original_data[["SV"]]
       panel_app_genes <- shared_store$panel_app_genes
@@ -161,14 +164,12 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         showNotification("No data available to filter. Please load datasets in the Home tab.", type = "error")
         return()
       }
-      cat("[filterServer] Apply filters clicked\n")
       ped <- convert_samples_to_pedigree(shared_store$samples)
       allele_counts <- getAlleleCounts(ped, input)
       cat("class of allele_counts:", class(allele_counts), "\n")
       cat("Allele counts:\n")
       print(allele_counts)
 
-      # Legacy filtering function
       snv_filters <- get_snv_filters(input, phenos())
       sv_filters <- get_sv_filters(input, phenos())
 
@@ -300,46 +301,68 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     })
 
     ##################### Pre-saved searches
-    # Update UI dropdown with available searches
-    observeEvent(available_searches(),{
-      #req(length(available_searches()) > 0)
-      choices <- c("", names(available_searches()))
-      updateSelectizeInput(session, "pre_saved_search", choices = choices, selected = "")
-      cat("[filtServer] Updated UI dropdowns for SNV available searches\n")
-    }, once = TRUE)
+    saved_filters <- "puzzleapp_saved_filters"
+    filters_state <- reactiveValues(
+      all = NULL,
+      work_dir = NULL
+    )
 
-    observeEvent(sv_available_searches(), {
-      #req(length(sv_available_searches()) > 0)
-      choices <- c("", names(sv_available_searches()))
-      updateSelectizeInput(session, "sv_pre_saved_search", choices = choices, selected = "")
-      cat("[filtServer] Updated UI dropdowns for SV available searches\n")
-    }, once = TRUE)
+    update_filters_dropdowns <- function(session, shared_store, saved_filters) {
+      filters_state$all <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = TRUE)
+      filters_state$work_dir <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = FALSE)
+      choices <- c("", names(filters_state$all))
+      cat("[filtServer] Updating pre_saved_filters choices:", paste(choices, collapse = ", "), "\n")
+      updateSelectizeInput(session, "pre_saved_filters", choices = choices, selected = isolate(input$pre_saved_filters))
+      choices_delete <- c("", names(filters_state$work_dir))
+      cat("[filtServer] Updating delete_pre_saved_filters choices:", paste(choices_delete, collapse = ", "), "\n")
+      updateSelectizeInput(session, "delete_pre_saved_filters", choices = choices_delete, selected = "")
+      # updateSelectizeInput(session, "delete_pre_saved_filters", choices = choices_delete, selected = isolate(input$delete_pre_saved_filters))
+    }
 
-    # Handle search selection
-    observeEvent(input$pre_saved_search, {
-      selected_search <- input$pre_saved_search
-      cat(sprintf("[filtServer] Update selected pre-saved SNV search: %s\n", selected_search))
-      #if (is.null(selected_search) || selected_search == "") return()
-      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
-      search_params <- available_searches()[[selected_search]]
-      update_search_params(search_params, session)
-    },ignoreInit = TRUE)
+    observe({
+      req(shared_rx$data_version())
+      update_filters_dropdowns(session, shared_store, saved_filters)
+    })
 
-    observeEvent(input$sv_pre_saved_search, {
-      selected_search <- input$sv_pre_saved_search
-      cat(sprintf("[filtServer] Update selected pre-saved SV search: %s\n", selected_search))
-      #if (is.null(selected_search) || selected_search == "") return()
-      #print(paste("Loading pre-saved search:", selected_search))  # Debugging print
-      search_params <- sv_available_searches()[[selected_search]]
-      update_search_params(search_params, session, type="sv")
-    },ignoreInit = TRUE)
+    observeEvent(input$btn_save_filters, {
+      req(input$filters_save_name)
+      file_path <- shared_store$work_dir
+      if (is.null(file_path) || file_path == "") {
+        showNotification("Work directory not set. Cannot save filters.", type = "error")
+        return()
+      }
+      file_path <- file.path(file_path, saved_filters)
+      save_filters(input, phenos(), file_path)
+      update_filters_dropdowns(session, shared_store, saved_filters)
+    })
 
-    observeEvent(input$reset, {
-      cat("[filtServer] Reset all filters clicked\n")
-      items <- read_reset_search_files()
-      update_search_params(items$snv, session, type="snv")
-      update_search_params(items$sv, session, type="sv")
-      phenos(character(0))
+    observeEvent(input$btn_delete_pre_saved_filters, {
+      req(input$delete_pre_saved_filters)
+      file_path <- shared_store$work_dir
+      if (is.null(file_path) || file_path == "") {
+        showNotification("Work directory not set. Cannot delete filters.", type = "error")
+        return()
+      }
+      file_path <- file.path(file_path, saved_filters)
+      delete_filters(input$delete_pre_saved_filters, file_path)
+      update_filters_dropdowns(session, shared_store, saved_filters)
+    })
+
+    reset_all_filters <- function(session, filters_state, phenos = NULL) {
+      reset_params <- filters_state$all[['Reset']]
+      update_filters_params(reset_params, session)
+      if (!is.null(phenos)) phenos(character(0))
+    }
+
+    observeEvent(input$pre_saved_filters, {
+      reset_all_filters(session, filters_state, phenos)
+      selected_filter <- input$pre_saved_filters
+      filter_params <- filters_state$all[[selected_filter]]
+      update_filters_params(filter_params, session)
+    }, ignoreInit = TRUE)
+
+    observeEvent(input$btn_reset, {
+      reset_all_filters(session, filters_state, phenos)
     })
 
   })

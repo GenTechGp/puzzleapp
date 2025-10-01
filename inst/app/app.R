@@ -32,7 +32,7 @@ ui <- fluidPage(
   tabsetPanel(
     tabPanel("Home", home_ui("home")),
     tabPanel("Filter", selectFiltersUI("filter")),
-    tabPanel("SNV", dataUI("snv_variants")),
+    tabPanel("SNV/Indel", dataUI("snv_variants")),
     tabPanel("SV", dataUI("sv_variants")),
     # tabPanel("SNV and Indels", tabUI("legacy_snv_variants", "SNVs & Indels")),
     # tabPanel("SVs", variants_ui("legacy_sv_variants")),
