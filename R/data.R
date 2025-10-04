@@ -550,12 +550,16 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     })
 
     observe({
+      shared_rx$data_version()
       rng <- slice_pct()
       req(!is.null(rng), length(rng) == 2)
+      # depend on shared_rx$data_version() to update on dataset changes
       cat("triggered slice summary update:", paste(rng, collapse = ","), "\n")
       lo <- as.integer(min(rng, na.rm = TRUE))
       hi <- as.integer(max(rng, na.rm = TRUE))
-      label <- sprintf("%d–%d%% filtered data", lo, hi)
+      # get the total number of rows in the active dataset after filtering
+      total_rows <- nrow(shared_store$data_for_data[[active()]])
+      label <- sprintf("%d–%d%% filtered data (total:%d)", lo, hi, total_rows)
       session$sendCustomMessage(ns("updateSliceBtn"), label)
     })
 

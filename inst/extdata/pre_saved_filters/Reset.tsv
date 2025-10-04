@@ -1,6 +1,9 @@
 Label	Reset
 Inheritance	
 PanelApp Genes	
+PanelApp Negative Genes	FALSE
+Positive Genes	
+Negative Genes	
 HPO Terms	
 SNV_Annotation	
 SNV_Pathogenicity	

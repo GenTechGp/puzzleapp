@@ -82,18 +82,173 @@ quality_filters <- function(filters, data) {
   return(paste(conditions, collapse = " & "))
 }
 
-# Helper function: Handle panel app gene filtering
+# Helper: parse and normalize user-entered gene lists
+parse_gene_list <- function(x) {
+  if (is.null(x) || !nzchar(trimws(x))) return(character(0))
+  y <- unlist(strsplit(x, "[,;\\s]+"))
+  y <- trimws(y)
+  y <- y[nzchar(y)]
+  # Normalize case (uppercase commonly used for gene symbols)
+  unique(toupper(y))
+}
+
+# Updated PanelApp filter with Positive/Negative lists, always-on annotation,
+# and a final debug line explaining the decision and why.
 panelapp_filter <- function(filters, panel_app_genes) {
-  if (length(filters$panelapp_filter) > 0) {
-    genes <- panel_app_genes[Level4 %in% filters$panelapp_filter,.(PANEL_APP=Level4,GENE_SYMBOL=Entity_Name,INHERITANCE=Model_Of_Inheritance)]
-    genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
-    genes_search <- genes[,GENE_SYMBOL]
-    panel_app_condition <- "GENE_SYMBOL %in% genes_search"
-    genes <- data.table::as.data.table(genes)
-    return(list(panel_app_condition,genes_search,genes))
-  } else {
-    return(NULL)
+  # Validate inputs
+  required_cols <- c("Entity_Name", "Level4", "Model_Of_Inheritance")
+  missing_cols <- setdiff(required_cols, colnames(panel_app_genes))
+  if (length(missing_cols) > 0) {
+    stop("panel_app_genes is missing required columns: ", paste(missing_cols, collapse = ", "))
   }
+
+  # Parse positive/negative gene text inputs (normalize)
+  pos_list <- filters$positive_genes
+  neg_list <- filters$negative_genes
+
+  # Selected panels -> subset panel_app_genes
+  panels_selected <- !is.null(filters$panelapp_filter) && length(filters$panelapp_filter) > 0
+  subset_genes_selected <- if (panels_selected) {
+    panel_app_genes[Level4 %in% filters$panelapp_filter]
+  } else {
+    data.table::data.table()
+  }
+  selected_panel_gene_symbols <- unique(subset_genes_selected$Entity_Name)
+
+  # Utility to inline a character vector safely into an R expression
+  inline_vec <- function(v) {
+    if (length(v) == 0) return("")
+    safe <- gsub("'", "\\\\'", v)
+    paste(sprintf("'%s'", safe), collapse = ", ")
+  }
+
+  # Build base filtering expression
+  if (!panels_selected) {
+    # No panels selected
+    if (length(pos_list) > 0) {
+      # Only Positive genes (minus Negative)
+      base_expr <- sprintf("GENE_SYMBOL %%in%% c(%s)", inline_vec(pos_list))
+    } else if (length(neg_list) > 0) {
+      # Exclude Negative genes
+      base_expr <- sprintf("!(GENE_SYMBOL %%in%% c(%s))", inline_vec(neg_list))
+    } else {
+      # Pass-through
+      base_expr <- "TRUE"
+    }
+  } else {
+    # Panels selected: compute PanelApp base by mode
+    if (isTRUE(filters$panelapp_negative_genes)) {
+      # Exclusion mode
+      if (length(selected_panel_gene_symbols) > 0) {
+        base_expr <- sprintf("!(GENE_SYMBOL %%in%% c(%s))", inline_vec(selected_panel_gene_symbols))
+      } else {
+        base_expr <- "TRUE"
+      }
+    } else {
+      # Inclusion mode
+      if (length(selected_panel_gene_symbols) > 0) {
+        base_expr <- sprintf("GENE_SYMBOL %%in%% c(%s)", inline_vec(selected_panel_gene_symbols))
+      } else {
+        base_expr <- "(FALSE)"
+      }
+    }
+  }
+
+  # Apply Positive override (union)
+  combined_expr <- base_expr
+  if (length(pos_list) > 0) {
+    pos_expr <- sprintf("GENE_SYMBOL %%in%% c(%s)", inline_vec(pos_list))
+    combined_expr <- sprintf("(%s) | (%s)", combined_expr, pos_expr)
+  }
+
+  # Apply Negative override (subtract)
+  if (length(neg_list) > 0) {
+    neg_expr <- sprintf("GENE_SYMBOL %%in%% c(%s)", inline_vec(neg_list))
+    combined_expr <- sprintf("(%s) & !(%s)", combined_expr, neg_expr)
+  }
+
+  # Build annotation rows (always-on):
+  # - From selected panels (if any)
+  # - From Positive/Negative lists that exist in panel_app_genes (case-insensitive)
+  ann_rows <- subset_genes_selected
+  if (length(pos_list) > 0) {
+    ann_rows <- data.table::rbindlist(
+      list(ann_rows, panel_app_genes[toupper(Entity_Name) %in% pos_list]),
+      use.names = TRUE, fill = TRUE
+    )
+  }
+  if (length(neg_list) > 0) {
+    ann_rows <- data.table::rbindlist(
+      list(ann_rows, panel_app_genes[toupper(Entity_Name) %in% neg_list]),
+      use.names = TRUE, fill = TRUE
+    )
+  }
+
+  # Aggregate per gene for annotation
+  if (nrow(ann_rows) == 0) {
+    annotation_table <- data.table::data.table(
+      GENE_SYMBOL = character(),
+      PANEL_APP = character(),
+      INHERITANCE = character()
+    )
+  } else {
+    annotation_table <- ann_rows[
+      ,
+      .(
+        PANEL_APP   = paste(unique(Level4), collapse = ";"),
+        INHERITANCE = paste(unique(Model_Of_Inheritance), collapse = ";")
+      ),
+      by = .(GENE_SYMBOL = Entity_Name)
+    ]
+  }
+
+  # ---- Debug line (decision summary) ----
+  mode_str <- if (isTRUE(filters$panelapp_negative_genes)) "EXCLUSION" else "INCLUSION"
+  n_panels_selected <- if (panels_selected) length(filters$panelapp_filter) else 0L
+  n_P <- length(selected_panel_gene_symbols)
+  n_Pos <- length(pos_list)
+  n_Neg <- length(neg_list)
+  n_annot <- if (nrow(annotation_table) > 0) length(unique(annotation_table$GENE_SYMBOL)) else 0L
+
+  decision_path <-
+    if (!panels_selected) {
+      if (n_Pos > 0) {
+        "No panels selected; Positive-only filter (minus Negative)"
+      } else if (n_Neg > 0) {
+        "No panels selected; exclude Negative (pass-through otherwise)"
+      } else {
+        "No panels selected; pass-through (no Pos/Neg)"
+      }
+    } else if (isTRUE(filters$panelapp_negative_genes)) {
+      if (n_P > 0) {
+        "Panels selected; EXCLUSION mode; base = U \\ P; then +Pos, -Neg"
+      } else {
+        "Panels selected but P empty; EXCLUSION mode; base = U; then +Pos, -Neg"
+      }
+    } else {
+      if (n_P > 0) {
+        "Panels selected; INCLUSION mode; base = P; then +Pos, -Neg"
+      } else {
+        "Panels selected but P empty; INCLUSION mode; base = ∅; then +Pos may include; -Neg"
+      }
+    }
+
+  cat(sprintf(
+    "[panelapp_filter] mode=%s | panels_selected=%s (n=%d) | P=%d | Pos=%d | Neg=%d | annotated_genes=%d\n",
+    mode_str, panels_selected, n_panels_selected, n_P, n_Pos, n_Neg, n_annot
+  ))
+  cat(sprintf("[panelapp_filter] decision=%s\n", decision_path))
+  # cat(sprintf("[panelapp_filter] expr=%s\n", combined_expr))
+
+  # Return as expected by filter_dataset:
+  # [[1]] condition string (combined_expr)
+  # [[2]] genes_search (panel genes only, for compatibility)
+  # [[3]] annotation table (data.table)
+  list(
+    combined_expr,
+    selected_panel_gene_symbols,
+    data.table::as.data.table(annotation_table)
+  )
 }
 
 # Generic filter function for SNVs and SVs
@@ -271,12 +426,10 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   #   filtered_data[, PANEL_APP := NA]
   #   filtered_data[, INHERITANCE := NA]
   # }
-  if (length(filters$panelapp_filter) > 0) {
-    filtered_data[genes, on = "GENE_SYMBOL", `:=`(
-      PANEL_APP   = i.PANEL_APP,
-      INHERITANCE = i.INHERITANCE
-    )]
-  }
+  filtered_data[genes, on = "GENE_SYMBOL", `:=`(
+    PANEL_APP   = i.PANEL_APP,
+    INHERITANCE = i.INHERITANCE
+  )]
 
   # if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
   #   split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list, "; "))
@@ -414,6 +567,9 @@ get_snv_filters <- function(input, phenos) {
     spliceai_filter = input$spliceai_score,
     inheritance_filter = input$inher,
     panelapp_filter = input$panelapp,
+    panelapp_negative_genes = input$panelapp_negative_genes,
+    positive_genes = parse_gene_list(input$positive_genes),
+    negative_genes = parse_gene_list(input$negative_genes),
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
     hpo_terms_list = phenos
@@ -425,6 +581,9 @@ get_sv_filters <- function(input, phenos) {
   sv_filters <- list(
     inheritance_filter = input$inher,
     panelapp_filter = input$panelapp,
+    panelapp_negative_genes = input$panelapp_negative_genes,
+    positive_genes = parse_gene_list(input$positive_genes),
+    negative_genes = parse_gene_list(input$negative_genes),
     annotation_filter = input$sv_conseq_checkboxes,
     sv_features = input$sv_features_checkboxes,
     min_svlen = input$min_svlen,
@@ -484,7 +643,10 @@ capture_filters <- function(input, phenos) {
   shared_filters <- list(
     "Inheritance" = input$inher,
     "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
-    "HPO Terms" = paste(phenos, collapse = "; ")
+    "HPO Terms" = paste(phenos, collapse = "; "),
+    "PanelApp Negative Genes" = input$panelapp_negative_genes,
+    "Positive Genes" = input$positive_genes,
+    "Negative Genes" = input$negative_genes
   )
 
   # Prefix SNV and SV keys
@@ -563,6 +725,15 @@ update_filters_params <- function(search_params, session) {
     ),
     "HPO Terms" = list(
       shared = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
+    ),
+    "PanelApp Negative Genes" = list(
+      shared = list(func = updateCheckboxInput, id = "panelapp_negative_genes", value = TRUE, as_logical = TRUE)
+    ),
+    "Positive Genes" = list(
+      shared = list(func = updateTextInput, id = "positive_genes", value = TRUE)
+    ),
+    "Negative Genes" = list(
+      shared = list(func = updateTextInput, id = "negative_genes", value = TRUE)
     )
   )
 
@@ -583,8 +754,9 @@ update_filters_params <- function(search_params, session) {
       if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
       update_info <- mapping_entry$sv
     } else {
-      # Shared param: only these three are allowed
-      if (!param %in% c("Inheritance", "PanelApp Genes", "HPO Terms")) next
+      # Shared params: extend allowlist to include the new three
+      if (!param %in% c("Inheritance", "PanelApp Genes", "HPO Terms",
+                        "PanelApp Negative Genes", "Positive Genes", "Negative Genes")) next
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
@@ -728,7 +900,6 @@ update_flagged_rows <- function(original_dt, flagged_rows_file) {
   cat("Updated flagged rows from file:", flagged_rows_file, "\n")
   return(original_dt)
 }
-
 
 load_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data) {
   session_to_load <- sprintf("%s/%s", sessions_dir, session_name)
