@@ -13,4 +13,5 @@ Imports:
     data.table,
     DT,
     shinyjs,
-    lobstr
+    lobstr,
+    lgr,

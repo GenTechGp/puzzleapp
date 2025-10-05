@@ -7,4 +7,4 @@ README.html
 inst/extdata/phenotype_to_genes.txt
 test/puzzleapp_work_dir
 test/puzzleapp_saved_sessions
-
+inst/app/logs

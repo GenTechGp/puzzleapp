@@ -8,6 +8,10 @@ library(reactable)
 library(stringr)
 library(dplyr)
 library(lobstr)
+library(lgr)
+
+# App-level init: console logging + purge logs older than 100 days
+setup_app_logging(level = "info", logs_dir = "logs", older_than_days = 100, console = TRUE)
 
 ui <- fluidPage(
   tags$script(HTML("
@@ -40,10 +44,13 @@ ui <- fluidPage(
     # tabPanel("(svs)", variants_ui("sv_variants")),
     # tabPanel("PanelApp", variants_ui("panelapp")),
     # tabPanel("Phenotype", variants_ui("phenotype")),
+    tabPanel("Logs", log_viewer_ui("log"))
   )
 )
 
 server <- function(input, output, session) {
+  # Start per-session file logging
+  start_session_logger(session, logs_dir = "logs", prefix = "session")
   
   # Shared storage (plain variables) and reactive version token
   shared_store <- new.env(parent = emptyenv())
@@ -68,6 +75,14 @@ server <- function(input, output, session) {
   selectFiltersServer("filter", shared_store, shared_rx)
   dataServer("snv_variants", shared_store, shared_rx, "SNV")
   dataServer("sv_variants", shared_store, shared_rx, "SV")
+  
+# Expose the current session's log to viewer as default selection
+  log_viewer_server("log", logs_dir = "logs", session_logfile_reactive = shiny::reactive(session$userData$logfile))
+
+  # observeEvent(input$go, {
+  #   log_info("User clicked 'go'")
+  # })
+
   
 }
 
