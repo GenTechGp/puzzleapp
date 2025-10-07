@@ -12,7 +12,7 @@ compare_allele_count <- function(col, values) {
 
 # Helper function: Construct filter expression
 add_filter_condition <- function(filter_expression, condition) {
-  if (!is.null(condition) && condition != "" && !nzchar(condition)) {
+  if (!is.null(condition) && condition != "") {
     log_info(sprintf("Adding filter condition: %s", condition))
     return(paste(filter_expression, condition, sep = " & "))
   }
@@ -214,8 +214,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   if (is_snv) {
     log_info("[filtServer][filter_dataset] Applying SNV-specific filters")
     # SNV-specific filters
-    filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
-    filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
+    if (!is.null(filters$sift_filter) && length(filters$sift_filter) > 0) {
+      filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
+    }
+    if (!is.null(filters$polyphen_filter) && length(filters$polyphen_filter) > 0) {
+      filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
+    }
 
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
