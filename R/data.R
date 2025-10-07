@@ -43,7 +43,34 @@ dataUI <- function(id) {
         el.text(txt);
       }
     });
-    ", ns("updateSliceBtn"), ns("slice_summary_btn"))))
+    ", ns("updateSliceBtn"), ns("slice_summary_btn")))),
+    tags$script(HTML(sprintf("
+    Shiny.addCustomMessageHandler('%s', function(msg) {
+      try {
+        var v = parseFloat(msg && msg.value);
+        var $widget = $('#%s');
+        if (!$widget.length) return;
+
+        // Find the actual table inside the DT widget container
+        var $table = $widget.find('table.dataTable').first();
+        if (!$table.length) {
+          // Table not in DOM yet; retry shortly
+          return setTimeout(function(){ Shiny.onInputChange('___noop', Date.now()); Shiny.addCustomMessageHandler('%s', arguments.callee)(msg); }, 200);
+        }
+
+        // Get the existing DataTable API (this does not re-initialize)
+        var dt = $table.DataTable();
+        if (!isNaN(v)) {
+          $(dt.table().node()).data('splice-threshold', v);
+        }
+        // Trigger a redraw so your existing draw.dt hook runs applyAllHighlights
+        dt.draw(false);
+      } catch(e){
+        if (console && console.error) console.error('set_splice_threshold handler error', e);
+      }
+    });
+    ", ns("set_splice_threshold"), ns("tbl"), ns("set_splice_thresho ld"))))
+
   )
 }
 
@@ -234,10 +261,11 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
           "tbl.on('search.dt', function(){ computeSnapshot('search'); applyAllHighlights(); });",
           "tbl.on('draw.dt', function(){ computeSnapshot('draw'); applyAllHighlights(); Shiny.setInputValue(", id_ready_json, ", Date.now(), {priority:'event'}); });",
 
-          "tbl.on('mousedown.dt','tbody td',function(e){ captureEditCtx(this); });",
           "tbl.on('focusin.dt','tbody td',function(e){ captureEditCtx(this); });",
           "tbl.on('focusin.dt','tbody input, tbody textarea',function(e){ captureEditCtx(this); });",
-
+          "tbl.on('focusout.dt','tbody td', function(e){ captureEditCtx(this); });",
+          "tbl.on('focusout.dt','tbody input, tbody textarea', function(e){ captureEditCtx(this); });",
+          
           "setTimeout(function(){ computeSnapshot('tick0'); }, 0);",
           "setTimeout(function(){ computeSnapshot('tick50'); }, 50);",
           "computeSnapshot('manual');"
@@ -315,9 +343,10 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
         widget <- datatable(
           df0,
           rownames = FALSE,
-            filter = "top",
+          filter = "top",
           editable = list(target = "cell", numeric = "none"),
           extensions = c("ColReorder", "Buttons"),
+          escape = FALSE,
           options = list(
             dom = "Blfrtip",
             buttons = list(
@@ -382,7 +411,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       # Create proxy now that the table exists (IMPORTANT: scope with session)
       proxy <<- dataTableProxy("tbl", session = session)
       rendered(TRUE)
-      cat("[Data] DT rendered in UI (proxy created)\n")
+      log_info("[Data] DT rendered in UI (proxy created)")
 
       # Note: No initial push here; dt_ready gate will handle the first update
     }
@@ -443,7 +472,19 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       }
       replaceData(proxy, data = view_df, resetPaging = resetPaging, rownames = FALSE, clearSelection = "none")
     }
-
+    # ---- Helper to push current dataset's splice threshold to the client ----
+    push_splice_threshold <- function() {
+      if (!rendered() || !dt_ready()) return(invisible(NULL))
+      act <- active()
+      if (is.null(act)) return(invisible(NULL))
+      val <- tryCatch({
+        vfd <- shared_store$value_for_data
+        if (!is.null(vfd) && !is.null(vfd[[act]]) && !is.null(vfd[[act]]$splice_numeric_threshold)) {
+          as.numeric(vfd[[act]]$splice_numeric_threshold)
+        } else { 1.0 }
+      }, error = function(e) 1.0)
+      session$sendCustomMessage(ns("set_splice_threshold"), list(value = val, ts = as.numeric(Sys.time()) * 1000))
+    }
     # ---- Sync helper: choices, visibility, and active selection ----
     sync_choices_and_active <- function(reason = "unspecified") {
       choices_all <- allowed_dataset_names()
@@ -505,6 +546,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       } else {
         cat(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$data_version(), active()))
         update_view(resetPaging = TRUE)
+        push_splice_threshold()
       }
     }, ignoreInit = FALSE)
 
@@ -529,6 +571,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     observeEvent(active(), {
       cat(sprintf("[Data] Switch -> active=%s\n", active()))
       update_view(resetPaging = FALSE)
+      push_splice_threshold()
     }, ignoreInit = TRUE)
 
     # ---- % Data Shown modal ----
@@ -580,6 +623,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
         update_view(resetPaging = TRUE)
         # Now that we're rendered, re-sync to hide synthetic if real datasets exist
         sync_choices_and_active("dt_ready")
+        push_splice_threshold()
       }
     }, once = TRUE, ignoreInit = FALSE)
 

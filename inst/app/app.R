@@ -11,7 +11,7 @@ library(lobstr)
 library(lgr)
 
 # App-level init: console logging + purge logs older than 100 days
-setup_app_logging(level = "info", logs_dir = "logs", older_than_days = 100, console = TRUE)
+setup_app_logging(level = "debug", logs_dir = "logs", older_than_days = 100, console = TRUE)
 
 ui <- fluidPage(
   tags$script(HTML("
@@ -54,6 +54,7 @@ server <- function(input, output, session) {
   
   # Shared storage (plain variables) and reactive version token
   shared_store <- new.env(parent = emptyenv())
+  shared_store$value_for_data  <- list()
   shared_store$data_for_data  <- list()
   shared_store$original_data  <- list()
   shared_store$preferred_cols <- character(0)
@@ -79,11 +80,6 @@ server <- function(input, output, session) {
 # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = "logs", session_logfile_reactive = shiny::reactive(session$userData$logfile))
 
-  # observeEvent(input$go, {
-  #   log_info("User clicked 'go'")
-  # })
-
-  
 }
 
 shinyApp(ui, server)

@@ -154,7 +154,6 @@ panelBox <- function(id, label, color = "black", width = "100%", height = "30vh"
 panelAppOptsUI <- function(ns) {
   tagList(
     selectizeInput(ns("panelapp"), "PanelApp Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
-    checkboxInput(ns("panelapp_negative_genes"), "Treat genes in PanelApp list as negative", value = FALSE),
     br(),
     fluidRow(
       column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")),
@@ -163,12 +162,11 @@ panelAppOptsUI <- function(ns) {
     column(3, panelBox(ns("amber_genes"), "Amber genes:", "#FFBF00"))
     ),
     fluidRow(
-      column(12, textInput(ns("positive_genes"), "Positive genes (comma/semi-colon/tab/space-separated):", value = "", width = "100%"))
+      column(12, textInput(ns("custom_genes"), "Custom genes (comma/semi-colon/tab/space-separated):", value = "", width = "100%"))
     ),
     fluidRow(
-      column(12, textInput(ns("negative_genes"), "Negative genes (comma/semi-colon/tab/space-separated):", value = "", width = "100%"))
-    ),
-    helpText("Note: If a gene is found in multiple lists (PanelApp Gene list, Positive list, Negative list), its last occurrence will be considered.")
+      column(12, checkboxInput(ns("treat_negative"), "Consider PanelApp genes and Custom genes as negative", value = FALSE, width = "100%"))
+    )
   )
 }
 

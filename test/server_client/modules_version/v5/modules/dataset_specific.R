@@ -171,6 +171,12 @@ dataset_specific_css <- function() {
       table.dataTable tbody tr.row-clinvar-override { background-color: #FFA50099 !important; }
       table.dataTable tbody tr.row-priority-true  { background-color: #90EE90  !important; }
       table.dataTable tbody tr.row-priority-false { background-color: #FFCCCC  !important; }
+
+      /* Cell-level highlight for Sepal.Width >= threshold */
+      table.dataTable tbody td.cell-sepal-high {
+        background-color: #4da3ff !important;
+        color: #082744 !important;
+      }
     "))
   )
 }
@@ -185,6 +191,8 @@ dataset_specific_js_highlight <- function() {
     "var HIGHLIGHT_COL_SPLICEAI = 'spliceai_override';",
     "var HIGHLIGHT_COL_CLINVAR = 'clinvar_override';",
     "var HIGHLIGHT_COL_PRIORITY = 'PRIORITYFlag';",
+    "var SEPAL_WIDTH_THRESHOLD = 3.3;",
+
 
     "function findInternalColIndexByName(name){",
     "  var idx = -1;",
@@ -212,6 +220,10 @@ dataset_specific_js_highlight <- function() {
     "  var idxClinvar  = findInternalColIndexByName(HIGHLIGHT_COL_CLINVAR);",
     "  var idxPriority = findInternalColIndexByName(HIGHLIGHT_COL_PRIORITY);",
 
+    "if(idxSepal >= 0){",
+    "  $(tbl.cells({page:'current'}, idxSepal).nodes()).removeClass('cell-sepal-high');",
+    "}",
+
     "  tbl.rows({page:'current'}).every(function(){",
     "    var rowIdx = this.index();",
     "    var $row = $(this.node());",
@@ -221,10 +233,20 @@ dataset_specific_js_highlight <- function() {
     "      var match=false;",
     "      if(v !== undefined && v !== null){",
     "        var num = parseFloat((''+v).replace(/,/g,''));",
-    "        if(!isNaN(num)) match = (num === 3); else match = ((''+v).trim()==='3');",
+    "        if(!isNaN(num)) match = (num === 3.5); else match = ((''+v).trim()==='3');",
     "      }",
     "      if(match) $row.addClass('row-sw3');",
     "    }",
+
+    "    if(idxSepal >= 0){",
+    "      var rawSW = tbl.cell(rowIdx, idxSepal).data();",
+    "      var numSW = parseFloat((''+rawSW).replace(/,/g,''));",
+    "      if(!isNaN(numSW) && numSW >= SEPAL_WIDTH_THRESHOLD){",
+    "        var cellNode = tbl.cell(rowIdx, idxSepal).node();",
+    "        if(cellNode) $(cellNode).addClass('cell-sepal-high');",
+    "      }",
+    "    }",
+
 
     "    if(idxSplice >= 0){",
     "      var sv = tbl.cell(rowIdx, idxSplice).data();",

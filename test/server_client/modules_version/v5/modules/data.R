@@ -10,7 +10,7 @@ dataUI <- function(id) {
       /* DT ColVis dropdown: single column with ~20 items visible and vertical scroll */
       div.dt-button-collection {
         max-height: 640px;   /* ~20 rows depending on line-height */
-        overflow-y: auto; !important;
+        overflow-y: auto !important;
         overflow-x: hidden;
       }
     ")),
@@ -205,9 +205,10 @@ dataServer <- function(id, shared_store, shared_rx) {
           "tbl.on('search.dt', function(){ computeSnapshot('search'); applyAllHighlights(); });",
           "tbl.on('draw.dt', function(){ computeSnapshot('draw'); applyAllHighlights(); Shiny.setInputValue(", id_ready_json, ", Date.now(), {priority:'event'}); });",
 
-          "tbl.on('mousedown.dt','tbody td',function(e){ captureEditCtx(this); });",
           "tbl.on('focusin.dt','tbody td',function(e){ captureEditCtx(this); });",
           "tbl.on('focusin.dt','tbody input, tbody textarea',function(e){ captureEditCtx(this); });",
+          "tbl.on('focusout.dt','tbody td', function(e){ captureEditCtx(this); });",
+          "tbl.on('focusout.dt','tbody input, tbody textarea', function(e){ captureEditCtx(this); });",
 
           "setTimeout(function(){ computeSnapshot('tick0'); }, 0);",
           "setTimeout(function(){ computeSnapshot('tick50'); }, 50);",

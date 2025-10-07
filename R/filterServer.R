@@ -193,6 +193,11 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       showNotification(sprintf("snvs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SNV"]])), type = "message")
       showNotification(sprintf("svs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SV"]])), type = "message")
 
+
+      # add spliceai_filter to value_for_data
+      shared_store$value_for_data[["SNV"]] <- list(splice_numeric_threshold = snv_filters$spliceai_filter)
+      shared_store$value_for_data[["SV"]] <- list(splice_numeric_threshold = sv_filters$spliceai_filter)
+
       bump_version(version_type = "data", shared_rx = shared_rx)
     })
 
