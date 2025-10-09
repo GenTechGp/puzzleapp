@@ -8,6 +8,10 @@ home_server(id, shared_store, shared_rx)
 }
 \arguments{
 \item{id}{Module ID}
+
+\item{shared_store}{A reactiveValues object to share data across modules}
+
+\item{shared_rx}{A list of reactive values for cross-module communication}
 }
 \description{
 Home Tab Server

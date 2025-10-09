@@ -1,0 +1,12 @@
+Inheritance	Homozygous Recessive
+Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant
+SV type	
+Min SV Length	0
+Max SV Length	0
+gnomADv4 AF	0.01
+Affected only	TRUE
+Allele balance	0.2
+Genotype quality	20
+Filter value	PASS only variants
+PanelApp Genes	Additional findings_Adult;Frontonasal dysplasia;Genetic Epilepsy;Glycogen Storage Diseases
+HPO Terms	

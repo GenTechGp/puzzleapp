@@ -1,5 +1,11 @@
-#' Inheritance Utility
+#' Internal inheritance utilities
 #'
+#' Helper functions used internally for pedigree validation and allele
+#' count inference. Not part of the public API.
+#'
+#' @keywords internal
+#' @noRd
+NULL
 
 check_pedigree_sanity <- function(pedigree) {
   issues <- list()

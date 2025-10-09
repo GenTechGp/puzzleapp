@@ -1,7 +1,9 @@
 #' DB Utility
 #'#' Utility functions to load and manage database files.
-#'
-#' 
+#' @keywords internal
+#' @noRd
+NULL
+
 # boundary_table.R
 # Build a boundary table from any data.frame/data.table and pad it so that
 # an initial slice (e.g., first 10%) fully shows the boundary rows at the top.
@@ -336,14 +338,6 @@ make_boundary_table <- function(x,
   logf(sprintf("[boundary] final_rows=%d | cols=%d", nrow(out), ncol(out)))
   out
 }
-
-#' Load VEP Annotations Mapping
-#'
-#' Utility function to load VEP consequence-to-term mappings from a TSV file.
-#'
-#' @param file Path to the VEP annotations TSV file. If NULL, loads the default file from the package.
-#' @return A named list where each key is a consequence and the value is a vector of terms.
-#' 
 
 nthreads <- 8  # Number of threads for data.table operations
 

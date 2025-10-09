@@ -1,5 +1,3 @@
-library(shiny)
-library(shinyjs)
 library(puzzleapp)
 
 # App-level init: console logging + purge logs older than 100 days
@@ -24,7 +22,7 @@ ui <- fluidPage(
       Shiny.setInputValue('home-cookie_prefs', cookieVal, {priority: 'event'});
     });
   ")),
-  useShinyjs(),
+  shinyjs::useShinyjs(),
   tabsetPanel(
     tabPanel("Home", home_ui("home")),
     tabPanel("Filter", selectFiltersUI("filter")),

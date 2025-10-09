@@ -1,6 +1,8 @@
 #' Home Tab Server
 #'
 #' @param id Module ID
+#' @param shared_store A reactiveValues object to share data across modules
+#' @param shared_rx A list of reactive values for cross-module communication
 #' @export
 #' @import shiny
 

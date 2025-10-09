@@ -336,10 +336,10 @@ log_timed <- function(label, expr, ..., .session = NULL, .fields = NULL, .user =
   on.exit({
     dt_ms <- round(1000 * (proc.time() - t0)[["elapsed"]], 1)
     if (level == "info") {
-      log_info(sprintf("timing: %s", label), ms = dt_ms, .session = .session, .fields = .fields,
+      log_info(sprintf("timing: %s", label), elapsed_ms = dt_ms, .session = .session, .fields = .fields,
                .user = .user, session = session, fields = fields, user_id = user_id, ...)
     } else {
-      log_debug(sprintf("timing: %s", label), ms = dt_ms, .session = .session, .fields = .fields,
+      log_debug(sprintf("timing: %s", label), elapsed_ms = dt_ms, .session = .session, .fields = .fields,
                 .user = .user, session = session, fields = fields, user_id = user_id, ...)
     }
   })

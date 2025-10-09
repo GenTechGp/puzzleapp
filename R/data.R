@@ -129,7 +129,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       pmax <- min(100, max(slice))
       i <- floor(pmin / 100 * max(n - 1, 0)) + 1L
       j <- floor(pmax / 100 * n)
-      if (j < i) j <- i              # enforce ≥ 1 row
+      if (j < i) j <- i
       if (i < 1L) i <- 1L
       if (j > n) j <- n
       base_idx <- if (".row_id" %in% names(df_full)) order(df_full$.row_id) else seq_len(n)
@@ -443,7 +443,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       # mask <- if (!is.null(mask_list)) mask_list[[act]] else NULL
       # valid_mask <- !is.null(mask) && is.logical(mask) && length(mask) == total_n
       # if (!valid_mask) {
-      #   # Fallback: no mask → treat all rows as passing
+      #   # Fallback: no mask:treat all rows as passing
       #   filtered_idx <- if (total_n) seq_len(total_n) else integer(0)
       # } else {
       #   # Missing column policy was "all FALSE" for missing; that's already in mask
@@ -613,7 +613,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       hi <- as.integer(max(rng, na.rm = TRUE))
       # get the total number of rows in the active dataset after filtering
       total_rows <- nrow(shared_store$data_for_data[[active()]])
-      label <- sprintf("%d–%d%% filtered data (total:%d)", lo, hi, total_rows)
+      label <- sprintf("%d-%d%% filtered data (total:%d)", lo, hi, total_rows)
       session$sendCustomMessage(ns("updateSliceBtn"), label)
     })
 
@@ -622,7 +622,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       rng <- input$data_slider
       if (is.null(rng) || length(rng) != 2) return()
       slice_pct(rng)
-      cat(sprintf("[Data] Slice set to %d%%–%d%% (active=%s)\n", as.integer(rng[1]), as.integer(rng[2]), active()))
+      cat(sprintf("[Data] Slice set to %d%%-%d%% (active=%s)\n", as.integer(rng[1]), as.integer(rng[2]), active()))
       update_view(resetPaging = TRUE)
     })
 
