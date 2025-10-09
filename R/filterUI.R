@@ -1,9 +1,3 @@
-#' Filter Tab UI
-#' @param id Module ID
-#' @export
-#' @import shiny
-#' @importFrom shiny selectizeInput
-
 # ---- UI building functions ----
 # Annotation UI
 AnnotUI <- function(ns, type = "snv") {
@@ -222,6 +216,12 @@ header_UI <- function(ns) {
   )
 }
 
+
+#' Filter Tab UI
+#' @param id Module ID
+#' @return Shiny UI object
+#' @export
+#' @import shiny
 selectFiltersUI <- function(id) {
   ns <- NS(id)
 

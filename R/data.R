@@ -1,4 +1,7 @@
-# data_module.R
+#' Data Module
+#' @param id Module ID
+#' @return Shiny UI object
+#' @export
 # Multi-dataset Data module using shared_store$data_for_data (named list of datasets).
 # Preserves existing editing, reordering, snapshotting, slice modal, export TSV, and DT readiness logic.
 # Added: persistent row highlight for Sepal.Width == 3 (survives column hide).
@@ -73,6 +76,14 @@ dataUI <- function(id) {
 
   )
 }
+
+#' Data Module Server
+#' @param id Module ID
+#' @param shared_store Shared store (named list)
+#' @param shared_rx Shared reactive values (list of reactiveVal)
+#' @param dataset_names Optional character vector of allowed dataset names (NULL = all)
+#' @return NULL
+#' @export
 
 dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
   moduleServer(id, function(input, output, session) {
@@ -648,7 +659,6 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     # ---- Inline edits (commit to FULL data; re-slice) ----
     observeEvent(input$tbl_cell_edit, ignoreInit = TRUE, {
       if (!rendered()) return()
-
       info_raw <- input$tbl_cell_edit
       if (is.null(info_raw)) return()
 
@@ -659,160 +669,115 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       col_orig0 <- isolate(input$tbl_edit_col_orig0)
 
       act <- active()
-      if (is.null(act)) return()
-      if (identical(act, synthetic_key)) {
-        cat("[edit] Attempt to edit synthetic dataset blocked; rejecting\n")
-        showNotification("Edits to this dummy dataset will not be saved on server.", type = "warning", duration = 2)
+      if (is.null(act) || identical(act, synthetic_key)) {
+        if (identical(act, synthetic_key)) {
+          showNotification("Edits to this dummy dataset will not be saved.", type = "warning", duration = 2)
+        }
         return()
       }
 
       df_full <- shared_store$data_for_data[[act]]
-      if (is.null(df_full)) return()
-
-      # ---- Hard requirement: must be a data.table ----
-      if (!data.table::is.data.table(df_full)) {
-        showNotification("Dataset not a data.table; editing disabled for this dataset.", type = "error", duration = 4)
-        cat("[edit] ABORT: dataset is not a data.table (key=", act, ")\n", sep = "")
+      if (is.null(df_full) || !data.table::is.data.table(df_full)) {
+        showNotification("Dataset not editable (missing or not a data.table).", type = "error", duration = 3)
         return()
       }
 
-      # ---- Ensure key on .row_id for fast lookup ----
+      # Ensure .row_id exists and is unique
+      if (!".row_id" %in% names(df_full)) {
+        showNotification("Missing .row_id column; cannot map edits.", type = "error", duration = 3)
+        return()
+      }
+      if (anyDuplicated(df_full$.row_id)) {
+        showNotification("Non-unique .row_id; cannot safely edit.", type = "error", duration = 3)
+        return()
+      }
       if (!data.table::haskey(df_full) || data.table::key(df_full)[1] != ".row_id") {
-        if (!(".row_id" %in% names(df_full))) {
-          showNotification("Missing .row_id column; cannot map edits.", type = "error", duration = 4)
-          cat("[edit] ABORT: .row_id column missing (key=", act, ")\n", sep = "")
-          return()
-        }
         data.table::setkey(df_full, .row_id)
       }
 
-      cn  <- colnames(df_full)
-      scn <- isolate(snapshot_counter())
-
-      cat("\n---- edit event (snapshot #", scn, ") ----\n", sep = "")
-      cat(sprintf("[edit raw] value=%s client_row_id=%s client_col_orig0=%s\n",
-                  as.character(value_raw), as.character(row_id), as.character(col_orig0)))
-
-      # ---- Basic client mapping guards ----
+      # Validate mapping inputs
       if (is.null(row_id) || is.na(suppressWarnings(as.integer(row_id)))) {
-        cat("[edit] client .row_id missing; rejecting edit\n")
-        showNotification("Couldn't map row; please retry.", type = "warning", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+        showNotification("Row id missing; retry edit.", type = "warning", duration = 2)
+        update_view(FALSE); return()
       }
       if (is.null(col_orig0) || is.na(suppressWarnings(as.integer(col_orig0)))) {
-        cat("[edit] client original column index missing; rejecting edit\n")
-        showNotification("Couldn't map column; please retry.", type = "warning", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+        showNotification("Column index missing; retry edit.", type = "warning", duration = 2)
+        update_view(FALSE); return()
       }
 
       row_id    <- as.integer(row_id)
       col_orig0 <- as.integer(col_orig0)
+      cn        <- colnames(df_full)
       col_idx1  <- col_orig0 + 1L
-
       if (col_idx1 < 1L || col_idx1 > length(cn)) {
-        cat("[edit] Column index out of range; rejecting edit\n")
-        showNotification("Column not found; please retry.", type = "warning", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+        showNotification("Column out of range.", type = "warning", duration = 2)
+        update_view(FALSE); return()
       }
 
       colname <- cn[col_idx1]
       if (identical(colname, ".row_id")) {
-        cat("[edit] Attempt to edit .row_id blocked; rejecting\n")
-        showNotification("This column is not editable.", type = "warning", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+        showNotification(".row_id is not editable.", type = "warning", duration = 2)
+        update_view(FALSE); return()
       }
 
-      # ---- Row lookup via key (fast) ----
-      row_idx <- df_full[.(row_id), which = TRUE]
-      if (is.na(row_idx) || length(row_idx) == 0L) {
-        cat("[edit] .row_id not found in keyed table; rejecting edit\n")
-        showNotification("Row not found; please refresh.", type = "error", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+      # Confirm target row exists
+      if (df_full[.(row_id), .N] == 0L) {
+        showNotification("Row not found; refresh dataset.", type = "error", duration = 2)
+        update_view(FALSE); return()
       }
 
-      # ---- Editable allowlist ----
+      # Editable allowlist
       editable_cols <- dataset_editable_cols(act, df_full)
       if (!(colname %in% editable_cols)) {
-        cat(sprintf("[edit] Column '%s' is read-only; rejecting\n", colname))
         showNotification(sprintf("Column '%s' is read-only.", colname), type = "warning", duration = 2)
-        update_view(resetPaging = FALSE)
-        return()
+        update_view(FALSE); return()
       }
 
-      # ---- BEFORE snapshot ----
-      row_before <- df_full[row_idx]
-      cat("[row before] ", fmt_row(as.data.frame(row_before)), "\n", sep = "")
+      old_val <- df_full[.(row_id), get(colname)]
 
-      # ---- Validation / coercion ----
+      # Validate / coerce
       v <- dataset_validate_and_coerce(act, df_full, colname, value_raw)
       if (!isTRUE(v$ok)) {
         showNotification(v$message %||% "Invalid value.", type = v$type %||% "error", duration = 3)
-        update_view(resetPaging = FALSE)
-        return()
+        update_view(FALSE); return()
       }
       new_val <- v$value
 
-      # ---- Mutate by-reference ----
-      old_val <- df_full[row_idx, get(colname)]
-      # Faster assignment
-      data.table::set(df_full, i = row_idx, j = colname, value = new_val)
+      # Assign in working copy (keyed set)
+      df_full[.(row_id), (colname) := new_val]
+      dataset_after_edit(act, df_full, row_id, colname, old_val, new_val)
 
-      # ---- Post-edit cascade (by-reference) ----
-      dataset_after_edit(act, df_full, row_idx, colname, old_val, new_val)
-
-      # ---- AFTER snapshot ----
-      row_after <- df_full[row_idx]
-      cat("[row after ] ", fmt_row(as.data.frame(row_after)), "\n", sep = "")
-
-      # NOTE: No reassignment back to shared_store$data_for_data needed
-      # because df_full is a data.table mutated by reference.
-
-      # Optional: update pristine original (NOT recommended if original should stay immutable)
-      update_original <- TRUE  # set TRUE if you really want this behavior
-
+      # Optional sync to original
+      update_original <- TRUE
       if (update_original) {
-        tryCatch(
-          {
-            df_orig <- shared_store$original_data[[act]]
-            if (is.null(df_orig)) stop("Original dataset missing")
-            if (!data.table::is.data.table(df_orig)) stop("Original dataset not a data.table")
-
-            # Prevent accidental same-object mutation if copies weren't made
-            # (If they are the same, the working edit already changed original)
-            # Comment this guard if you actually want to allow that.
-            if (identical(
+        tryCatch({
+          df_orig <- shared_store$original_data[[act]]
+          if (!is.null(df_orig) && data.table::is.data.table(df_orig)) {
+            if (!".row_id" %in% names(df_orig)) stop("Original dataset missing .row_id")
+            if (anyDuplicated(df_orig$.row_id)) stop("Original dataset has duplicate .row_id")
+            if (!data.table::haskey(df_orig) || data.table::key(df_orig)[1] != ".row_id") {
+              data.table::setkey(df_orig, .row_id)
+            }
+            if (!identical(
               lobstr::obj_addr(df_orig),
               lobstr::obj_addr(shared_store$data_for_data[[act]])
             )) {
-              cat("[edit] Original and working share pointer; skipping explicit original update\n")
+              df_orig[.(row_id), (colname) := new_val]
+              dataset_after_edit(act, df_orig, row_id, colname, old_val, new_val)
             } else {
-              data.table::set(df_orig, i = row_idx, j = colname, value = new_val)
-              dataset_after_edit(act, df_orig, row_idx, colname, old_val, new_val)
-              cat("[edit] Original dataset updated to reflect edit\n")
+              cat("[edit] Original and working share pointer; no separate sync needed.\n")
             }
-          },
-          error = function(e) {
-            cat(sprintf("[Edit WARN] Failed original sync: %s (.row_id=%d row=%d col=%s old=%s new=%s)\n",
-                        conditionMessage(e), as.integer(row_id), row_idx, colname,
-                        as.character(old_val), as.character(new_val)))
-            showNotification("Failed to update original data.", type = "warning", duration = 3)
           }
-        )
+        }, error = function(e) {
+          showNotification("Failed to update original data.", type = "warning", duration = 3)
+          cat("[edit warn] original sync failed:", conditionMessage(e), "\n")
+        })
       }
 
       update_view(resetPaging = FALSE)
-
-      cat(sprintf("[Edit OK] .row_id=%d row=%d col=%s old=%s new=%s\n",
-                  as.integer(row_id), row_idx, colname,
-                  as.character(old_val), as.character(new_val)))
       showNotification("Saved", type = "message", duration = 1.2)
-      # Optional version bump (still commented):
-      # shared_rx$version(shared_rx$version() + 1L)
+      cat(sprintf("[Edit OK] .row_id=%d col=%s old=%s new=%s\n",
+                  row_id, colname, as.character(old_val), as.character(new_val)))
     })
   })
 }

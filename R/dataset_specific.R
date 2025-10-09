@@ -136,16 +136,18 @@ dataset_validate_and_coerce <- function(dataset_key, df_full, colname, value_raw
 # ------------------------------------------------------------------
 # Post-commit hook: derive PRIORITYFlag after PRIORITY edits
 # ------------------------------------------------------------------
-dataset_after_edit <- function(dataset_key, df_full, row_idx, colname, old_value, new_value) {
-  # Re-derive PRIORITYFlag only when PRIORITY was edited and column exists
+dataset_after_edit <- function(dataset_key, df_full, row_id, colname, old_value, new_value) {
+  # Only act when PRIORITY was edited
   if (identical(colname, "PRIORITY") && "PRIORITY" %in% names(df_full)) {
 
-    # Ensure PRIORITYFlag column exists (add by-reference if missing)
+    # Ensure PRIORITYFlag exists
     if (!"PRIORITYFlag" %in% names(df_full)) {
       df_full[, PRIORITYFlag := NA]
     }
 
-    p <- df_full[row_idx, PRIORITY]
+    # Key is guaranteed: .row_id
+    p <- df_full[.(row_id), PRIORITY]
+
     flag <- if (is.na(p) || p == 0) {
       NA
     } else if (p > 0) {
@@ -154,8 +156,8 @@ dataset_after_edit <- function(dataset_key, df_full, row_idx, colname, old_value
       FALSE
     }
 
-    # By-reference update of only that row
-    data.table::set(df_full, i = row_idx, j = "PRIORITYFlag", value = flag)
+    # Assign by key
+    df_full[.(row_id), PRIORITYFlag := flag]
   }
 
   invisible(df_full)

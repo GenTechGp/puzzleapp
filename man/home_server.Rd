@@ -4,7 +4,7 @@
 \alias{home_server}
 \title{Home Tab Server}
 \usage{
-home_server(id, shared_data)
+home_server(id, shared_store, shared_rx)
 }
 \arguments{
 \item{id}{Module ID}

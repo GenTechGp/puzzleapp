@@ -214,10 +214,10 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   if (is_snv) {
     log_info("[filtServer][filter_dataset] Applying SNV-specific filters")
     # SNV-specific filters
-    if (!is.null(filters$sift_filter) && length(filters$sift_filter) > 0) {
+    if (!is.null(filters$sift_filter) && nzchar(filters$sift_filter)) {
       filter_expression <- add_filter_condition(filter_expression, text_filter("SIFT", filters$sift_filter))
     }
-    if (!is.null(filters$polyphen_filter) && length(filters$polyphen_filter) > 0) {
+    if (!is.null(filters$polyphen_filter) && nzchar(filters$polyphen_filter)) {
       filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
     }
 
@@ -721,9 +721,9 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
       fwrite(data[PRIORITY != 0 | NOTES != "", .(ID, PRIORITY, NOTES)],
         file = file.path(session_dir, sprintf("flagged_rows_%s.tsv", data_type)),
         sep = "\t", quote = FALSE, col.names = TRUE)
-      message("Flagged rows saved successfully.")
+      cat(sprintf("Flagged rows for %s saved to %s\n", data_type, file.path(session_dir, sprintf("flagged_rows_%s.tsv", data_type))))
     } else {
-      message("No flagged rows to save.")
+      cat(sprintf("No PRIORITY or NOTES column in %s data. Skipping flagged rows save.\n", data_type))
     }
   }
   save_flagged_rows(snvs_data, "snvs_data")

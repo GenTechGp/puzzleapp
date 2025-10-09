@@ -1,14 +1,6 @@
 library(shiny)
-library(DT)
-library(yaml)
-library(data.table)
 library(shinyjs)
-library(jsonlite)
-library(reactable)
-library(stringr)
-library(dplyr)
-library(lobstr)
-library(lgr)
+library(puzzleapp)
 
 # App-level init: console logging + purge logs older than 100 days
 setup_app_logging(level = "debug", logs_dir = "logs", older_than_days = 100, console = TRUE)
@@ -38,12 +30,6 @@ ui <- fluidPage(
     tabPanel("Filter", selectFiltersUI("filter")),
     tabPanel("SNV/Indel", dataUI("snv_variants")),
     tabPanel("SV", dataUI("sv_variants")),
-    # tabPanel("SNV and Indels", tabUI("legacy_snv_variants", "SNVs & Indels")),
-    # tabPanel("SVs", variants_ui("legacy_sv_variants")),
-    # tabPanel("(snvs)", variants_ui("snv_variants")),
-    # tabPanel("(svs)", variants_ui("sv_variants")),
-    # tabPanel("PanelApp", variants_ui("panelapp")),
-    # tabPanel("Phenotype", variants_ui("phenotype")),
     tabPanel("Logs", log_viewer_ui("log"))
   )
 )
@@ -76,8 +62,7 @@ server <- function(input, output, session) {
   selectFiltersServer("filter", shared_store, shared_rx)
   dataServer("snv_variants", shared_store, shared_rx, "SNV")
   dataServer("sv_variants", shared_store, shared_rx, "SV")
-  
-# Expose the current session's log to viewer as default selection
+  # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = "logs", session_logfile_reactive = shiny::reactive(session$userData$logfile))
 
 }

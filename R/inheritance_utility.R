@@ -1,6 +1,5 @@
 #' Inheritance Utility
 #'
-library(data.table)
 
 check_pedigree_sanity <- function(pedigree) {
   issues <- list()

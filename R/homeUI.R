@@ -1,10 +1,4 @@
-#' Home Tab UI
-#'
-#' @param id Module ID
-#' @return Shiny UI object
-#' @export
-#' @import shiny
-
+#' @keywords internal
 prefOptsUI <- function(ns) {
   createPreferencesSection <- function(id, title) {
     selectizeInput(ns(id), title, choices = NULL, multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%")
@@ -17,6 +11,13 @@ prefOptsUI <- function(ns) {
   )
 }
 
+
+#' Home Tab UI
+#'
+#' @param id Module ID
+#' @return Shiny UI object
+#' @export
+#' @import shiny
 home_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(

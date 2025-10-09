@@ -1,3 +1,8 @@
+#' Log Viewer Module
+#' @param id Module ID
+#' @param title Title for the log viewer section
+#' @return Shiny UI object (log_viewer_ui) or NULL (log_viewer_server)
+#' @export
 # Log viewer module (strict, uses lgr's own numeric<->name mapping)
 # - Lists all files in logs_dir
 # - Numeric input for "lines to show"
@@ -30,6 +35,13 @@ log_viewer_ui <- function(id, title = "Application logs") {
     )
   )
 }
+
+#' Log Viewer Module Server
+#' @param id Module ID
+#' @param logs_dir Directory containing log files (default: "logs")
+#' @param session_logfile_reactive Optional reactive that returns the current session's log file path (for default selection)
+#' @return NULL
+#' @export
 
 log_viewer_server <- function(id, logs_dir = "logs", session_logfile_reactive = NULL) {
   shiny::moduleServer(id, function(input, output, session) {

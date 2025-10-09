@@ -4,8 +4,6 @@
 #' @export
 #' @import shiny
 
-source("R/db_utility.R")
-
 home_server <- function(id, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns

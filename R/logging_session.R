@@ -31,7 +31,14 @@ set_log_privacy <- function(include_token = TRUE,
   invisible(NULL)
 }
 
-# App-level setup
+#' Setup application logging
+#'
+#' Initializes per-app logging with lgr, purges old logs, optionally logs to console.
+#' @param level Logging threshold: "info", "debug", etc.
+#' @param logs_dir Directory to store logs.
+#' @param older_than_days Purge logs older than this many days.
+#' @param console Whether to log to console.
+#' @export
 setup_app_logging <- function(level = "info",
                               logs_dir = log_default_dir(),
                               older_than_days = 100,
@@ -114,7 +121,18 @@ setup_app_logging <- function(level = "info",
   file.path(base, sprintf("%s_%s_%s.jsonl", prefix, ts, tok))
 }
 
-# ---- Per-session logging setup ----
+
+#' Start per-session logging
+#'
+#' Initializes a per-session logger that writes to a dedicated JSONL log file.
+#' Also logs session start and end events.
+#' @param session Shiny session (automatically detected if NULL).
+#' @param logs_dir Directory to store logs.
+#' @param level Optional logging threshold for this session (inherits from app logger if NULL).
+#' @param prefix Prefix for the log filename (default "session").
+#' @return The absolute path to the log file (invisibly).
+#' @export
+
 start_session_logger <- function(session,
                                  logs_dir = log_default_dir(),
                                  level = NULL,
