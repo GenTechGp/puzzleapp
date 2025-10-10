@@ -574,3 +574,29 @@ add_row_id <- function(df) {
   df$.row_id <- seq_len(nrow(df))
   df
 }
+
+v_kinships <- c("proband", "mother", "father", "sibling", "brother", "sister", "uncle", "aunt", "grandparent", "grandfather", "grandmother", "unknown")
+v_statuses <- c("affected", "unaffected", "unknown")
+v_sexes    <- c("male", "female", "unknown")
+
+sanitise_samples <- function(samples) {
+  for (i in seq_along(samples)) {
+    s <- samples[[i]]
+    # Sanitize kinship
+    if (!is.null(s$kinship) && !(s$kinship %in% v_kinships)) {
+      log_debug(sprintf("Sanitizing kinship for sample %s: %s -> unknown", s$sample_id %||% paste0("index_", i), s$kinship))
+      samples[[i]]$kinship <- "unknown"
+    }
+    # Sanitize status
+    if (!is.null(s$status) && !(s$status %in% v_statuses)) {
+      log_debug(sprintf("Sanitizing status for sample %s: %s -> unknown", s$sample_id %||% paste0("index_", i), s$status))
+      samples[[i]]$status <- "unknown"
+    }
+    # Sanitize sex
+    if (!is.null(s$sex) && !(s$sex %in% v_sexes)) {
+      log_debug(sprintf("Sanitizing sex for sample %s: %s -> unknown", s$sample_id %||% paste0("index_", i), s$sex))
+      samples[[i]]$sex <- "unknown"
+    }
+  }
+  samples
+}

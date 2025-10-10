@@ -152,7 +152,8 @@ start_session_logger <- function(session,
 
   # Inherit threshold and console from parent unless overridden
   if (!is.null(level)) lg$set_threshold(level)
-  lg$set_propagate(TRUE)  # bubble up to shinyapp for single console print
+  # lg$set_propagate(TRUE)  # bubble up to shinyapp for single console print
+  lg$set_propagate(FALSE) # no console print from session logger
 
   # Only per-session file appender here (JSONL with full detail)
   file_app <- lgr::AppenderFile$new(
@@ -300,6 +301,19 @@ start_session_logger <- function(session,
 }
 
 # ---- Public minimal-friction helpers ----
+#' Log an info-level message with optional structured fields
+#' @param msg Message (string or format string if ... are provided).
+#' @param ... Optional arguments:
+#'   - Named arguments become structured fields (e.g. user = user_id).
+#'   - Unnamed arguments are treated as sprintf() args to format msg.
+#' @param .session Optional Shiny session (auto-detected if NULL).
+#' @param .fields Optional named list of additional structured fields.
+#' @param .user Optional user ID to include as 'user' field.
+#' @param session Legacy alias for .session.
+#' @param fields Legacy alias for .fields.
+#' @param user_id Legacy alias for .user.
+#' @return NULL (invisibly).
+#' @export
 log_info <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                      session = NULL, fields = NULL, user_id = NULL) {
   .log_emit(.get_target_logger(.resolve_session(.session %||% session))$info,
@@ -321,6 +335,19 @@ log_error <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
             session = session, fields = fields, user_id = user_id)
 }
 
+#' Log a debug-level message with optional structured fields
+#' @param msg Message (string or format string if ... are provided).
+#' @param ... Optional arguments:
+#'   - Named arguments become structured fields (e.g. user = user_id).
+#'   - Unnamed arguments are treated as sprintf() args to format msg.
+#' @param .session Optional Shiny session (auto-detected if NULL).
+#' @param .fields Optional named list of additional structured fields.
+#' @param .user Optional user ID to include as 'user' field.
+#' @param session Legacy alias for .session.
+#' @param fields Legacy alias for .fields.
+#' @param user_id Legacy alias for .user.
+#' @return NULL (invisibly).
+#' @export
 log_debug <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                       session = NULL, fields = NULL, user_id = NULL) {
   .log_emit(.get_target_logger(.resolve_session(.session %||% session))$debug,

@@ -1,9 +1,13 @@
 library(puzzleapp)
 
 # App-level init: console logging + purge logs older than 100 days
-setup_app_logging(level = "debug", logs_dir = "logs", older_than_days = 100, console = TRUE)
+# use the $HOME/puzzleapp_logs directory if available, otherwise "logs" in current dir
+logs_dir <- if (nzchar(Sys.getenv("HOME"))) file.path(Sys.getenv("HOME"), "puzzleapp_logs") else "logs"
+dir.create(logs_dir, showWarnings = FALSE, recursive = TRUE)
+setup_app_logging(level = "debug", logs_dir = logs_dir, older_than_days = 100, console = TRUE)
 
 ui <- fluidPage(
+  shinybusy::add_busy_spinner(spin = "fading-circle", position = "bottom-right"),
   tags$script(HTML("
     function getCookie(name) {
       let match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
@@ -34,8 +38,9 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # Start per-session file logging
-  start_session_logger(session, logs_dir = "logs", prefix = "session")
-  
+  start_session_logger(session, logs_dir = logs_dir, prefix = "session")
+  log_info(sprintf("Writing session logs to directory: %s", logs_dir))
+
   # Shared storage (plain variables) and reactive version token
   shared_store <- new.env(parent = emptyenv())
   shared_store$value_for_data  <- list()
@@ -61,7 +66,7 @@ server <- function(input, output, session) {
   dataServer("snv_variants", shared_store, shared_rx, "SNV")
   dataServer("sv_variants", shared_store, shared_rx, "SV")
   # Expose the current session's log to viewer as default selection
-  log_viewer_server("log", logs_dir = "logs", session_logfile_reactive = shiny::reactive(session$userData$logfile))
+  log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
 
 }
 

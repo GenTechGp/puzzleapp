@@ -81,7 +81,10 @@ home_server <- function(id, shared_store, shared_rx) {
       # Check that we have a valid path before reading
       if (!is.null(yml_path) && length(yml_path) == 1 && file.exists(yml_path)) {
         config <- yaml::read_yaml(yml_path)
-        config_samples(config$samples)
+
+        samples <- sanitise_samples(config$samples)
+        # Update reactiveVal to pre-fill sample inputs
+        config_samples(samples)
 
         # pre-fill TSV input if in single line
         if (!is.null(config$paths$snvs_vcf) && nzchar(config$paths$snvs_vcf)) {
@@ -194,9 +197,9 @@ home_server <- function(id, shared_store, shared_rx) {
         s <- if (!is.null(samples) && length(samples) >= i) samples[[i]] else list()
         shiny::fluidRow(
           shiny::column(1, shiny::textInput(ns(paste0("sample_id_", i)), label = NULL, value = s$sample_id %||% "")),
-          shiny::column(1, shiny::selectInput(ns(paste0("kinship_", i)), label = NULL, choices = c("proband", "mother", "father", "sibling", "unknown"), selected = s$kinship %||% "unknown")),
-          shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = NULL, choices = c("affected", "unaffected", "unknown"), selected = s$status %||% "unknown")),
-          shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = NULL, choices = c("female", "male", "unknown"), selected = s$sex %||% "unknown")),
+          shiny::column(1, shiny::selectInput(ns(paste0("kinship_", i)), label = NULL, choices = v_kinships, selected = s$kinship %||% "unknown")),
+          shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = NULL, choices = v_statuses, selected = s$status %||% "unknown")),
+          shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = NULL, choices = v_sexes, selected = s$sex %||% "unknown")),
           shiny::column(1, shiny::numericInput(ns(paste0("code_", i)), label = NULL, value = s$code %||% 1, min = 0)),
           shiny::column(3, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
           shiny::column(4, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))

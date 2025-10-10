@@ -29,7 +29,7 @@ log_viewer_ui <- function(id, title = "Application logs") {
         shiny::checkboxInput(ns("autorefresh"), "Auto-refresh", value = TRUE),
         shiny::numericInput(ns("refresh_ms"), "Refresh every (ms)", value = 2000, min = 250, step = 250),
         shiny::selectInput(ns("level"), "Minimum severity:", choices = c("debug","info","warn","error"),
-                           selected = "info"),
+                           selected = "error"),
         shiny::downloadButton(ns("download_log"), "Download selected log")
       )
     )
