@@ -353,11 +353,12 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
         widget <- datatable(
           df0,
-          rownames = FALSE,
-          filter = "top",
-          editable = list(target = "cell", numeric = "none"),
-          extensions = c("ColReorder", "Buttons"),
+          filter = list(position = "top", clear = TRUE),
+          selection = "none",
           escape = FALSE,
+          rownames = FALSE,
+          extensions = c("ColReorder", "Buttons"),
+          editable = list(target = "cell", numeric = "none"),
           options = list(
             dom = "Blfrtip",
             buttons = list(
