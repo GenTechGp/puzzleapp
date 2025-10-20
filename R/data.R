@@ -171,7 +171,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
         # Render once; avoid reactive deps; compute initial view with isolate
         n <- isolate(rendering_counter()) + 1L
         rendering_counter(n)
-        cat(sprintf("[Data] [Render] rendering_counter = %d\n", n))
+        log_debug(sprintf("[Data] [Render] rendering_counter = %d\n", n))
 
         cn <- colnames(df0)
         rid_idx0 <- which(cn == ".row_id") - 1L
@@ -473,11 +473,11 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       # ))
 
       # Diagnostics: structure and column equality with initial table
-      cat(sprintf("[Data] update_view rows=%d cols=%d\n", nrow(view_df), ncol(view_df)))
+      log_info(sprintf("[Data] update_view rows=%d cols=%d\n", nrow(view_df), ncol(view_df)))
       if (!is.null(initial_colnames) && !identical(names(view_df), initial_colnames)) {
-        cat("[Data][ERROR] Column mismatch in update_view:\n")
-        cat("  initial: ", paste(initial_colnames, collapse = ", "), "\n", sep = "")
-        cat("  current: ", paste(names(view_df), collapse = ", "), "\n", sep = "")
+        log_error("[Data][ERROR] Column mismatch in update_view:\n")
+        log_error(sprintf("  initial: %s\n", paste(initial_colnames, collapse = ", ")))
+        log_error(sprintf("  current: %s\n", paste(names(view_df), collapse = ", ")))
         showNotification("Column mismatch in Data update_view; see console.", type = "error", duration = NULL)
         return(invisible(NULL))
       }
@@ -529,7 +529,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       updateSelectInput(session, "dataset_select", choices = visible_choices, selected = selected_ui)
 
       if (!identical(active(), active_new)) {
-        cat(sprintf("[Data] sync(%s) -> active set to '%s'\n", reason, as.character(active_new %||% "<none>")))
+        log_debug(sprintf("[Data] sync(%s) -> active set to '%s'\n", reason, as.character(active_new %||% "<none>")))
         # if reason is dt_ready
         # get the active() dataset and check if its nrow > 200k. if so set slice_pct to c(0,10)
         if (reason == "dt_ready") {  
@@ -548,14 +548,14 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
       # Render or update view
       choices_all <- allowed_dataset_names()
-      cat("[Data] data_version =", shared_rx$data_version(), "choices =", paste(choices_all, collapse = ", "), "\n")
+      log_info(sprintf("[Data] data_version = %d, choices = %s\n", shared_rx$data_version(), paste(choices_all, collapse = ", ")))
       if (!rendered()) {
         if (length(choices_all)) {
-          cat(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$data_version(), active()))
+          log_info(sprintf("[Data] First version bump detected (%d): rendering table (active=%s)\n", shared_rx$data_version(), active()))
           render_tbl_once()
         }
       } else {
-        cat(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$data_version(), active()))
+        log_info(sprintf("[Data] Version bump detected: %d (active=%s)\n", shared_rx$data_version(), active()))
         update_view(resetPaging = TRUE)
         push_splice_threshold()
       }
@@ -580,7 +580,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
     # When active changes, update the view (keep pagination)
     observeEvent(active(), {
-      cat(sprintf("[Data] Switch -> active=%s\n", active()))
+      log_debug(sprintf("[Data] Switch -> active=%s\n", active()))
       update_view(resetPaging = FALSE)
       push_splice_threshold()
     }, ignoreInit = TRUE)
@@ -608,7 +608,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       rng <- slice_pct()
       req(!is.null(rng), length(rng) == 2)
       # depend on shared_rx$data_version() to update on dataset changes
-      cat("triggered slice summary update:", paste(rng, collapse = ","), "\n")
+      log_info(sprintf("triggered slice summary update: %s\n", paste(rng, collapse = ",")))
       lo <- as.integer(min(rng, na.rm = TRUE))
       hi <- as.integer(max(rng, na.rm = TRUE))
       # get the total number of rows in the active dataset after filtering
@@ -622,7 +622,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       rng <- input$data_slider
       if (is.null(rng) || length(rng) != 2) return()
       slice_pct(rng)
-      cat(sprintf("[Data] Slice set to %d%%-%d%% (active=%s)\n", as.integer(rng[1]), as.integer(rng[2]), active()))
+      log_debug(sprintf("[Data] Slice set to %d%%-%d%% (active=%s)\n", as.integer(rng[1]), as.integer(rng[2]), active()))
       update_view(resetPaging = TRUE)
     })
 
@@ -630,7 +630,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     observeEvent(input$tbl_ready, {
       if (!dt_ready()) {
         dt_ready(TRUE)
-        cat("[Data] DT is ready in browser; enabling replaceData updates.\n")
+        log_info("[Data] DT is ready in browser; enabling replaceData updates.")
         update_view(resetPaging = TRUE)
         # Now that we're rendered, re-sync to hide synthetic if real datasets exist
         sync_choices_and_active("dt_ready")
@@ -765,18 +765,18 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
               df_orig[.(row_id), (colname) := new_val]
               dataset_after_edit(act, df_orig, row_id, colname, old_val, new_val)
             } else {
-              cat("[edit] Original and working share pointer; no separate sync needed.\n")
+              log_error("[edit] Original and working share pointer; is this intended?\n")
             }
           }
         }, error = function(e) {
           showNotification("Failed to update original data.", type = "warning", duration = 3)
-          cat("[edit warn] original sync failed:", conditionMessage(e), "\n")
+          log_error(sprintf("original sync failed: %s\n", conditionMessage(e)))
         })
       }
 
       update_view(resetPaging = FALSE)
       showNotification("Saved", type = "message", duration = 1.2)
-      cat(sprintf("[Edit OK] .row_id=%d col=%s old=%s new=%s\n",
+      log_info(sprintf("[Edit OK] .row_id=%d col=%s old=%s new=%s\n",
                   row_id, colname, as.character(old_val), as.character(new_val)))
     })
   })
