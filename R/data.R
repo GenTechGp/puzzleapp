@@ -499,6 +499,8 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     }
     # ---- Sync helper: choices, visibility, and active selection ----
     sync_choices_and_active <- function(reason = "unspecified") {
+      slice_pct(INITIAL_SLICE_PCT)
+
       choices_all <- allowed_dataset_names()
       curr_active <- isolate(active())
 
@@ -531,15 +533,13 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
       if (!identical(active(), active_new)) {
         log_debug(sprintf("[Data] sync(%s) -> active set to '%s'", reason, as.character(active_new %||% "<none>")))
-        # if reason is dt_ready
-        # get the active() dataset and check if its nrow > 200k. if so set slice_pct to c(0,10)
-        if (reason == "dt_ready") {  
-          df_active <- shared_store$data_for_data[[active_new]]
-          if (!is.null(df_active) && nrow(df_active) > DB_INITIAL_ROW_THRESHOLD) {
-            slice_pct(BIG_DB_INITIAL_SLICE_PCT)
-          }
-        }
         active(active_new)
+      }
+
+      # get the active() dataset and check if its nrow > 200k. if so set slice_pct to c(0,10)
+      df_active <- shared_store$data_for_data[[active()]]
+      if (!is.null(df_active) && nrow(df_active) > DB_INITIAL_ROW_THRESHOLD) {
+        slice_pct(BIG_DB_INITIAL_SLICE_PCT)
       }
     }
 
