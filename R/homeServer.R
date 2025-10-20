@@ -33,26 +33,21 @@ home_server <- function(id, shared_store, shared_rx) {
     }
 
     # Clear inputs
-    shiny::observeEvent(input$clear_inputs, {
-      # Reset numeric input for Individuals
-      shiny::updateNumericInput(session, "num_individuals", value = 1)
-      shiny::updateTextInput(session, "yml_path", value = "")
-      shiny::updateTextInput(session, "snvs_vcf", value = "")
-      shiny::updateTextInput(session, "snvs_tsv", value = "")
-      shiny::updateTextInput(session, "svs_vcf", value = "")
-      shiny::updateTextInput(session, "svs_tsv", value = "")
-      shiny::updateTextInput(session, "panel_app", value = "")
-      shiny::updateTextInput(session, "vep_consequences", value = "")
-      shiny::updateTextInput(session, "phenotype_data", value = "")
-      shiny::updateTextInput(session, "outdir", value = "")
-      # Clear shared_store
-      clear_shared_store()
-      config_samples(NULL)
-      config_samples(list(list(sample_id="",kinship="unknown",status="unknown",sex="unknown",code=1,bam="",coverage="")))
+    observeEvent(input$clear_inputs, ignoreInit = TRUE, {
+      showModal(modalDialog(
+        title = "Clear loaded data?",
+        "App will restart and all loaded data will be lost. Are you sure you want to proceed?",
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("confirm_restart"), "Restart", class = "btn-danger")  # <- namespaced!
+        ),
+        easyClose = TRUE
+      ))
+    })
 
-      bump_version(version_type = "data", shared_rx = shared_rx)
-      bump_version(version_type = "panelapp", shared_rx = shared_rx)
-
+    observeEvent(input$confirm_restart, ignoreInit = TRUE, {
+      removeModal()
+      session$reload()
     })
 
     # Feedback to user
@@ -116,6 +111,8 @@ home_server <- function(id, shared_store, shared_rx) {
     })
 
     shiny::observeEvent(input$load_data, {
+      # disable load button to prevent multiple clicks
+      shiny::updateActionButton(session, "load_data", disabled = TRUE)
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
         return()
