@@ -130,13 +130,15 @@ setup_app_logging <- function(level = "info",
 #' @param logs_dir Directory to store logs.
 #' @param level Optional logging threshold for this session (inherits from app logger if NULL).
 #' @param prefix Prefix for the log filename (default "session").
+#' @param console Whether to propagate logs to the app-level console logger.
 #' @return The absolute path to the log file (invisibly).
 #' @export
 
 start_session_logger <- function(session,
                                  logs_dir = log_default_dir(),
                                  level = NULL,
-                                 prefix = "session") {
+                                 prefix = "session",
+                                 console = TRUE) {
   stopifnot(!is.null(session))
   if (!requireNamespace("lgr", quietly = TRUE)) {
     stop("Please install 'lgr' for structured logging: install.packages('lgr')")
@@ -152,8 +154,8 @@ start_session_logger <- function(session,
 
   # Inherit threshold and console from parent unless overridden
   if (!is.null(level)) lg$set_threshold(level)
-  # lg$set_propagate(TRUE)  # bubble up to shinyapp for single console print
-  lg$set_propagate(FALSE) # no console print from session logger
+  lg$set_propagate(console)  # bubble up to shinyapp for single console print
+  # lg$set_propagate(FALSE) # no console print from session logger
 
   # Only per-session file appender here (JSONL with full detail)
   file_app <- lgr::AppenderFile$new(

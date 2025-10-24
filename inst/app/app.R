@@ -38,7 +38,7 @@ ui <- fluidPage(
 
 server <- function(input, output, session) {
   # Start per-session file logging
-  start_session_logger(session, logs_dir = logs_dir, prefix = "session")
+  start_session_logger(session, logs_dir = logs_dir, prefix = "session", console = TRUE)
   log_info(sprintf("Writing session logs to directory: %s", logs_dir))
 
   # Shared storage (plain variables) and reactive version token
@@ -67,6 +67,11 @@ server <- function(input, output, session) {
   dataServer("sv_variants", shared_store, shared_rx, "SV")
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
+
+  # log_debug("debug test")
+  # log_info("info test")
+  # log_warn("warning test")
+  # log_error("error test")
 
 }
 

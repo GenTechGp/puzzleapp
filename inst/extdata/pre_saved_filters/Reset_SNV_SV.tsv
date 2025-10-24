@@ -1,9 +1,5 @@
 Label	Reset
 Inheritance	
-PanelApp Genes	
-Custom Genes	
-Treat Negative	FALSE
-HPO Terms	
 SNV_Annotation	
 SNV_Pathogenicity	
 SNV_SpliceAI score	0
@@ -22,6 +18,3 @@ SV_Allele balance	0
 SV_SV type	
 SV_Min SV Length	0
 SV_Max SV Length	0
-
-
-

@@ -529,10 +529,33 @@ list_files <- function(dir) {
   }
 }
 
-capture_filters <- function(input, phenos) {
-  # List of shared keys
-  shared_keys <- c("Inheritance", "PanelApp Genes", "HPO Terms")
+extractCustomAllelCount <- function(pedigree, input) {
+  res <- lapply(pedigree, function(sample) input[[paste0("allele_", sample$sample_id)]])
+  names(res) <- sapply(pedigree, `[[`, "sample_id")
+  res
+}
 
+getAlleleCounts <- function(pedigree, input) {
+  counts <- list()
+  if (length(pedigree) > 0) {
+    if (input$inher == "Custom") {
+      counts <- extractCustomAllelCount(pedigree, input)  # named list
+      cat("Custom allele counts:\n")
+      for (sid in names(counts)) {
+        cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
+      }
+    } else if (input$inher != "") {
+      counts <- compute_allele_table(pedigree, input$inher)  # named list
+      cat("Allele table counts:\n")
+      for (sid in names(counts)) {
+        cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
+      }
+    }
+  }
+  counts
+}
+
+capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, flag_save_hpo_panelapp=FALSE, flag_save_presaved_filter=FALSE) {
   # SNV filters (excluding shared)
   snv_filters <- list(
     "Annotation" = if (!is.null(input$conseq_checkboxes)) paste(input$conseq_checkboxes, collapse = ";") else "",
@@ -562,14 +585,38 @@ capture_filters <- function(input, phenos) {
     "Filter value" = input$sv_pass_variants
   )
 
-  # Shared filters: always use unprefixed keys
+  # Shared filters
   shared_filters <- list(
-    "Inheritance" = input$inher,
-    "PanelApp Genes" = if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else "",
-    "HPO Terms" = paste(phenos, collapse = "; "),
-    "Custom Genes" = input$custom_genes,
-    "Treat Negative" = input$treat_negative
+    "Inheritance" = input$inher
   )
+
+  # if Inheritace is Custom then we need to save the Allele counts for each sample
+  if (input$inher == "Custom") {
+    ped <- convert_samples_to_pedigree(samples)
+    allele_counts <- getAlleleCounts(ped, input)
+    # paste allele counts into a single string with sample_id:count;sample_id:count;...
+    allele_counts_str <- paste(sapply(names(allele_counts), function(sid) {
+      count <- allele_counts[[sid]]
+      if (is.null(count)) count <- ""
+      paste0(sid, ":", count)
+    }), collapse = ";")
+    if (flag_save_samples) {
+      shared_filters[["Custom_Allele_Counts"]] <- allele_counts_str
+    }
+  }
+
+  if (input$save_panelapp_hpo || flag_save_hpo_panelapp) {
+    shared_filters[["PanelApp_Genes"]] <- if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else ""
+    shared_filters[["HPO_Terms"]] <- paste(phenos, collapse = "; ")
+    shared_filters[["Custom_Genes"]] <- input$custom_genes
+    shared_filters[["Treat_Negative"]] <- input$treat_negative
+  }
+
+  if (flag_save_presaved_filter) {
+    if (input$pre_saved_filters != "") {
+      shared_filters[["PreSaved_Filter"]] <- input$pre_saved_filters
+    }
+  }
 
   # Prefix SNV and SV keys
   snv_prefixed <- setNames(snv_filters, paste0("SNV_", names(snv_filters)))
@@ -586,6 +633,7 @@ capture_filters <- function(input, phenos) {
 }
 
 update_filters_params <- function(search_params, session) {
+  # print (search_params)
   # Mapping table: for each base param, SNV and SV update info, and shared update info for 3 params
   param_mapping <- list(
     "Annotation" = list(
@@ -642,16 +690,16 @@ update_filters_params <- function(search_params, session) {
     "Inheritance" = list(
       shared = list(func = updateRadioButtons, id = "inher", selected = TRUE)
     ),
-    "PanelApp Genes" = list(
+    "PanelApp_Genes" = list(
       shared = list(func = updateSelectInput, id = "panelapp", selected = TRUE, split = TRUE)
     ),
-    "HPO Terms" = list(
-      shared = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
-    ),
-    "Custom Genes" = list(
+    # "HPO_Terms" = list(
+    #   shared = list(func = updateCheckboxGroupInput, id = "phenotype", selected = TRUE, split = TRUE)
+    # ),
+    "Custom_Genes" = list(
       shared = list(func = updateTextInput, id = "custom_genes", value = TRUE)
     ),
-    "Treat Negative" = list(
+    "Treat_Negative" = list(
       shared = list(func = updateCheckboxInput, id = "treat_negative", value = TRUE, as_logical = TRUE)
     )
   )
@@ -674,8 +722,7 @@ update_filters_params <- function(search_params, session) {
       update_info <- mapping_entry$sv
     } else {
       # Shared params: extend allowlist to include the new three
-      if (!param %in% c("Inheritance", "PanelApp Genes", "HPO Terms",
-                        "Custom Genes", "Treat Negative")) next
+      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative")) next
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
@@ -695,7 +742,34 @@ update_filters_params <- function(search_params, session) {
   }
 }
 
-save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data, phenos) {
+update_custom_alleles <- function(search_params, session) {
+  # --- Handle Custom inheritance allele counts ---
+  if (!is.null(search_params[["Inheritance"]]) && search_params[["Inheritance"]] == "Custom" && !is.null(search_params[["Custom_Allele_Counts"]])) {
+    # Example string:
+    # "LRS00112-00-RF-01:0-1;LRS00112-01-RF-01:0-1;LRS00112-03-RF-01:0;LRS00112-04-RF-01:1"
+    allele_str <- search_params[["Custom_Allele_Counts"]]
+    # Split into per-sample pairs
+    allele_pairs <- unlist(strsplit(allele_str, ";"))
+    # Loop through each and update the corresponding radio input
+    for (pair in allele_pairs) {
+      kv <- unlist(strsplit(pair, ":", fixed = TRUE))
+      if (length(kv) >= 1) {
+        sid <- kv[1]
+        val <- if (length(kv) == 2) kv[2] else ""
+        # log_info(sprintf("[update_filters_params] Updating custom allele count for sample %s to %s", sid, val))
+        input_id <- paste0("allele_", sid)
+        if (!is.null(session$input[[input_id]])) {
+          updateRadioButtons(session, inputId = input_id, selected = val)
+        } else {
+          log_error(sprintf("[update_filters_params] Skipped %s - not yet rendered\n", input_id))
+        }
+      }
+    }
+    log_info(sprintf("[update_filters_params] Updated custom allele counts for %d samples", length(allele_pairs)))
+  }
+}
+
+save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_data, phenos, samples) {
   session_dir <- sprintf("%s/%s", sessions_dir, session_name)
   log_info(sprintf("[filtServer] Saving session: %s", session_name))
 
@@ -710,7 +784,7 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
   }
 
   # Capture current filter states
-  filters_dt <- capture_filters(input, phenos)
+  filters_dt <- capture_filters(input, phenos, samples, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=TRUE)
 
   # Save filter tables
   fwrite(filters_dt, file = file.path(session_dir, "filters.tsv"), sep = "\t", quote = FALSE, col.names = FALSE)
@@ -732,9 +806,9 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
   return(TRUE)
 }
 
-save_filters <- function(input, phenos, file_path) {
+save_filters <- function(input, phenos, file_path, samples) {
   filter_save_name <- input$filters_save_name
-  filters_dt <- capture_filters(input, phenos)
+  filters_dt <- capture_filters(input, phenos, samples)
 
   if (!dir.exists(file_path)) {
     dir.create(file_path, recursive = TRUE)
@@ -761,19 +835,17 @@ delete_filters <- function(filter_name, file_path) {
 
 update_flagged_rows <- function(original_dt, flagged_rows_file) {
   stopifnot(is.data.table(original_dt))  # must be data.table
+  # Check required columns
+  required_cols <- c("ID", "PRIORITY", "NOTES")
+  missing_cols <- setdiff(required_cols, names(original_dt))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("Original data is missing required columns: %s", paste(missing_cols, collapse = ", ")))
+  }
 
   # Reset PRIORITY and NOTES in the original data.table
   original_dt[, PRIORITY := 0L]
   original_dt[, NOTES := NA_character_]
   original_dt[, PRIORITYFlag := as.logical(NA)]
-  
-  # Check required columns
-  required_cols <- c("ID", "PRIORITY", "NOTES")
-  missing_cols <- setdiff(required_cols, names(original_dt))
-  if (length(missing_cols) > 0) {
-    stop(sprintf("Original data is missing required columns: %s",
-                 paste(missing_cols, collapse = ", ")))
-  }
   
   # Return early if no file
   if (!file.exists(flagged_rows_file)) {
@@ -859,4 +931,13 @@ delete_session_data <- function(session_name, sessions_dir) {
     log_info(sprintf("Session directory does not exist: %s", session_to_delete))
     return(FALSE)
   }
+}
+
+clear_input_fields <- function(session) {
+  updateSelectizeInput(session, "pre_saved_filters", selected = character(0))
+  updateTextInput(session, "filters_save_name", value = "")
+  updateSelectizeInput(session, "delete_pre_saved_filters", selected = character(0))
+  updateSelectizeInput(session, "available_sessions", selected = character(0))
+  updateTextInput(session, "session_name", value = "")
+  updateSelectizeInput(session, "delete_sessions", selected = character(0))
 }

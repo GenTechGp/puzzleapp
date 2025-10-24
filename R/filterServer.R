@@ -14,7 +14,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     red_genes <- reactiveVal()
     amber_genes <- reactiveVal()
     unclassified_genes <- reactiveVal()
-
+    allele_table_ready <- reactiveVal(FALSE)
+    updating_filters <- reactiveVal(FALSE)
 
     # Sessions
     sessions_dir <- reactive({
@@ -48,7 +49,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         showNotification("No data available to save. Please load datasets in the Home tab.", type = "error")
         return()
       }
-      if (save_session_data(input, input$session_name, sessions_dir(), snvs_data, svs_data, phenos())) {
+      if (save_session_data(input, input$session_name, sessions_dir(), snvs_data, svs_data, phenos(), shared_store$samples)) {
         sessions(list_files(sessions_dir()))
         message("Session saved. It will appear in the list automatically.")
       }
@@ -67,11 +68,34 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       }
       loaded <- load_session_data(input, input$available_sessions, sessions_dir(), snvs_data, svs_data)
       if (!is.null(loaded)) {
+        reset_params <- filters_state$all[['Reset_all']]
+        update_filters_params(reset_params, session)
         update_filters_params(loaded$filters, session)
-        # Both snv and sv have same HPO terms. Hence use snv terms
-        phenos(c(loaded$filters[["HPO Terms"]]))
-        shared_store$data_for_data[["SNV"]] <- loaded$snvs_data
-        shared_store$data_for_data[["SV"]] <- loaded$svs_data
+        phenos(c(loaded$filters[["HPO_Terms"]]))
+        
+        # pre-saved filter
+        updating_filters(TRUE)  # start "isolated" mode
+        choice <- loaded$filters[["PreSaved_Filter"]]
+        choices <- c("", names(filters_state$all))
+        # check if choice is in choices (choice can be empty)
+        if (!is.null(choice) && choice != "" && choice %in% choices) {
+          updateSelectizeInput(session, "pre_saved_filters", selected = choice)
+        } else {
+          updateSelectizeInput(session, "pre_saved_filters", selected = "")
+        }
+        shinyjs::delay(100, updating_filters(FALSE))  # release after updates
+
+        # Wait 500 ms (enough time for UI to render) if loaded$filters$Inheritance is "Custom" then update custom alleles
+        if (loaded$filters$Inheritance == "Custom") {
+          log_info("[filtServer] Loaded session has Custom inheritance, will update custom alleles after delay")
+          shinyjs::delay(500, {
+            if (allele_table_ready()){
+              update_custom_alleles(loaded$filters, session)
+            } else {
+              log_error("Allele table not ready after 500ms, cannot update custom alleles")
+            }
+          })
+        }
         showNotification(sprintf("Session '%s' loaded.", input$available_sessions), type = "message")
         isolate({
           shinyjs::delay(500, shinyjs::click("btn_apply_filters"))
@@ -89,9 +113,6 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         message("Session deleted. It will be removed from the list automatically.")
       }
     })
-
-
-
 
     alleleCustomTable <- function(ns, pedigree) {
       tagList(
@@ -113,7 +134,10 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (input$inher == "") return(NULL)
       if (input$inher == "Custom") {
         # Render input radio buttons for custom allele counts
-        alleleCustomTable(ns, ped)
+        ui <- alleleCustomTable(ns, ped)
+        allele_table_ready(TRUE)
+        log_info("[filtServer] Custom inheritance selected, setting allele_table_ready to TRUE")
+        return(ui)
       } else {
         # Compute allele counts (named list) and convert to data.frame for display
         counts <- compute_allele_table(ped, input$inher)
@@ -123,36 +147,16 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
           Allele_Count = unlist(counts, use.names = FALSE),
           stringsAsFactors = FALSE
         )
-        DT::datatable(tbl, rownames = FALSE, options = list(dom = 't', paging = FALSE))
+        allele_table_ready(TRUE)
+        return(DT::datatable(tbl, rownames = FALSE, options = list(dom = 't', paging = FALSE)))
       }
     })
+
+    observeEvent(input$inher, {
+      allele_table_ready(FALSE)
+      log_info("[filtServer] Inheritance mode changed, resetting allele_table_ready to FALSE")
+    })
     outputOptions(output, "allele_ui", suspendWhenHidden = FALSE)
-
-    extractCustomAllelCount <- function(pedigree, input) {
-      res <- lapply(pedigree, function(sample) input[[paste0("allele_", sample$sample_id)]])
-      names(res) <- sapply(pedigree, `[[`, "sample_id")
-      res
-    }
-
-    getAlleleCounts <- function(pedigree, input) {
-      counts <- list()
-      if (length(pedigree) > 0) {
-        if (input$inher == "Custom") {
-          counts <- extractCustomAllelCount(pedigree, input)  # named list
-          cat("Custom allele counts:\n")
-          for (sid in names(counts)) {
-            cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
-          }
-        } else if (input$inher != "") {
-          counts <- compute_allele_table(pedigree, input$inher)  # named list
-          cat("Allele table counts:\n")
-          for (sid in names(counts)) {
-            cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
-          }
-        }
-      }
-      counts
-    }
 
     observeEvent(input$btn_apply_filters, {
       cat("[filterServer] Apply filters clicked\n")
@@ -179,8 +183,6 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
       )
-      snvs_data <- shared_store$original_data[["SNV"]]
-      svs_data <- shared_store$original_data[["SV"]]
       filtered_data <- apply_filter_legacy_mode2(input=input, snvs_data=snvs_data, svs_data=svs_data,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
       shared_store$data_for_data[["SNV"]] <- filtered_data$snv_filtered_data
       shared_store$data_for_data[["SV"]] <- filtered_data$sv_filtered_data
@@ -339,7 +341,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         return()
       }
       file_path <- file.path(file_path, saved_filters)
-      save_filters(input, phenos(), file_path)
+      save_filters(input, phenos(), file_path, shared_store$samples)
       update_filters_dropdowns(session, shared_store, saved_filters)
     })
 
@@ -355,21 +357,23 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       update_filters_dropdowns(session, shared_store, saved_filters)
     })
 
-    reset_all_filters <- function(session, filters_state, phenos = NULL) {
-      reset_params <- filters_state$all[['Reset']]
-      update_filters_params(reset_params, session)
-      if (!is.null(phenos)) phenos(character(0))
-    }
-
     observeEvent(input$pre_saved_filters, {
-      reset_all_filters(session, filters_state, phenos)
+      if (updating_filters()) return()  # skip during isolated update
+      reset_params <- filters_state$all[['Reset_SNV_SV']]
+      update_filters_params(reset_params, session)
       selected_filter <- input$pre_saved_filters
       filter_params <- filters_state$all[[selected_filter]]
       update_filters_params(filter_params, session)
+      if (length(filter_params[["HPO_Terms"]]) > 0) {
+        phenos(c(filter_params[["HPO_Terms"]]))
+      }  
     }, ignoreInit = TRUE)
 
     observeEvent(input$btn_reset, {
-      reset_all_filters(session, filters_state, phenos)
+      clear_input_fields(session)
+      reset_params <- filters_state$all[['Reset_all']]
+      update_filters_params(reset_params, session)
+      phenos(character(0))
     })
 
   })

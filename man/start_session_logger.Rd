@@ -8,7 +8,8 @@ start_session_logger(
   session,
   logs_dir = log_default_dir(),
   level = NULL,
-  prefix = "session"
+  prefix = "session",
+  console = TRUE
 )
 }
 \arguments{
@@ -19,6 +20,8 @@ start_session_logger(
 \item{level}{Optional logging threshold for this session (inherits from app logger if NULL).}
 
 \item{prefix}{Prefix for the log filename (default "session").}
+
+\item{console}{Whether to propagate logs to the app-level console logger.}
 }
 \value{
 The absolute path to the log file (invisibly).
