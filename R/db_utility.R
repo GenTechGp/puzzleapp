@@ -341,11 +341,73 @@ make_boundary_table <- function(x,
 
 nthreads <- 8  # Number of threads for data.table operations
 
-load_vep_consequences <- function(file = NULL) {
-  if (is.null(file)) {
-    # Locate the TSV file inside inst/extdata/
-    file <- system.file("extdata", "vep_annotations.tsv", package = "puzzleapp")
+#' Utility function to load local database files for PanelApp, VEP consequences, and Phenotype data.
+#' Reads the database directory from the configuration file and loads the latest available database files.
+#' @return A list containing paths to the local database files.
+load_local_db <- function() {
+  conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
+  db_dir <- NULL
+  
+  # --- Read db_dir from app.conf ---
+  if (file.exists(conf_file)) {
+    lines <- readLines(conf_file)
+    db_dir_line <- grep('^db_dir\\s*=\\s*".*"$', lines, value = TRUE)
+    if (length(db_dir_line) > 0) {
+      db_dir <- sub('^db_dir\\s*=\\s*"', "", db_dir_line[1])
+      db_dir <- sub('"$', "", db_dir)
+    }
   }
+
+  # --- Find the latest month_year directory ---
+  if (!is.null(db_dir) && dir.exists(db_dir)) {
+    dirs <- list.dirs(db_dir, full.names = TRUE, recursive = FALSE)
+    if (length(dirs) > 0) {
+      dir_dates <- sapply(basename(dirs), function(d) {
+        parts <- strsplit(d, "_")[[1]]
+        if (length(parts) == 2) {
+          month <- match(tolower(parts[1]), tolower(month.name))
+          year <- suppressWarnings(as.integer(parts[2]))
+          if (!is.na(month) && !is.na(year)) {
+            return(as.Date(sprintf("%04d-%02d-01", year, month)))
+          }
+        }
+        return(NA)
+      })
+
+      # Keep only valid parsed directories
+      valid_idx <- which(!is.na(dir_dates))
+      if (length(valid_idx) > 0) {
+        newest_dir <- dirs[valid_idx[which.max(dir_dates[valid_idx])]]
+        db_dir <- newest_dir
+      } else {
+        warning("No valid month_year directories found under ", db_dir)
+      }
+    } else {
+      warning("No subdirectories found under ", db_dir)
+    }
+  } else {
+    warning("db_dir not found or invalid in configuration.")
+  }
+
+  cat("Using local DB directory:", db_dir, "\n")
+  if (is.null(db_dir) || !dir.exists(db_dir)) {
+    stop("Local DB directory does not exist: ", db_dir)
+  }
+  db_list <- list(
+    panel_app = file.path(db_dir, "all_panel_app.tsv"),
+    vep_consequences = file.path(db_dir, "vep_annotations.tsv"),
+    phenotype_data = file.path(db_dir, "phenotype_to_genes.txt")
+  )
+  # Verify files exist
+  for (file in db_list) {
+    if (!file.exists(file)) {
+      stop("Required file does not exist: ", file)
+    }
+  }
+  db_list
+}
+
+load_vep_consequences <- function(file) {
   stopifnot(file.exists(file))
   # Read the file
   dt <- data.table::fread(file = file, header = TRUE, nThread = nthreads)
@@ -359,18 +421,7 @@ load_vep_consequences <- function(file = NULL) {
 #'
 #' @param file Path to the phenotype TSV file. If NULL, loads the default file from the package.
 #' @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
-load_phenotype_data <- function(file = NULL) {
-  if (is.null(file)) {
-    # Locate the TSV file inside inst/extdata/
-    file <- system.file("extdata", "phenotype_to_genes.txt", package = "puzzleapp")
-    if (!file.exists(file)) {
-      alt_file <- system.file("extdata", "phenotype_to_genes.txt.tar.bz2", package = "puzzleapp")
-      cat("Please Decompress file:", alt_file, "\n")
-      # exit now
-      stop("Decompress the file and try again.")
-    }
-  }
-
+load_phenotype_data <- function(file) {
   stopifnot(file.exists(file))
   # Read the file
   dt <- fread(file, header = TRUE, nThread = nthreads)
@@ -390,10 +441,7 @@ load_phenotype_data <- function(file = NULL) {
 # "Expert Review Green"         -> "Green"
 # "Expert Review Red"           -> "Red"
 # Other                      -> Unclassified"
-load_panel_app_data <- function(file = NULL) {
-  if (is.null(file)) {
-    file <- system.file("extdata", "all_panel_app.tsv", package = "puzzleapp")
-  }
+load_panel_app_data <- function(file) {
   stopifnot(file.exists(file))
   # read as data.table and ensure it's data.table-aware
   panel_app <- data.table::fread(file, header = TRUE, data.table = TRUE, nThread = nthreads)
@@ -491,6 +539,7 @@ collect_inputs <- function(input) {
     }
   }
 
+
   # PanelApp
   panel_app_data <- NULL
   if (!is.null(input$panel_app) && nzchar(input$panel_app)) {
@@ -501,9 +550,6 @@ collect_inputs <- function(input) {
       # shiny::showNotification("PanelApp TSV file not found.", type = "error")
       messages <- c(messages, "PanelApp TSV file not found.")
     }
-  } else {
-    cat("Loading from PanelApp database.\n")
-    panel_app_data <- load_panel_app_data()
   }
 
   # VEP consequences
@@ -515,9 +561,6 @@ collect_inputs <- function(input) {
       # shiny::showNotification("VEP consequence annotations file not found.", type = "error")
       messages <- c(messages, "VEP consequence annotations file not found.")
     }
-  } else {
-    cat("Loading from VEP consequences database.\n")
-    vep_map <- load_vep_consequences()
   }
 
   # Phenotype
@@ -530,11 +573,7 @@ collect_inputs <- function(input) {
       messages <- c(messages, "Human Phenotype Ontology TSV file not found.")
 
     }
-  } else {
-    cat("Loading from HPO database.\n")
-    phenotype_data <- load_phenotype_data()
   }
-
 
   # Return everything as a list
   list(

@@ -46,7 +46,7 @@ server <- function(input, output, session) {
   shared_store$value_for_data  <- list()
   shared_store$data_for_data  <- list()
   shared_store$original_data  <- list()
-  shared_store$preferred_cols <- character(0)
+  shared_store$preferred_cols <- list()
   shared_store$samples <- NULL
   shared_store$pedigree <- NULL
   shared_store$panel_app_data <- NULL

@@ -4,7 +4,8 @@ prefOptsUI <- function(ns) {
     selectizeInput(ns(id), title, choices = NULL, multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%")
   }
   fluidRow(
-    column(12, createPreferencesSection("variants_preferences", "Variants columns")),
+    column(12, createPreferencesSection("snv_preferences", "SNV columns")),
+    column(12, createPreferencesSection("sv_preferences", "SV columns")),
     column(12, createPreferencesSection("panelapp_preferences", "PanelApp columns")),
     column(12, createPreferencesSection("phenotype_preferences", "Phenotype columns")),
     column(12, div(actionButton(ns("update_preferences"), "Save preferred columns", class = "btn-primary"), style = "margin-top: 10px; text-align: left;"))
@@ -24,7 +25,10 @@ home_ui <- function(id) {
     shiny::br(),
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
-      shiny::column(2, shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary")),
+      shiny::column(2, 
+      shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary"),
+      shiny::checkboxInput(ns("load_local_db"), "Load PanelApp/VEP/HPO from local DB", value = TRUE)
+      ),
       shiny::column(4)  # empty space
     ),
 
@@ -45,9 +49,9 @@ home_ui <- function(id) {
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("svs_tsv"), "SVs TSV:", width = "100%"))
     ),
     shiny::fluidRow(
-      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("panel_app"), "PanelApp DB:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
-      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("vep_consequences"), "VEP consequence annotations:", placeholder = "optional. leave blank to load from internal db", width = "100%")),
-      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("phenotype_data"), "Human Phenotype Ontology DB:", placeholder = "optional. leave blank to load from internal db", width = "100%"))
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("panel_app"), "PanelApp DB:", placeholder = "", width = "100%")),
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("vep_consequences"), "VEP consequence annotations:", placeholder = "", width = "100%")),
+      shiny::column(4, style = "padding: 1;", shiny::textInput(ns("phenotype_data"), "Human Phenotype Ontology DB:", placeholder = "", width = "100%"))
     ),
 
     shiny::fluidRow(

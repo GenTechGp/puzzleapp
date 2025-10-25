@@ -164,7 +164,12 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       initial_colnames <<- names(df0)
 
       # Capture preferred columns at first render (static, one time)
-      pref_init <- isolate(shared_store$preferred_cols %||% character(0))
+      # if dataset_names is not null use 1st otherwise use active()
+      if (!is.null(dataset_names)) {
+        pref_init <- isolate(shared_store$preferred_cols[[dataset_names[1]]] %||% character(0))
+      } else {
+        pref_init <- isolate(shared_store$preferred_cols[[active()]] %||% character(0))
+      }
       pref_js <- jsonlite::toJSON(unname(as.character(pref_init)), auto_unbox = TRUE)
 
       output$tbl <- renderDT({

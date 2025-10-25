@@ -21,7 +21,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data  <- list()
       shared_store$data_for_data[["[Synthetic] Boundary"]] <- default_dt
       shared_store$original_data  <- list()
-      shared_store$preferred_cols <- character(0)
+      shared_store$preferred_cols <- list()
       shared_store$samples <- NULL
       shared_store$pedigree <- NULL
       shared_store$panel_app_data <- NULL
@@ -80,6 +80,15 @@ home_server <- function(id, shared_store, shared_rx) {
         samples <- sanitise_samples(config$samples)
         # Update reactiveVal to pre-fill sample inputs
         config_samples(samples)
+
+        if (input$load_local_db) {
+          db_list <- load_local_db()
+          config$dependencies <- list(
+            panel_app = db_list$panel_app,
+            vep_consequences = db_list$vep_consequences,
+            phenotype_data = db_list$phenotype_data
+          )
+        }
 
         # pre-fill TSV input if in single line
         if (!is.null(config$paths$snvs_vcf) && nzchar(config$paths$snvs_vcf)) {
@@ -161,13 +170,16 @@ home_server <- function(id, shared_store, shared_rx) {
       snvs_cols <- if (!is.null(shared_store$original_data[["SNV"]])) colnames(shared_store$original_data[["SNV"]]) else character(0)
       svs_cols  <- if (!is.null(shared_store$original_data[["SV"]])) colnames(shared_store$original_data[["SV"]]) else character(0)
       available_cols <- sort(unique(c(snvs_cols, svs_cols)))
-      selected_pref_variant_cols <- resolve_colnames(input$variants_preferences, available_cols)
-      cat("Selected variant columns based on preferences:", selected_pref_variant_cols, "\n")
+      selected_pref_snv_cols <- resolve_colnames(input$snv_preferences, snvs_cols)
+      selected_pref_sv_cols <- resolve_colnames(input$sv_preferences, svs_cols)
+      cat("Selected SNV columns based on preferences:", selected_pref_snv_cols, "\n")
+      cat("Selected SV columns based on preferences:", selected_pref_sv_cols, "\n")
       # shared_data$pref$variants <- selected_pref_variant_cols
       # shared_data$pref$panelapp <- input$panelapp_preferences
       # shared_data$pref$phenotype <- input$phenotype_preferences
 
-      shared_store$preferred_cols <- selected_pref_variant_cols
+      shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
+      shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
@@ -209,7 +221,11 @@ home_server <- function(id, shared_store, shared_rx) {
     # Using JavaScript to read/write cookies and communicate with Shiny
     # If/when the browser sends input$cookie_prefs → dropdowns update with cookie values.
     # --- Default preferences ---
-    variants_default   <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF",
+    snv_default   <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF",
+                            "N_HOM_ALT", "SpliceAI_pred", "CLINVAR", "REVEL", "SIFT", "PolyPhen",
+                            "am_class", "am_pathogenicity", "CADD_PHRED", "CADD_RAW",
+                            "PANEL_APP", "INHERITANCE")
+    sv_default   <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF",
                             "N_HOM_ALT", "SpliceAI_pred", "CLINVAR", "REVEL", "SIFT", "PolyPhen",
                             "am_class", "am_pathogenicity", "CADD_PHRED", "CADD_RAW",
                             "PANEL_APP", "INHERITANCE")
@@ -217,8 +233,9 @@ home_server <- function(id, shared_store, shared_rx) {
     phenotype_default  <- c("disease_id", "hpo_id", "gene_symbol", "hpo_name", "ncbi_gene_id")
     # --- All available columns (user can choose any of these) ---
     colnames_options <- data.table(
-      Table = c("Variants", "PanelApp", "Phenotype"),
+      Table = c("SNV", "SV", "PanelApp", "Phenotype"),
       colNames = c(
+        "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort",
         "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort",
         "Entity_Name;Level4;Model_Of_Inheritance;Sources",
         "disease_id;gene_symbol;hpo_id;hpo_name;ncbi_gene_id"
@@ -246,7 +263,8 @@ home_server <- function(id, shared_store, shared_rx) {
 
     # --- Always show defaults on startup ---
     observe({
-      update_pref_dropdown(session, "Variants",  "variants_preferences",  variants_default)
+      update_pref_dropdown(session, "SNV",  "snv_preferences",  snv_default)
+      update_pref_dropdown(session, "SV",       "sv_preferences",       sv_default)
       update_pref_dropdown(session, "PanelApp",  "panelapp_preferences",  panelapp_default)
       update_pref_dropdown(session, "Phenotype", "phenotype_preferences", phenotype_default)
     })
@@ -261,7 +279,8 @@ home_server <- function(id, shared_store, shared_rx) {
       for (nm in names(prefs)) {
         cat(nm, ":", length(prefs[[nm]]), "items\n")
       }
-      update_pref_dropdown(session, "Variants",  "variants_preferences",  variants_default, prefs)
+      update_pref_dropdown(session, "SNV",  "snv_preferences",  snv_default, prefs)
+      update_pref_dropdown(session, "SV",       "sv_preferences",       sv_default, prefs)
       update_pref_dropdown(session, "PanelApp",  "panelapp_preferences",  panelapp_default, prefs)
       update_pref_dropdown(session, "Phenotype", "phenotype_preferences", phenotype_default, prefs)
     })
@@ -269,7 +288,8 @@ home_server <- function(id, shared_store, shared_rx) {
     # --- Save to cookie when user clicks "Save preferences" ---
     observeEvent(input$update_preferences, {
       prefs <- list(
-        Variants  = input$variants_preferences,
+        SNV  = input$snv_preferences,
+        SV        = input$sv_preferences,
         PanelApp  = input$panelapp_preferences,
         Phenotype = input$phenotype_preferences
       )
