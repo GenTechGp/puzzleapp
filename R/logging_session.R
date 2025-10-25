@@ -173,13 +173,12 @@ start_session_logger <- function(session,
     tryCatch(shiny::isolate(session$clientData[[key]]), error = function(e) NULL)
   }
 
-  # Session lifecycle events (info level)
-  log_info("Session started", .session = session, path = safe_client("url_pathname") %||% NA_character_,
-           query = safe_client("url_search") %||% NA_character_)
+  # Session lifecycle events (info level) print the session token as well
+  log_info("Session started: %s", session$token, .session = session, path = safe_client("url_pathname") %||% NA_character_, query = safe_client("url_search") %||% NA_character_)
 
   session$onSessionEnded(function() {
     # Try logging; if process is closing or path gone, don't error
-    try(log_info("Session ended", .session = session), silent = TRUE)
+    try(log_info("Session ended: %s", session$token, .session = session), silent = TRUE)
     # Remove the file appender to flush and release the handle
     try(lg$remove_appender("file"), silent = TRUE)
   })

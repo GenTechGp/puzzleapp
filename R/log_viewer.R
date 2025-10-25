@@ -12,10 +12,18 @@
 # - Filters by min level using lgr::get_log_levels()
 # - Regex search on simplified text, auto-refresh, and download
 
-log_viewer_ui <- function(id, title = "Application logs") {
+log_viewer_ui <- function(id) {
   ns <- shiny::NS(id)
   shiny::tagList(
-    shiny::h4(title),
+    shiny::br(),
+    shiny::fluidRow(
+      shiny::column(12,
+        shiny::strong("Current Session: "),
+        shiny::span(shiny::textOutput(ns("session_id"), inline = TRUE))
+      )
+    ),
+    shiny::br(),
+
     shiny::fluidRow(
       shiny::column(
         width = 9,
@@ -170,6 +178,11 @@ log_viewer_server <- function(id, logs_dir = "logs", session_logfile_reactive = 
 
       list(level_name = lvl_name, level_num = lvl_num, timestamp = as.character(ts), msg = msg)
     }
+
+    output$session_id <- shiny::renderText({
+      # Print the session token obtained from the server
+      paste(session$token)
+    })
 
     output$log_tail <- shiny::renderText({
       # Ensure periodic refresh of the rendered content itself

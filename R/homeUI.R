@@ -25,11 +25,11 @@ home_ui <- function(id) {
     shiny::br(),
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
-      shiny::column(2, 
+      shiny::column(3, 
       shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary"),
       shiny::checkboxInput(ns("load_local_db"), "Load PanelApp/VEP/HPO from local DB", value = TRUE)
       ),
-      shiny::column(4)  # empty space
+      shiny::column(3)  # empty space
     ),
 
     shiny::strong("Number of Individuals (set this value first):"),

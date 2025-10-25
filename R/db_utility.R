@@ -341,9 +341,9 @@ make_boundary_table <- function(x,
 
 nthreads <- 8  # Number of threads for data.table operations
 
-#' Utility function to load local database files for PanelApp, VEP consequences, and Phenotype data.
-#' Reads the database directory from the configuration file and loads the latest available database files.
-#' @return A list containing paths to the local database files.
+# Utility function to load local database files for PanelApp, VEP consequences, and Phenotype data.
+# Reads the database directory from the configuration file and loads the latest available database files.
+# @return A list containing paths to the local database files.
 load_local_db <- function() {
   conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
   db_dir <- NULL
@@ -415,12 +415,10 @@ load_vep_consequences <- function(file) {
   return(dt)
 }
 
-#' Load Phenotype Data
-#'
-#' Utility function to load phenotype-to-genes data from a TSV file.
-#'
-#' @param file Path to the phenotype TSV file. If NULL, loads the default file from the package.
-#' @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
+# Load Phenotype Data
+# Utility function to load phenotype-to-genes data from a TSV file.
+# @param file Path to the phenotype TSV file.
+# @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
 load_phenotype_data <- function(file) {
   stopifnot(file.exists(file))
   # Read the file
@@ -428,12 +426,10 @@ load_phenotype_data <- function(file) {
   return(dt)
 }
 
-#' Load PanelApp Data
-#'
-#' Utility function to load PanelApp data from a TSV file.
-#'
-#' @param file Path to the PanelApp TSV file. If NULL, loads the default file from the package.
-#' @return A data frame containing PanelApp data.
+# Load PanelApp Data
+# Utility function to load PanelApp data from a TSV file.
+# @param file Path to the PanelApp TSV file.
+# @return A data frame containing PanelApp data.
 # Processed behavior of the Sources column:
 
 # Original Sources              -> Processed Sources
