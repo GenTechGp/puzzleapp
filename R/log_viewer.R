@@ -1,6 +1,5 @@
 #' Log Viewer Module
 #' @param id Module ID
-#' @param title Title for the log viewer section
 #' @return Shiny UI object (log_viewer_ui) or NULL (log_viewer_server)
 #' @export
 # Log viewer module (strict, uses lgr's own numeric<->name mapping)
@@ -18,7 +17,7 @@ log_viewer_ui <- function(id) {
     shiny::br(),
     shiny::fluidRow(
       shiny::column(12,
-        shiny::strong("Current Session: "),
+        shiny::strong("Current Shiny app session: "),
         shiny::span(shiny::textOutput(ns("session_id"), inline = TRUE))
       )
     ),

@@ -4,12 +4,10 @@
 \alias{log_viewer_ui}
 \title{Log Viewer Module}
 \usage{
-log_viewer_ui(id, title = "Application logs")
+log_viewer_ui(id)
 }
 \arguments{
 \item{id}{Module ID}
-
-\item{title}{Title for the log viewer section}
 }
 \value{
 Shiny UI object (log_viewer_ui) or NULL (log_viewer_server)

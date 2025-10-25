@@ -293,7 +293,12 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
         filename_js <- JS("
           function() {
             var ts = new Date().toISOString().replace(/[:.]/g, '-');
-            return 'export-' + ts; // no extension here; Buttons will append .tsv
+            var v = window.prompt('Enter file name (without extension):', 'export-' + ts);
+            if (!v) v = 'export-' + ts;
+            v = String(v).trim()
+                        .replace(/[\\\\/:*?\"<>|]+/g, '-')  // sanitize illegal filename chars
+                        .replace(/\\s+/g, '_');             // spaces -> underscores
+            return v; // Buttons will append .tsv
           }
         ")
 
@@ -390,23 +395,48 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
                 ))
               ),
               list(
-                extend = "csvHtml5",
-                text = "Download (visible columns + current page)",
-                fieldSeparator = "\t",
-                extension = ".tsv",   # key line: let Buttons append .tsv
-                bom = TRUE,
-                title = NULL,
-                filename = filename_js,
-                exportOptions = list(
-                  columns = ":visible:not(.noVis)",
-                  modifier = list(
-                    search = "applied",
-                    order = "applied",
-                    page = "current"
+                extend = "collection",
+                text = "Download",
+                buttons = list(
+                  list(
+                    extend = "csvHtml5",
+                    text = "Current page + visible columns",
+                    fieldSeparator = "\t",
+                    extension = ".tsv",
+                    bom = TRUE,
+                    title = NULL,
+                    filename = filename_js,
+                    exportOptions = list(
+                      columns = ":visible:not(.noVis)",
+                      modifier = list(
+                        search = "applied",
+                        order = "applied",
+                        page = "current"
+                      ),
+                      stripHtml = TRUE
+                    ),
+                    customize = tsv_minimal_quotes_js
                   ),
-                  stripHtml = TRUE
-                ),
-                customize = tsv_minimal_quotes_js
+                  list(
+                    extend = "csvHtml5",
+                    text = "Current page + all columns",
+                    fieldSeparator = "\t",
+                    extension = ".tsv",
+                    bom = TRUE,
+                    title = NULL,
+                    filename = filename_js,
+                    exportOptions = list(
+                      columns = ":not(.noVis)",   # includes hidden columns except those tagged .noVis (e.g., .row_id)
+                      modifier = list(
+                        search = "applied",
+                        order = "applied",
+                        page = "current"
+                      ),
+                      stripHtml = TRUE
+                    ),
+                    customize = tsv_minimal_quotes_js
+                  )
+                )
               )
             ),
             colReorder = TRUE,
