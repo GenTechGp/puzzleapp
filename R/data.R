@@ -437,7 +437,13 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
                     customize = tsv_minimal_quotes_js
                   )
                 )
-              )
+              ),
+              list(extend = 'collection', text = 'Save', dropIcon = TRUE,
+                action = JS(paste0(
+                  "function(e, dt, node, config) {",
+                    "Shiny.setInputValue('", ns("save_table"), "', true, {priority: 'event'});",
+                  "}")
+                ))
             ),
             colReorder = TRUE,
             pageLength = 50,
@@ -815,5 +821,136 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       log_info(sprintf("[Edit OK] .row_id=%d col=%s old=%s new=%s",
                   row_id, colname, as.character(old_val), as.character(new_val)))
     })
-  })
-}
+
+
+    observeEvent(input$save_table, {
+      work_dir <- shared_store$work_dir
+      default_name <- paste0("table-", Sys.Date(), ".tsv")
+      default_name <- file.path(work_dir, default_name)
+      showModal(modalDialog(
+        title = "Save table to server path",
+        textInput(ns("save_path"), "Server file path (including filename)", value = default_name),
+        checkboxInput(ns("save_allow_overwrite"), "Allow overwrite", value = FALSE),
+        checkboxInput(ns("save_visible_only"), "Visible columns only", value = TRUE),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("save_table_confirm"), "Save")
+        ),
+        easyClose = FALSE
+      ))
+    })
+
+    observeEvent(input$save_table_confirm, {
+      req(input$save_path)
+      path <- trimws(input$save_path)
+      allow_ovr <- isTRUE(input$save_allow_overwrite)
+      visible_only <- isTRUE(input$save_visible_only)
+
+      if (identical(path, "") || is.null(path)) {
+        showNotification("Please provide a valid server path.", type = "error")
+        return()
+      }
+
+      if (file.exists(path) && !allow_ovr) {
+        removeModal()
+        showModal(modalDialog(
+          title = "Confirm overwrite",
+          sprintf("The file already exists at: %s", path),
+          p("Do you want to overwrite it?"),
+          footer = tagList(
+            modalButton("Cancel"),
+            actionButton(ns("overwrite_yes"), "Yes"),
+            actionButton(ns("overwrite_no"), "No")
+          ),
+          easyClose = FALSE
+        ))
+        session$userData$pending_save <- list(path = path, visible_only = visible_only)
+        return()
+      }
+
+      tryCatch({
+        perform_save(path, visible_only)
+        removeModal()
+        showNotification(sprintf("Table saved to %s", path), type = "message", duration = 6)
+      }, error = function(e) {
+        showNotification(sprintf("Failed to save table: %s", e$message), type = "error", duration = 8)
+      })
+    })
+
+    observeEvent(input$overwrite_yes, {
+      pending <- session$userData$pending_save
+      if (is.null(pending) || is.null(pending$path)) {
+        removeModal()
+        showNotification("No pending save found.", type = "error")
+        return()
+      }
+      path <- pending$path
+      visible_only <- pending$visible_only %||% TRUE
+      tryCatch({
+        perform_save(path, visible_only)
+        removeModal()
+        showNotification(sprintf("File overwritten: %s", path), type = "message", duration = 6)
+      }, error = function(e) {
+        removeModal()
+        showNotification(sprintf("Failed to overwrite file: %s", e$message), type = "error", duration = 8)
+      })
+      session$userData$pending_save <- NULL
+    })
+
+    observeEvent(input$overwrite_no, {
+      pending <- session$userData$pending_save
+      prev_path <- if (!is.null(pending$path)) pending$path else paste0("table-", Sys.Date(), ".tsv")
+      prev_selected <- if (!is.null(pending$visible_only)) pending$visible_only else TRUE
+      session$userData$pending_save <- NULL
+      removeModal()
+      showModal(modalDialog(
+        title = "Save table to server path",
+        textInput(ns("save_path"), "Server file path (including filename)", value = prev_path),
+        checkboxInput(ns("save_allow_overwrite"), "Allow overwrite", value = FALSE),
+        checkboxInput(ns("save_visible_only"), "Selected columns only", value = prev_selected),
+        footer = tagList(
+          modalButton("Cancel"),
+          actionButton(ns("save_table_confirm"), "Save")
+        ),
+        easyClose = FALSE
+      ))
+    })
+
+    # ---- Save table to server path logic ----
+    perform_save <- function(path, visible_only) {
+      # Get the active dataset
+      act <- isolate(active())
+      tbl <- isolate(shared_store$data_for_data[[act]])
+      if (is.null(tbl)) stop("No filtered table available to save.")
+      # Read the latest DT snapshot (visible headers + overall order)
+      snap <- isolate(input$tbl_snapshot)
+      # Start from the full table
+      final_tbl <- tbl
+      # If visible_only, keep only the visible columns, in the same order they appear
+      if (isTRUE(visible_only)) {
+        vis_headers <- as.character(snap$headers %||% character(0))
+        if (length(vis_headers)) {
+          keep <- vis_headers[vis_headers %in% colnames(final_tbl)]
+          if (!length(keep)) stop("No visible columns detected to save.")
+          # tbl is data table
+          # final_tbl <- final_tbl[, ..keep]
+          final_tbl <- tbl[, .SD, .SDcols = keep]
+        } else {
+          stop("No visible columns detected to save (table not ready?).")
+        }
+      }
+      if (is.null(final_tbl) || !ncol(final_tbl)) {
+        stop("No data to save. Ensure the table is rendered and visible columns are available.")
+      }
+      # Validate directory exists
+      dirpath <- dirname(path)
+      if (!dir.exists(dirpath)) {
+        stop(sprintf("Directory '%s' does not exist. The server will not create directories automatically.", dirpath))
+      }
+      # Write TSV
+      write.table(final_tbl, file = path, sep = "\t", row.names = FALSE, quote = FALSE)
+      TRUE
+    }
+
+  }) # # end moduleServer
+} # end data_module_server

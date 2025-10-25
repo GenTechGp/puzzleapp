@@ -42,7 +42,7 @@
 #'
 #' @importFrom lobstr obj_addr
 #'
-#' @importFrom utils packageVersion capture.output modifyList read.delim str
+#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table
 #'
 #' @importFrom stats setNames
 #' 
