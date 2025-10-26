@@ -66,3 +66,22 @@ devtools::check(clean = TRUE)
 devtools::build_readme() # Update README.md
 ```
 
+# For NCI Gadi if89 users
+
+1. Visit [NCI Batch Connect Dashboard](https://are.nci.org.au/pun/sys/dashboard/batch_connect/sessions)
+2. Launch an RStudio job. Example parameters:
+``` 
+  mem=64GB
+  ncpus=4
+  jobfs=10GB
+  storage=gdatagdata/if89+/project1+gdata/project2
+  modules=R/4.5.0
+```
+3. (Optional) File -> Quit Session -> Start New Session
+4. Run the following code in the R console
+```
+lib_path <- "/g/data/if89/testdir/puzzleapp/app/26102025/Rlib" 
+.libPaths(c(lib_path, .libPaths()))
+library(puzzleapp)
+run_app(port=8888) # change port if needed
+```
