@@ -58,14 +58,15 @@ devtools::build_readme() # Update README.md
 
 1.  Visit [NCI Batch Connect
     Dashboard](https://are.nci.org.au/pun/sys/dashboard/batch_connect/sessions)
-2.  Launch an RStudio job. Example parameters:
+2.  Launch an RStudio job. Remember to add `gdata/if89` to the storage
+    parameter. Example parameters:
 
 <!-- -->
 
       mem=64GB
       ncpus=4
       jobfs=10GB
-      storage=gdatagdata/if89+/project1+gdata/project2
+      storage=gdata/if89+gdata/project1+gdata/project2
       modules=R/4.5.0
 
 3.  (Optional) File -\> Quit Session -\> Start New Session
@@ -73,7 +74,8 @@ devtools::build_readme() # Update README.md
 
 <!-- -->
 
-    lib_path <- "/g/data/if89/testdir/puzzleapp/app/26102025/Rlib" 
+    lib_path <- "/g/data/if89/testdir/puzzleapp/app/26102025/Rlib"
+    if (file.access(lib_path, 4) != 0) cat("no access to /g/data/if89\n")
     .libPaths(c(lib_path, .libPaths()))
     library(puzzleapp)
     run_app(port=8888) # change port if needed
