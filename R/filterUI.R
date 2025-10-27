@@ -189,7 +189,7 @@ header_UI <- function(ns) {
           textInput(ns("filters_save_name"), "Name filters:", value = ""),
           actionButton(ns("btn_save_filters"), "save", class = "btn-primary",style = "margin-left: 25px; margin-top: 10px;")
         ),
-        checkboxInput(ns("save_panelapp_hpo"), "Save PanelApp and HPO Options", value = FALSE),
+        checkboxInput(ns("save_panelapp_hpo"), "Save PanelApp and HPO Options", value = TRUE),
         div(style = "display: flex; align-items: center;",
           selectizeInput(ns("delete_pre_saved_filters"), "Delete filters:", choices = NULL, selected=NULL, options = list(create = FALSE)),
           actionButton(ns("btn_delete_pre_saved_filters"), "delete", class = "btn-danger",style = "margin-left: 25px; margin-top: 10px;"),
