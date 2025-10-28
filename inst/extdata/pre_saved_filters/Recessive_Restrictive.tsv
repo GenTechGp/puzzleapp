@@ -1,7 +1,7 @@
 Label	Recessive Restrictive (MCRI)
 Inheritance	Homozygous Recessive
 SNV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant
-SNV_Pathogenicity	Pathogenic;Likely pathogenic
+SNV_Pathogenicity	Pathogenic;Likely pathogenic;Not available
 SNV_SpliceAI score	0.2
 SNV_gnomADv4 AF	0.01
 SNV_Affected only	TRUE

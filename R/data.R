@@ -180,6 +180,17 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
 
         cn <- colnames(df0)
         rid_idx0 <- which(cn == ".row_id") - 1L
+        id_idx0 <- which(colnames(df0) == "ID") - 1L
+
+        # Client-side renderer for the ID column (display only; underlying data remains raw)
+        render_link_js <- JS("
+          function(data, type, row, meta) {
+            if (type !== 'display') return data;
+            var esc = $('<div>').text(data == null ? '' : String(data)).html();
+            if (!esc) return data;
+            return '<a href=\"#\" class=\"id-link\" data-id=\"' + esc + '\">' + esc + '</a>';
+          }
+        ")
 
         column_defs <- list()
         if (length(rid_idx0)) {
@@ -188,17 +199,27 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
           )
         }
 
+        # Extend column_defs with the ID render, if the ID column exists
+        if (length(id_idx0)) {
+          column_defs <- c(
+            column_defs,
+            list(list(targets = id_idx0, render = render_link_js))
+          )
+        }
+
         # Namespaced input ids for JS callbacks
         id_snapshot <- ns("tbl_snapshot")
         id_edit_row <- ns("tbl_edit_row_id")
         id_edit_col <- ns("tbl_edit_col_orig0")
         id_ready <- ns("tbl_ready")
+        id_selected_igv <- ns("selected_igv_id") # input id for IGV selection
 
         # Pre-encode strings for safe JS embedding
         id_snapshot_json <- jsonlite::toJSON(id_snapshot, auto_unbox = TRUE)
         id_edit_row_json <- jsonlite::toJSON(id_edit_row, auto_unbox = TRUE)
         id_edit_col_json <- jsonlite::toJSON(id_edit_col, auto_unbox = TRUE)
         id_ready_json    <- jsonlite::toJSON(id_ready,    auto_unbox = TRUE)
+        id_selected_igv_json <- jsonlite::toJSON(id_selected_igv, auto_unbox = TRUE)
         ds_js <- if (exists("dataset_specific_js_highlight")) dataset_specific_js_highlight() else character(0)
         cb_lines <- c(
           "var tbl = table;",
@@ -284,7 +305,15 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
           
           "setTimeout(function(){ computeSnapshot('tick0'); }, 0);",
           "setTimeout(function(){ computeSnapshot('tick50'); }, 50);",
-          "computeSnapshot('manual');"
+          "computeSnapshot('manual');",
+
+          "$(tbl.table().node()).off('click.idlink').on('click.idlink', 'a.id-link', function(e){",
+          "  e.preventDefault();",
+          "  var id = $(this).data('id');",
+          "  if (id != null) {",
+          "    Shiny.setInputValue(", id_selected_igv_json, ", id, {priority:'event'});",
+          "  }",
+          "});"
         )
 
         cb_code <- paste(cb_lines, collapse = "\n")
@@ -951,6 +980,39 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
       write.table(final_tbl, file = path, sep = "\t", row.names = FALSE, quote = FALSE)
       TRUE
     }
+
+    # Forward clicked IDs to shared_rx; do NOT switch tabs here
+    observeEvent(input$selected_igv_id, {
+      id_clicked <- input$selected_igv_id
+      log_info(sprintf("[Data] ID clicked for IGV: %s", as.character(id_clicked)))
+      # get the active dataset and get the row corresponding to the clicked ID
+      act <- isolate(active())
+      tbl <- isolate(shared_store$data_for_data[[act]])
+      if (!is.null(tbl)) {
+        # get the row corresponding to the clicked ID
+        row <- tbl[tbl$ID == id_clicked, , drop = FALSE]
+        columns <- names(row)
+        selected <- c("ID", "CHROM", "POS", "VAR_LENGTH")
+        if (!all(selected %in% columns)) {
+          missing_cols <- setdiff(selected, columns)
+          log_info(sprintf("[Data] Missing columns for ID %s: %s", as.character(id_clicked), paste(missing_cols, collapse = ", ")))
+          return()
+        }
+        chrom <- if ("CHROM" %in% names(row)) row$CHROM[1] else NULL
+        pos <- if ("POS" %in% names(row)) row$POS[1] else NULL
+        var_length <- if ("VAR_LENGTH" %in% names(row)) row$VAR_LENGTH[1] else NULL
+        log_info(sprintf("[Data] ID %s maps to CHROM=%s POS=%s VAR_LENGTH=%s", as.character(id_clicked), as.character(chrom), as.character(pos), as.character(var_length)))
+        info_list <- list(
+          ID =  as.character(id_clicked),
+          CHROM = as.character(chrom),
+          POS = as.integer(pos),
+          VAR_LENGTH = as.integer(var_length)
+        )
+        # add to the shared_store$igv_data list
+        shared_store$igv_data[["igv_info"]] <- info_list
+        bump_version(version_type = "igv", shared_rx = shared_rx)
+      }
+    }, ignoreInit = TRUE)
 
   }) # # end moduleServer
 } # end data_module_server

@@ -36,14 +36,17 @@ home_server <- function(id, shared_store, shared_rx) {
     observeEvent(input$clear_inputs, ignoreInit = TRUE, {
       showModal(modalDialog(
         title = "Clear loaded data?",
-        "App will restart and all loaded data will be lost. Are you sure you want to proceed?",
+        HTML("App will restart and all loaded data will be lost.<br>
+            Consider saving your session from the Filter tab.<br>
+            Are you sure you want to proceed?"),
         footer = tagList(
           modalButton("Cancel"),
-          actionButton(ns("confirm_restart"), "Restart", class = "btn-danger")  # <- namespaced!
+          actionButton(ns("confirm_restart"), "Restart", class = "btn-danger")
         ),
         easyClose = TRUE
       ))
     })
+
 
     observeEvent(input$confirm_restart, ignoreInit = TRUE, {
       removeModal()
@@ -150,6 +153,11 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$panel_app_genes <- collected$panel_app_data
       shared_store$vep_consequences <- collected$vep_consequences
       shared_store$phenotype_data <- collected$phenotype_data
+      shared_store$igv_data <- list(
+        snvs_vcf = collected$snvs_vcf,
+        svs_vcf = collected$svs_vcf,
+        igv_genome = input$igv_genome
+      )
 
       stopifnot(
         !identical(

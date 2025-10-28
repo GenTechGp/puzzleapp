@@ -1,9 +1,13 @@
 Package: puzzleapp
-Title: What the Package Does (One Line, Title Case)
+Title: Visualise and analyse variants
 Version: 0.1.0
-Authors@R: 
-    person("First", "Last", , "first.last@example.com", role = c("aut", "cre"))
-Description: What the package does (one paragraph).
+Authors@R:
+    c(
+        person("Andre Martins", "Reis", , "a.martinsreis@garvan.org.au", role = c("aut")),
+        person("Sasha", "Jenner", , "sjen6644@uni.sydney.edu.au", role = c("aut")),
+        person("Hiruna", "Samarkoon", , "hiruna.samarkoon@garvan.org.au", role = c("aut", "cre"))
+    )
+Description: an R/Shiny application for interactive exploration and review of genomic variants.
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
@@ -22,3 +26,10 @@ Imports:
     htmlwidgets,
     lobstr,
     bit64,
+    igvShiny,
+    GenomicRanges,
+    IRanges,
+    VariantAnnotation,
+    GenomicAlignments,
+    Rsamtools
+

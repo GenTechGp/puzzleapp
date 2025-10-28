@@ -47,6 +47,19 @@
 #' @importFrom stats setNames
 #' 
 #' @importFrom bit64 as.integer64
+#' 
+#' @importFrom igvShiny igvShinyOutput renderIgvShiny parseAndValidateGenomeSpec loadVcfTrack loadBamTrackFromLocalData
+#' 
+#' @importFrom GenomicRanges GRanges
+#' 
+#' @importFrom IRanges IRanges
+#' 
+#' @importFrom VariantAnnotation readVcf ScanVcfParam
+#' 
+#' @importFrom GenomicAlignments readGAlignments
+#' 
+#' @importFrom Rsamtools ScanBamParam
+#' 
 #' @keywords internal
 "_PACKAGE"
 

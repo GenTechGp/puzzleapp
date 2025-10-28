@@ -15,9 +15,6 @@ prefOptsUI <- function(ns) {
 dbOptsUI <- function(ns) {
   shiny::tagList(
     shiny::fluidRow(
-      shiny::column(12, shiny::checkboxInput(ns("load_local_db"), "Load PanelApp/VEP/HPO from local DB", value = TRUE))
-    ),
-    shiny::fluidRow(
       shiny::column(4, style = "padding: 1;", shiny::textInput(ns("panel_app"), "PanelApp DB:", placeholder = "", width = "100%")),
       shiny::column(4, style = "padding: 1;", shiny::textInput(ns("vep_consequences"), "VEP consequence annotations:", placeholder = "", width = "100%")),
       shiny::column(4, style = "padding: 1;", shiny::textInput(ns("phenotype_data"), "Human Phenotype Ontology DB:", placeholder = "", width = "100%"))
@@ -63,11 +60,17 @@ home_ui <- function(id) {
 
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%")),
-      shiny::column(6)  # empty space
+      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","mm10","rn6"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
+      # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_genome"), "IGV genome:", value = "hg38", width = "100%")),
+
+      # shiny::column(6)  # empty space
       # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_sample"), "IGV Sample ID:", placeholder = "optional. leave blank to disable IGV integration", width = "100%"))
     ),
 
     shiny::br(),
+    shiny::fluidRow(
+      shiny::column(12, shiny::checkboxInput(ns("load_local_db"), "Load PanelApp/VEP/HPO from local DB", value = TRUE))
+    ),
     shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_db", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show database options", id="toggle_db_label")),
     shiny::div(id="db_container", style="display:none;margin-top:10px;", dbOptsUI(ns)),
     shiny::tags$script(shiny::HTML("$('#toggle_db').on('click',function(){var c=$('#db_container');var b=$('#toggle_db');var l=$('#toggle_db_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide database options');}else{b.text('+');l.text('Show database options');}});")),

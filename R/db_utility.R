@@ -571,6 +571,10 @@ collect_inputs <- function(input) {
     }
   }
 
+  # SNVs vcf
+  snvs_vcf <- input$snvs_vcf
+  svs_vcf <- input$svs_vcf
+
   # Return everything as a list
   list(
     messages = messages,
@@ -581,7 +585,9 @@ collect_inputs <- function(input) {
     panel_app_data = panel_app_data,
     vep_consequences = vep_consequences,
     phenotype_data = phenotype_data,
-    default_dt = default_dt
+    default_dt = default_dt,
+    snvs_vcf = snvs_vcf,
+    svs_vcf = svs_vcf
   )
 }
 
@@ -596,11 +602,13 @@ prepare_table <- function(dt, selected_cols) {
   dt_subset
 }
 
-bump_version <- function(version_type = c("data", "panelapp"), shared_rx) {
+bump_version <- function(version_type = c("data", "panelapp", "igv"), shared_rx) {
   if (version_type == "data") {
     shared_rx$data_version(shared_rx$data_version() + 1L)
   } else if (version_type == "panelapp") {
     shared_rx$panelapp_version(shared_rx$panelapp_version() + 1L)
+  } else if (version_type == "igv") {
+    shared_rx$igv_version(shared_rx$igv_version() + 1L)
   }
 }
 

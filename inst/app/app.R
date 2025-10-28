@@ -28,10 +28,12 @@ ui <- fluidPage(
   ")),
   shinyjs::useShinyjs(),
   tabsetPanel(
+    id = "main_tabs",
     tabPanel("Home", home_ui("home")),
     tabPanel("Filter", selectFiltersUI("filter")),
     tabPanel("SNV/Indel", dataUI("snv_variants")),
     tabPanel("SV", dataUI("sv_variants")),
+    tabPanel("IGV", igvUI("igv")),
     tabPanel("Logs", log_viewer_ui("log"))
   )
 )
@@ -53,18 +55,20 @@ server <- function(input, output, session) {
   shared_store$vep_map <- NULL
   shared_store$phenotype_data <- NULL
   shared_store$vep_consequences <- NULL
+  shared_store$igv_data <- NULL
   shared_store$work_dir <- NULL
   shared_store$verbose_level <- 0L
   shared_rx <- list(
     data_version = reactiveVal(0L),
-    panelapp_version = reactiveVal(0L)
-
+    panelapp_version = reactiveVal(0L),
+    igv_version = reactiveVal(0L)
   )
 
   home_server("home", shared_store, shared_rx)
   selectFiltersServer("filter", shared_store, shared_rx)
   dataServer("snv_variants", shared_store, shared_rx, "SNV")
   dataServer("sv_variants", shared_store, shared_rx, "SV")
+  igv_server("igv", shared_store, shared_rx)
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
 
@@ -72,6 +76,11 @@ server <- function(input, output, session) {
   # log_info("info test")
   # log_warn("warning test")
   # log_error("error test")
+
+  # Switch to IGV tab whenever an ID is clicked
+  observeEvent(shared_rx$igv_version(), {
+    updateTabsetPanel(session, inputId = "main_tabs", selected = "IGV")
+  }, ignoreInit = TRUE)
 
 }
 

@@ -4,12 +4,18 @@
 \name{puzzleapp-package}
 \alias{puzzleapp}
 \alias{puzzleapp-package}
-\title{puzzleapp: What the Package Does (One Line, Title Case)}
+\title{puzzleapp: Visualise and analyse variants}
 \description{
-What the package does (one paragraph).
+an R/Shiny application for interactive exploration and review of genomic variants.
 }
 \author{
-\strong{Maintainer}: First Last \email{first.last@example.com}
+\strong{Maintainer}: Hiruna Samarkoon \email{hiruna.samarkoon@garvan.org.au}
+
+Authors:
+\itemize{
+  \item Andre Martins Reis \email{a.martinsreis@garvan.org.au}
+  \item Sasha Jenner \email{sjen6644@uni.sydney.edu.au}
+}
 
 }
 \keyword{internal}
