@@ -3,6 +3,8 @@ Inheritance
 PanelApp_Genes	
 Custom_Genes	
 Treat_Negative	FALSE
+Substract_PanelApp_Gene_Lists	
+Substract_PanelApp_Genes	
 HPO_Terms	
 SNV_Annotation	
 SNV_Pathogenicity	

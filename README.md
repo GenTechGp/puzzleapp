@@ -10,6 +10,17 @@
 
 Visualise and analyse variants
 
+## Quick Installation
+
+``` bash
+DEST_DIR=~/puzzleapp_installation
+wget https://github.com/KCCGGenomeTechLab/puzzleapp/blob/pack/tests/install_from_github.sh && chmod +x install_from_github.sh && ./install_from_github.sh --dest ${DEST_DIR}
+lib_path <- "${DEST_DIR}/Rlib"
+.libPaths(c(lib_path, .libPaths()))
+library(puzzleapp)
+run_app(port=8888) # change port if needed
+```
+
 ## Installation
 
 ``` bash
@@ -31,27 +42,6 @@ install.packages(
 
 library(puzzleapp)
 run_app()
-```
-
-## Development
-
-``` r
-local_lib <- "optional path"
-.libPaths(c(local_lib, .libPaths()))
-
-devtools::install([path to repo])
-
-library(puzzleapp)
-run_app()
-
-remove.packages("puzzleapp", lib=local_lib)
-
-# Other
-devtools::document()    # Run after editing functions, roxygen comments, or _PACKAGE.R
-devtools::load_all()    # Run while testing functions interactively
-devtools::install()     # Run after changes to test outside load_all()
-devtools::check(clean = TRUE)
-devtools::build_readme() # Update README.md
 ```
 
 # For NCI Gadi if89 users
@@ -79,3 +69,24 @@ devtools::build_readme() # Update README.md
     .libPaths(c(lib_path, .libPaths()))
     library(puzzleapp)
     run_app(port=8888) # change port if needed
+
+## Development
+
+``` r
+local_lib <- "optional path"
+.libPaths(c(local_lib, .libPaths()))
+
+devtools::install([path to repo])
+
+library(puzzleapp)
+run_app()
+
+remove.packages("puzzleapp", lib=local_lib)
+
+# Other
+devtools::document()    # Run after editing functions, roxygen comments, or _PACKAGE.R
+devtools::load_all()    # Run while testing functions interactively
+devtools::install()     # Run after changes to test outside load_all()
+devtools::check(clean = TRUE)
+devtools::build_readme() # Update README.md
+```

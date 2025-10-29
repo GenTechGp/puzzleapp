@@ -61,10 +61,6 @@ home_ui <- function(id) {
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%")),
       shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","mm10","rn6"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
-      # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_genome"), "IGV genome:", value = "hg38", width = "100%")),
-
-      # shiny::column(6)  # empty space
-      # shiny::column(6, style = "padding: 1;", shiny::textInput(ns("igv_sample"), "IGV Sample ID:", placeholder = "optional. leave blank to disable IGV integration", width = "100%"))
     ),
 
     shiny::br(),

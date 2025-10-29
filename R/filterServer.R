@@ -52,6 +52,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (save_session_data(input, input$session_name, sessions_dir(), snvs_data, svs_data, phenos(), shared_store$samples)) {
         sessions(list_files(sessions_dir()))
         message("Session saved. It will appear in the list automatically.")
+        showNotification(sprintf("Session '%s' saved.", input$session_name), type = "message")
       }
     })
 
@@ -111,6 +112,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (delete_session_data(input$delete_sessions, sessions_dir())) {
         sessions(list_files(sessions_dir()))
         message("Session deleted. It will be removed from the list automatically.")
+        showNotification(sprintf("Session '%s' deleted.", input$delete_sessions), type = "message")
       }
     })
 
@@ -242,20 +244,59 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       cat("[filtServer] Observing panel_app_genes for updates\n")
       locs <- c("", unique(panel_app_genes$Level4))
       updateSelectizeInput(session, "panelapp", choices = locs, selected = NULL)
+      updateSelectizeInput(session, "substract_panelapp_gene_lists", choices = locs, selected = NULL)
       cat("[filtServer] Updated PanelApp selection options\n")
     })
 
-    observeEvent(input$panelapp, {
-      panel_app_genes <- shared_store$panel_app_genes
-      if(is.null(panel_app_genes)) return(NULL)
-      cat("[filtServer] PanelApp filter updated\n")
-      tmp <- panel_app_genes[Level4 %in% input$panelapp]
-      green_genes(sort(unique(tmp[Sources == "Green", Entity_Name])))
-      red_genes(sort(unique(tmp[Sources == "Red", Entity_Name])))
-      amber_genes(sort(unique(tmp[Sources == "Amber", Entity_Name])))
-      unclassified_genes(sort(unique(tmp[!(Sources %in% c("Green", "Red", "Amber")),
-                                         Entity_Name])))
-    }, ignoreNULL = FALSE)
+    # Helper: case-insensitive setdiff for gene symbols (preserves original casing of x)
+    setdiff_ci <- function(x, y) {
+      if (length(y) == 0) return(x)
+      x[!(toupper(x) %in% toupper(y))]
+    }
+
+    # Recompute gene boxes when either positive list, subtract list, or subtract free-text genes change
+    observeEvent(
+      list(input$panelapp, input$substract_panelapp_gene_lists, input$substract_panelapp_genes),
+      {
+        panel_app_genes <- shared_store$panel_app_genes
+        if (is.null(panel_app_genes)) return(NULL)
+        cat("[filtServer] PanelApp filter or subtract options updated\n")
+
+        # Positive selection: genes to include by Level4
+        pos_tmp <- panel_app_genes[Level4 %in% input$panelapp]
+
+        # Prepare initial category lists
+        greens <- sort(unique(pos_tmp[Sources == "Green", Entity_Name]))
+        reds <- sort(unique(pos_tmp[Sources == "Red", Entity_Name]))
+        ambers <- sort(unique(pos_tmp[Sources == "Amber", Entity_Name]))
+        unclassified <- sort(unique(pos_tmp[!(Sources %in% c("Green", "Red", "Amber")), Entity_Name]))
+
+        # Subtract selections (by panel lists)
+        sub_tmp <- panel_app_genes[Level4 %in% input$substract_panelapp_gene_lists]
+        subtract_from_panelapp <- sort(unique(toupper(sub_tmp$Entity_Name)))
+
+        # Parse free-text subtract genes using helper (NOT "custom" anymore)
+        subtract_from_text <- parse_gene_list(input$substract_panelapp_genes)  # already uppercased
+
+        # Union of all genes to remove (uppercased)
+        remove_set <- unique(c(subtract_from_panelapp, subtract_from_text))
+
+        # Apply subtraction across all categories (case-insensitive)
+        if (length(remove_set) > 0) {
+          greens <- setdiff_ci(greens, remove_set)
+          reds <- setdiff_ci(reds, remove_set)
+          ambers <- setdiff_ci(ambers, remove_set)
+          unclassified <- setdiff_ci(unclassified, remove_set)
+        }
+
+        # Update reactive values used by UI boxes
+        green_genes(greens)
+        red_genes(reds)
+        amber_genes(ambers)
+        unclassified_genes(unclassified)
+      },
+      ignoreInit = FALSE
+    )
     
     # Render UI outputs for each gene category
     output$green_genes <- renderText({
@@ -342,6 +383,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       file_path <- file.path(file_path, saved_filters)
       save_filters(input, phenos(), file_path, shared_store$samples)
       update_filters_dropdowns(session, shared_store, saved_filters)
+      showNotification(sprintf("Filters saved as '%s'.", input$filters_save_name), type = "message")
     })
 
     observeEvent(input$btn_delete_pre_saved_filters, {
@@ -354,6 +396,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       file_path <- file.path(file_path, saved_filters)
       delete_filters(input$delete_pre_saved_filters, file_path)
       update_filters_dropdowns(session, shared_store, saved_filters)
+      showNotification(sprintf("Filters '%s' deleted.", input$delete_pre_saved_filters), type = "message")
     })
 
     observeEvent(input$pre_saved_filters, {

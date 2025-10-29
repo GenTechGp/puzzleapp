@@ -148,6 +148,8 @@ panelBox <- function(id, label, color = "black", width = "100%", height = "30vh"
 panelAppOptsUI <- function(ns) {
   tagList(
     selectizeInput(ns("panelapp"), "PanelApp Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
+    selectizeInput(ns("substract_panelapp_gene_lists"), "Subtract gene lists from PanelApp Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
+    textInput(ns("substract_panelapp_genes"), "Subtract genes from PanelApp Gene list (comma/semi-colon/tab/space-separated):", value = "", width = "100%"),
     br(),
     fluidRow(
       column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")),

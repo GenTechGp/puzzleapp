@@ -85,58 +85,69 @@ quality_filters <- function(filters, data) {
 # Helper: parse and normalize user-entered gene lists
 parse_gene_list <- function(x) {
   if (is.null(x) || !nzchar(trimws(x))) return(character(0))
-  y <- unlist(strsplit(x, "[,;\\s]+"))
+  y <- unlist(strsplit(x, "[,;[:space:]]+"))
   y <- trimws(y)
   y <- y[nzchar(y)]
-  # Normalize case (uppercase commonly used for gene symbols)
   unique(toupper(y))
 }
 
-# # Helper function: Handle panel app gene filtering
-# panelapp_filter <- function(filters, panel_app_genes) {
-#   if (length(filters$panelapp_filter) > 0) {
-#     genes <- panel_app_genes[Level4 %in% filters$panelapp_filter,.(PANEL_APP=Level4,GENE_SYMBOL=Entity_Name,INHERITANCE=Model_Of_Inheritance)]
-#     genes <- genes[,.(PANEL_APP=paste(PANEL_APP,collapse=";"),INHERITANCE=paste(INHERITANCE,collapse=";")),by=GENE_SYMBOL]
-#     genes_search <- genes[,GENE_SYMBOL]
-#     panel_app_condition <- "GENE_SYMBOL %in% genes_search"
-#     return(list(panel_app_condition,genes_search,genes))
-#   } else {
-#     return(NULL)
-#   }
-# }
-
+# Helper function: Apply PanelApp and custom gene filters
 panelapp_filter <- function(filters, panel_app_genes) {
   # custom_genes is already parsed (character vector). May be NULL/empty.
   custom_vec <- filters$custom_genes
   if (is.null(custom_vec)) custom_vec <- character(0)
 
+  # New subtract inputs (already parsed). May be NULL/empty.
+  sub_panel_levels <- filters$substract_panelapp_gene_lists_filter
+  if (is.null(sub_panel_levels)) sub_panel_levels <- character(0)
+  sub_gene_vec <- filters$substract_panelapp_genes_filter
+  if (is.null(sub_gene_vec)) sub_gene_vec <- character(0)
+
+  # Minimal behavior: only act if there is a positive selection (PanelApp or custom).
   have_filters <- (length(filters$panelapp_filter) > 0) || (length(custom_vec) > 0)
   if (!have_filters) return(NULL)
 
-  pa_aug <- data.table::copy(panel_app_genes)
+  pa <- data.table::as.data.table(panel_app_genes)
 
-  # Append custom genes as Level4 = "CUSTOM" with empty strings for other fields
-  if (length(custom_vec) > 0) {
-    custom_dt <- data.table::data.table(
-      Level4 = rep("CUSTOM", length(custom_vec)),
-      Entity_Name = custom_vec,
-      Model_Of_Inheritance = "",
-      Sources = ""
-    )
-    pa_aug <- data.table::rbindlist(list(pa_aug, custom_dt), use.names = TRUE, fill = TRUE)
+  # 1) Build PanelApp-derived set (PanelApp membership) from selected Level4 lists
+  pa_membership <- pa[Level4 %in% filters$panelapp_filter]
+
+  # 2) Apply subtraction ONLY to PanelApp membership, BEFORE adding custom genes.
+  #    This means subtraction controls only the PanelApp membership and does not affect custom genes.
+  #    If a gene is subtracted here but present in custom_genes, it will still be kept due to custom.
+  if (length(sub_panel_levels) > 0 || length(sub_gene_vec) > 0) {
+    remove_from_panels <- character(0)
+    if (length(sub_panel_levels) > 0) {
+      remove_from_panels <- unique(toupper(pa[Level4 %in% sub_panel_levels, Entity_Name]))
+    }
+    remove_from_genes <- if (length(sub_gene_vec) > 0) unique(toupper(sub_gene_vec)) else character(0)
+    remove_set <- unique(c(remove_from_panels, remove_from_genes))
+
+    if (length(remove_set) > 0) {
+      pa_membership <- pa_membership[!(toupper(Entity_Name) %in% remove_set)]
+    }
   }
 
-  # Build filter levels (include CUSTOM only if custom genes provided)
-  filt_levels <- unique(c(filters$panelapp_filter, if (length(custom_vec) > 0) "CUSTOM"))
-
-  genes <- pa_aug[
-    Level4 %in% filt_levels,
+  # Map PanelApp membership rows to a unified schema
+  genes_raw <- pa_membership[
+    ,
     .(
-      PANEL_APP = Level4,
-      GENE_SYMBOL = toupper(Entity_Name),
+      PANEL_APP = Level4,                                 # PanelApp membership (Level4)
+      GENE_SYMBOL = toupper(Entity_Name),                 # normalized for matching
       INHERITANCE = ifelse(is.na(Model_Of_Inheritance), "", Model_Of_Inheritance)
     )
   ]
+
+  # 3) Add custom genes AFTER subtraction, as independent membership "CUSTOM"
+  #    This ensures custom genes can re-introduce a gene even if its PanelApp membership was subtracted.
+  if (length(custom_vec) > 0) {
+    custom_raw <- data.table::data.table(
+      PANEL_APP = rep("CUSTOM", length(custom_vec)),
+      GENE_SYMBOL = toupper(custom_vec),
+      INHERITANCE = ""
+    )
+    genes_raw <- data.table::rbindlist(list(genes_raw, custom_raw), use.names = TRUE, fill = TRUE)
+  }
 
   # Collapse values ignoring empty strings; return empty string if nothing to show
   collapse_empty <- function(x) {
@@ -144,7 +155,8 @@ panelapp_filter <- function(filters, panel_app_genes) {
     if (length(z) == 0) "" else paste(z, collapse = ";")
   }
 
-  genes <- genes[
+  # 4) Collapse by gene symbol to produce final table with combined PanelApp membership and inheritance
+  genes <- genes_raw[
     ,
     .(
       PANEL_APP = collapse_empty(PANEL_APP),
@@ -154,8 +166,8 @@ panelapp_filter <- function(filters, panel_app_genes) {
   ]
 
   genes_search <- unique(genes$GENE_SYMBOL)
-  # panel_app_condition <- "GENE_SYMBOL %in% genes_search"
-  # Toggle negation based on filters$treat_negative
+
+  # 5) Build condition; treat_negative toggles the final membership result
   treat_neg <- isTRUE(filters$treat_negative)
   panel_app_condition <- if (treat_neg) {
     "!(GENE_SYMBOL %in% genes_search)"
@@ -163,10 +175,10 @@ panelapp_filter <- function(filters, panel_app_genes) {
     "GENE_SYMBOL %in% genes_search"
   }
 
-  # print(panel_app_condition)
-  # print(genes_search)
-  # print(genes)
-
+  # Return:
+  # - condition string that refers to 'genes_search' symbol (to be evaluated in filter context)
+  # - the vector of symbols
+  # - the per-gene table with aggregated PanelApp membership and inheritance
   list(panel_app_condition, genes_search, genes)
 }
 
@@ -493,6 +505,8 @@ get_snv_filters <- function(input, phenos) {
     inheritance_filter = input$inher,
     panelapp_filter = input$panelapp,
     custom_genes = parse_gene_list(input$custom_genes),
+    substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
+    substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
     treat_negative = input$treat_negative,
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
@@ -506,6 +520,8 @@ get_sv_filters <- function(input, phenos) {
     inheritance_filter = input$inher,
     panelapp_filter = input$panelapp,
     custom_genes = parse_gene_list(input$custom_genes),
+    substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
+    substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
     treat_negative = input$treat_negative,
     annotation_filter = input$sv_conseq_checkboxes,
     sv_features = input$sv_features_checkboxes,
@@ -607,9 +623,11 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
 
   if (input$save_panelapp_hpo || flag_save_hpo_panelapp) {
     shared_filters[["PanelApp_Genes"]] <- if (!is.null(input$panelapp)) paste(input$panelapp, collapse = ";") else ""
-    shared_filters[["HPO_Terms"]] <- paste(phenos, collapse = "; ")
+    shared_filters[["Substract_PanelApp_Gene_Lists"]] <- if (!is.null(input$substract_panelapp_gene_lists)) paste(input$substract_panelapp_gene_lists, collapse = ";") else ""
+    shared_filters[["Substract_PanelApp_Genes"]] <- input$substract_panelapp_genes
     shared_filters[["Custom_Genes"]] <- input$custom_genes
     shared_filters[["Treat_Negative"]] <- input$treat_negative
+    shared_filters[["HPO_Terms"]] <- paste(phenos, collapse = "; ")
   }
 
   if (flag_save_presaved_filter) {
@@ -701,6 +719,12 @@ update_filters_params <- function(search_params, session) {
     ),
     "Treat_Negative" = list(
       shared = list(func = updateCheckboxInput, id = "treat_negative", value = TRUE, as_logical = TRUE)
+    ),
+    "Substract_PanelApp_Gene_Lists" = list(
+      shared = list(func = updateSelectInput, id = "substract_panelapp_gene_lists", selected = TRUE, split = TRUE)
+    ),
+    "Substract_PanelApp_Genes" = list(
+      shared = list(func = updateTextInput, id = "substract_panelapp_genes", value = TRUE)
     )
   )
 
@@ -722,7 +746,7 @@ update_filters_params <- function(search_params, session) {
       update_info <- mapping_entry$sv
     } else {
       # Shared params: extend allowlist to include the new three
-      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative")) next
+      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative", "Substract_PanelApp_Gene_Lists", "Substract_PanelApp_Genes")) next
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
