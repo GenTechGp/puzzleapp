@@ -8,6 +8,7 @@ Authors@R:
         person("Hiruna", "Samarkoon", , "hiruna.samarkoon@garvan.org.au", role = c("aut", "cre"))
     )
 Description: an R/Shiny application for interactive exploration and review of genomic variants.
+Depends: R (>= 4.4)
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)

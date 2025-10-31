@@ -12,13 +12,13 @@ Visualise and analyse variants
 
 ## Quick Installation
 
-``` bash
-DEST_DIR=~/puzzleapp_installation
-wget https://github.com/KCCGGenomeTechLab/puzzleapp/blob/pack/tests/install_from_github.sh && chmod +x install_from_github.sh && ./install_from_github.sh --dest ${DEST_DIR}
-lib_path <- "${DEST_DIR}/Rlib"
-.libPaths(c(lib_path, .libPaths()))
+Try the following code in your R console:
+
+``` r
+if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
+remotes::install_github("KCCGGenomeTechLab/puzzleapp", dependencies = TRUE, lib = "optional path")
 library(puzzleapp)
-run_app(port=8888) # change port if needed
+run_app()
 ```
 
 ## Installation
@@ -64,7 +64,7 @@ run_app()
 
 <!-- -->
 
-    lib_path <- "/g/data/if89/testdir/puzzleapp/app/26102025/Rlib"
+    lib_path <- "/g/data/if89/testdir/puzzleapp/app/31102025/Rlib"
     if (file.access(lib_path, 4) != 0) cat("no access to /g/data/if89\n")
     .libPaths(c(lib_path, .libPaths()))
     library(puzzleapp)
@@ -89,4 +89,22 @@ devtools::load_all()    # Run while testing functions interactively
 devtools::install()     # Run after changes to test outside load_all()
 devtools::check(clean = TRUE)
 devtools::build_readme() # Update README.md
+```
+
+Officially supported: R ≥ 4.4 (Bioconductor 3.19).
+
+### R 4.3.x installation notes
+
+- igvShiny is not available on Bioconductor for R 4.3 (Bioconductor
+  3.18); install it from GitHub instead.
+- Then install puzzleapp from a local checkout after lowering the R
+  version requirement in DESCRIPTION.
+
+``` r
+remotes::install_github("gladkia/igvShiny", upgrade = "never")
+```
+
+``` bash
+sed -i 's/Depends: R (>= 4.4)/Depends: R (>= 4.3)/' DESCRIPTION
+R CMD INSTALL [path to repo]
 ```
