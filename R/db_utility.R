@@ -342,70 +342,71 @@ make_boundary_table <- function(x,
 nthreads <- 8  # Number of threads for data.table operations
 
 # Utility function to load local database files for PanelApp, VEP consequences, and Phenotype data.
-# Reads the database directory from the configuration file and loads the latest available database files.
-# @return A list containing paths to the local database files.
-load_local_db <- function() {
+# Reads the database directory from the configuration file using a given key
+# and returns the full path to the requested file.
+load_local_db <- function(key, file_name) {
   conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
-  db_dir <- NULL
-  
-  # --- Read db_dir from app.conf ---
-  if (file.exists(conf_file)) {
-    lines <- readLines(conf_file)
-    db_dir_line <- grep('^db_dir\\s*=\\s*".*"$', lines, value = TRUE)
-    if (length(db_dir_line) > 0) {
-      db_dir <- sub('^db_dir\\s*=\\s*"', "", db_dir_line[1])
-      db_dir <- sub('"$', "", db_dir)
-    }
+
+  if (!file.exists(conf_file)) {
+    stop("Configuration file not found: ", conf_file)
   }
 
-  # --- Find the latest month_year directory ---
-  if (!is.null(db_dir) && dir.exists(db_dir)) {
-    dirs <- list.dirs(db_dir, full.names = TRUE, recursive = FALSE)
-    if (length(dirs) > 0) {
-      dir_dates <- sapply(basename(dirs), function(d) {
-        parts <- strsplit(d, "_")[[1]]
-        if (length(parts) == 2) {
-          month <- match(tolower(parts[1]), tolower(month.name))
-          year <- suppressWarnings(as.integer(parts[2]))
-          if (!is.na(month) && !is.na(year)) {
-            return(as.Date(sprintf("%04d-%02d-01", year, month)))
-          }
-        }
-        return(NA)
-      })
+  # --- Read config file lines ---
+  lines <- readLines(conf_file)
 
-      # Keep only valid parsed directories
-      valid_idx <- which(!is.na(dir_dates))
-      if (length(valid_idx) > 0) {
-        newest_dir <- dirs[valid_idx[which.max(dir_dates[valid_idx])]]
-        db_dir <- newest_dir
-      } else {
-        warning("No valid month_year directories found under ", db_dir)
-      }
+  # --- Construct the pattern for this key ---
+  pattern <- sprintf("^%s_db_dir\\s*=\\s*\".*\"$", key)
+  db_line <- grep(pattern, lines, value = TRUE)
+
+  if (length(db_line) == 0) {
+    stop("No matching entry found for key: ", key)
+  }
+
+  # --- Extract db_dir path ---
+  db_dir <- sub(sprintf("^%s_db_dir\\s*=\\s*\"", key), "", db_line[1])
+  db_dir <- sub("\"$", "", db_dir)
+
+  # --- Handle relative paths like 'extdata/db/vep_consequences' ---
+  if (!dir.exists(db_dir)) {
+    pkg_path <- system.file(package = "puzzleapp")
+    possible_dir <- file.path(pkg_path, db_dir)
+    if (dir.exists(possible_dir)) {
+      db_dir <- possible_dir
     } else {
-      warning("No subdirectories found under ", db_dir)
+      stop("Database directory does not exist: ", db_dir)
     }
-  } else {
-    warning("db_dir not found or invalid in configuration.")
   }
 
-  cat("Using local DB directory:", db_dir, "\n")
-  if (is.null(db_dir) || !dir.exists(db_dir)) {
-    stop("Local DB directory does not exist: ", db_dir)
-  }
-  db_list <- list(
-    panel_app = file.path(db_dir, "all_panel_app.tsv"),
-    vep_consequences = file.path(db_dir, "vep_annotations.tsv"),
-    phenotype_data = file.path(db_dir, "phenotype_to_genes.txt")
-  )
-  # Verify files exist
-  for (file in db_list) {
-    if (!file.exists(file)) {
-      stop("Required file does not exist: ", file)
+  # --- Handle panelapp/phenotype case: pick latest month_year subdirectory ---
+  subdirs <- list.dirs(db_dir, full.names = TRUE, recursive = FALSE)
+  if (length(subdirs) > 0) {
+    dir_dates <- sapply(basename(subdirs), function(d) {
+      parts <- strsplit(d, "_")[[1]]
+      if (length(parts) == 2) {
+        month <- match(tolower(parts[1]), tolower(month.name))
+        year <- suppressWarnings(as.integer(parts[2]))
+        if (!is.na(month) && !is.na(year)) {
+          return(as.Date(sprintf("%04d-%02d-01", year, month)))
+        }
+      }
+      return(NA)
+    })
+
+    valid_idx <- which(!is.na(dir_dates))
+    if (length(valid_idx) > 0) {
+      db_dir <- subdirs[valid_idx[which.max(dir_dates[valid_idx])]]
     }
   }
-  db_list
+
+  db_path <- file.path(db_dir, file_name)
+  if (!file.exists(db_path)) {
+    stop("Required file does not exist: ", db_path)
+  }
+
+  message("Using local DB file: ", db_path)
+  return(db_path)
 }
+
 
 load_vep_consequences <- function(file) {
   stopifnot(file.exists(file))
@@ -546,17 +547,8 @@ collect_inputs <- function(input) {
       # shiny::showNotification("PanelApp TSV file not found.", type = "error")
       messages <- c(messages, "PanelApp TSV file not found.")
     }
-  }
-
-  # VEP consequences
-  vep_consequences <- NULL
-  if (!is.null(input$vep_consequences) && nzchar(input$vep_consequences)) {
-    if (file.exists(input$vep_consequences)) {
-      vep_consequences <- load_vep_consequences(file = input$vep_consequences)
-    } else {
-      # shiny::showNotification("VEP consequence annotations file not found.", type = "error")
-      messages <- c(messages, "VEP consequence annotations file not found.")
-    }
+  } else {
+    messages <- c(messages, "PanelApp TSV file not provided.")
   }
 
   # Phenotype
@@ -569,6 +561,8 @@ collect_inputs <- function(input) {
       messages <- c(messages, "Human Phenotype Ontology TSV file not found.")
 
     }
+  } else {
+    messages <- c(messages, "Human Phenotype Ontology TSV file not provided.")
   }
 
   # SNVs vcf
@@ -583,7 +577,6 @@ collect_inputs <- function(input) {
     snvs_data = snvs_data,
     svs_data = svs_data,
     panel_app_data = panel_app_data,
-    vep_consequences = vep_consequences,
     phenotype_data = phenotype_data,
     default_dt = default_dt,
     snvs_vcf = snvs_vcf,

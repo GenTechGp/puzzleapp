@@ -85,11 +85,11 @@ home_server <- function(id, shared_store, shared_rx) {
         config_samples(samples)
 
         if (input$load_local_db) {
-          db_list <- load_local_db()
+          panelapp <- load_local_db("panelapp", "all_panels.tsv")
+          phenotype <- load_local_db("phenotype", "phenotype_to_genes.txt")
           config$dependencies <- list(
-            panel_app = db_list$panel_app,
-            vep_consequences = db_list$vep_consequences,
-            phenotype_data = db_list$phenotype_data
+            panel_app = panelapp,
+            phenotype_data = phenotype
           )
         }
 
@@ -108,9 +108,6 @@ home_server <- function(id, shared_store, shared_rx) {
         }
         if (!is.null(config$dependencies$panel_app)) {
           shiny::updateTextInput(session, "panel_app", value = config$dependencies$panel_app)
-        }
-        if (!is.null(config$dependencies$vep_consequences)) {
-          shiny::updateTextInput(session, "vep_consequences", value = config$dependencies$vep_consequences)
         }
         if (!is.null(config$dependencies$phenotype_data)) {
           shiny::updateTextInput(session, "phenotype_data", value = config$dependencies$phenotype_data)
@@ -141,6 +138,15 @@ home_server <- function(id, shared_store, shared_rx) {
       }
       # Store in shared_store
       collected <- collect_inputs(input)
+      if (length(collected$messages) > 0) {
+        for (msg in collected$messages) {
+          shiny::showNotification(msg, type = "error")
+        }
+        shiny::updateActionButton(session, "load_data", disabled = FALSE)
+        return()
+      }
+      vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
+      vep_consequences <- load_vep_consequences(file = vep_consequences_file)
 
       shared_store$data_for_data[["[Synthetic] Boundary"]] <- collected$default_dt
       shared_store$data_for_data[["SNV"]] <- collected$snvs_data
@@ -151,7 +157,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$samples <- collected$samples
       shared_store$pedigree <- collected$pedigree
       shared_store$panel_app_genes <- collected$panel_app_data
-      shared_store$vep_consequences <- collected$vep_consequences
+      shared_store$vep_consequences <- vep_consequences
       shared_store$phenotype_data <- collected$phenotype_data
       shared_store$igv_data <- list(
         snvs_vcf = collected$snvs_vcf,
@@ -165,10 +171,6 @@ home_server <- function(id, shared_store, shared_rx) {
           lobstr::obj_addr(shared_store$original_data[["SNV"]])
         )
       )
-
-      for (msg in collected$messages) {
-        shiny::showNotification(msg, type = "error")
-      }
 
       resolve_colnames <- function(selected, available) {
         unlist(sapply(selected, function(col) {

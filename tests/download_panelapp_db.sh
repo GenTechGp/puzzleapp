@@ -18,7 +18,7 @@ API_BASE_DEFAULT="https://panelapp-aus-staging.org/api/v1"
 
 EXPECTED_HEADER=$'Entity_Name\tEntity_type\tGene_Symbol\tSources(;_separated)\tLevel4\tLevel3\tLevel2\tModel_Of_Inheritance\tPhenotypes\tOmim\tOrphanet\tHPO\tPublications\tDescription\tFlagged\tGEL_Status\tUserRatings_Green_amber_red\tversion\tready\tMode_of_pathogenicity\tEnsemblId(GRch37)\tEnsemblId(GRch38)\tHGNC\tPosition_Chromosome\tPosition_GRCh37_Start\tPosition_GRCh37_End\tPosition_GRCh38_Start\tPosition_GRCh38_End\tSTR_Repeated_Sequence\tSTR_Normal_Repeats\tSTR_Pathogenic_Repeats\tRegion_Haploinsufficiency_Score\tRegion_Triplosensitivity_Score\tRegion_Required_Overlap_Percentage\tRegion_Variant_Type\tRegion_Verbose_Name'
 
-USED_HEADER=$'Entity_Name\tEntity_type\tGene_Symbol\tSources\tLevel4\tLevel3\tLevel2\tModel_Of_Inheritance\tPhenotypes\tOmim\tOrphanet\tHPO\tPublications\tDescription\tFlagged\tGEL_Status\tUserRatings_Green_amber_red\tversion\tready\tMode_of_pathogenicity\tEnsemblId_GRch37\tEnsemblId_GRch38\tHGNC\tPosition_Chromosome\tPosition_GRCh37_Start\tPosition_GRCh37_End\tPosition_GRCh38_Start\tPosition_GRCh38_End\tSTR_Repeated_Sequence\tSTR_Normal_Repeats\tSTR_Pathogenic_Repeats\tRegion_Haploinsufficiency_Score\tRegion_Triplosensitivity_Score\tRegion_Required_Overlap_Percentage\tRegion_Variant_Type\tRegion_Verbose_Name'
+USED_HEADER=$'Entity_Name\tEntity_type\tGene_Symbol\tSources\tLevel4\tLevel3\tLevel2\tModel_Of_Inheritance\tPhenotypes\tOmim\tOrphanet\tHPO\tPublications\tDescription\tFlagged\tGEL_Status\tUserRatings_Green_amber_red\tversion\tready\tMode_of_pathogenicity\tEnsemblId_GRch37\tEnsemblId_GRch38\tHGNC\tPosition_Chromosome\tPosition_GRCh37_Start\tPosition_GRCh37_End\tPosition_GRCh38_Start\tPosition_GRCh38_End\tSTR_Repeated_Sequence\tSTR_Normal_Repeats\tSTR_Pathogenic_Repeats\tRegion_Haploinsufficiency_Score\tRegion_Triplosensitivity_Score\tRegion_Required_Overlap_Percentage\tRegion_Variant_Type\tRegion_Verbose_Name\tPanel_ID\tPanel_Version'
 
 PAGE_SUFFIX="01234"
 
@@ -81,14 +81,17 @@ download_all() {
   # Skip header line by starting from line 2
   tail -n +2 "$manifest" | while IFS=$'\t' read -r panel_id version name; do
     [ -n "$panel_id" ] && [ -n "$version" ] || continue
-    # "https://panelapp-aus.org/panels/${panel_id}/download/01234/" what is this 01234?
     local url="https://panelapp-aus.org/panels/${panel_id}/download/${PAGE_SUFFIX}/"
-    local out_file="${panels_dir}/panel_${panel_id}_v${version}.tsv"
+    # sanitize name for filename (remove spaces and slashes)
+    name="${name// /_}"
+    name="${name//\//_}"
+    local out_file="${panels_dir}/${name}_${panel_id}_${version}.tsv"
 
     echo " - [$((++downloaded))/$total] ${panel_id} v${version} ${name}"
     if ! curl -fsSL -o "$out_file" "$url"; then
       die "Failed to download panel ${panel_id} (v${version}) from ${url}"
     fi
+    sleep 0.1  # uncomment to be gentle on the server
   done
 }
 
@@ -125,9 +128,24 @@ concat_tsvs() {
   echo "Writing combined TSV: $combined"
   printf '%s\n' "$USED_HEADER" >"$combined" || die "Cannot write $combined"
 
-  # Append body (skip header) of each panel TSV
+  # Append body (skip header) of each panel TSV to combined + add Panel_ID and Panel_Version columns the file has name {id}_{version}.tsv
   for f in "$panels_dir"/*.tsv; do
-    tail -n +2 "$f" >>"$combined" || die "Failed to append $f"
+    base=${f##*/}              # e.g. "Additional findings_Paediatric_3302_0.278.tsv"
+    stem=${base%.tsv}          # "Additional findings_Paediatric_3302_0.278"
+
+    panel_version=${stem##*_}        # "0.278"        (after last underscore)
+    rest=${stem%_*}            # "Additional findings_Paediatric_3302"
+    panel_id=${rest##*_}       # "3302"         (after second-to-last underscore)
+    name=${rest%_*}            # "Additional findings_Paediatric" (optional)
+
+    tail -n +2 "$f" | awk -F'\t' -v OFS='\t' -v id="$panel_id" -v ver="$panel_version" '
+      NF==0 { next }                              # skip empty lines
+      {
+        gsub(/\r+$/, "", $0)                      # strip CR (Windows line endings)
+        $1 = $1                                   # rebuild $0 from fields -> removes trailing tabs
+        print $0, id, ver
+      }
+    ' >>"$combined" || die "Failed to append $f"
   done
 
   echo "Concatenation complete: $combined"

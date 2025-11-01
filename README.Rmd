@@ -70,10 +70,7 @@ run_app()
 3. (Optional) File -> Quit Session -> Start New Session
 4. Run the following code in the R console
 ```
-lib_path <- "/g/data/if89/testdir/puzzleapp/app/31102025/Rlib"
-if (file.access(lib_path, 4) != 0) cat("no access to /g/data/if89\n")
-.libPaths(c(lib_path, .libPaths()))
-library(puzzleapp)
+library(puzzleapp, lib="/g/data/if89/testdir/puzzleapp/app/31102025/Rlib")
 run_app(port=8888) # change port if needed
 ```
 
