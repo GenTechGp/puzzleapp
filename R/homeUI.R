@@ -64,7 +64,7 @@ home_ui <- function(id) {
 
     shiny::br(),
     shiny::fluidRow(
-      shiny::column(12, shiny::checkboxInput(ns("load_local_db"), "Load PanelApp/VEP/HPO from local DB", value = TRUE))
+      shiny::column(12, shiny::checkboxInput(ns("load_local_db"), "Load PanelApp and HPO from local DB", value = TRUE))
     ),
     shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_db", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show database options", id="toggle_db_label")),
     shiny::div(id="db_container", style="display:none;margin-top:10px;", dbOptsUI(ns)),

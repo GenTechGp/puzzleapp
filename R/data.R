@@ -82,10 +82,11 @@ dataUI <- function(id) {
 #' @param shared_store Shared store (named list)
 #' @param shared_rx Shared reactive values (list of reactiveVal)
 #' @param dataset_names Optional character vector of allowed dataset names (NULL = all)
+#' @param prefix Optional prefix for handling multiple different datasets
 #' @return NULL
 #' @export
 
-dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
+dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix = "") {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -109,7 +110,8 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL) {
     rendered <- reactiveVal(FALSE)        # has the table been rendered once?
     dt_ready <- reactiveVal(FALSE)        # DataTables in browser is initialized
 
-    synthetic_key <- "[Synthetic] Boundary"
+    # append prefix to synthetic key
+    synthetic_key <- sprintf("[%s]_Boundary", prefix)
     include_synthetic <- TRUE
     allowed_dataset_names <- eventReactive(shared_rx$data_version(), {
       all_current <- names(shared_store$data_for_data) %||% character(0)

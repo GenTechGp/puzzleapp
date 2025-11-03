@@ -34,6 +34,7 @@ ui <- fluidPage(
     tabPanel("SNV/Indel", dataUI("snv_variants")),
     tabPanel("SV", dataUI("sv_variants")),
     tabPanel("IGV", igvUI("igv")),
+    tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Logs", log_viewer_ui("log"))
   )
 )
@@ -66,12 +67,13 @@ server <- function(input, output, session) {
 
   home_server("home", shared_store, shared_rx)
   selectFiltersServer("filter", shared_store, shared_rx)
-  dataServer("snv_variants", shared_store, shared_rx, "SNV")
-  dataServer("sv_variants", shared_store, shared_rx, "SV")
+  dataServer("snv_variants", shared_store, shared_rx, "SNV", "SNV")
+  dataServer("sv_variants", shared_store, shared_rx, "SV", "SV")
   igv_server("igv", shared_store, shared_rx)
+  dataServer("panel_app", shared_store, shared_rx, "panel_app", "panel_app")
+
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
-
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")

@@ -449,8 +449,8 @@ load_panel_app_data <- function(file) {
     warning("Missing required columns in PanelApp file: ", paste(missing, collapse = ", "))
     return(NULL)
   }
-  # keep only required columns
-  panel_app_genes <- data.table::copy(panel_app[, required_cols, with = FALSE])
+  # keep all the columns (not only the required ones)
+  panel_app_genes <- data.table::copy(panel_app)
   panel_app_genes[, Sources := str_extract(Sources, "Expert Review ([[:alnum:].]+)")]
   panel_app_genes[, Sources := str_remove(Sources, "Expert Review ")]
   panel_app_genes[, Model_Of_Inheritance := tstrsplit(panel_app$Model_Of_Inheritance, ",")[[1]]]
@@ -511,11 +511,12 @@ collect_inputs <- function(input) {
 
   # SNVs
   snvs_data <- NULL
+  snv_default_dt <- NULL
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- data.table::fread(input$snvs_tsv, nThread = nthreads)
       snvs_data <- add_extra_columns(snvs_data)
-      default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
+      snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       snvs_data <- add_row_id(snvs_data)
     } else {
       # shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
@@ -525,10 +526,12 @@ collect_inputs <- function(input) {
 
   # SVs
   svs_data <- NULL
+  sv_default_dt <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
       svs_data <- data.table::fread(input$svs_tsv, nThread = nthreads)
       svs_data <- add_extra_columns(svs_data)
+      sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       svs_data <- add_row_id(svs_data)
     } else {
       # shiny::showNotification("SVs TSV file not found.", type = "error")
@@ -539,10 +542,13 @@ collect_inputs <- function(input) {
 
   # PanelApp
   panel_app_data <- NULL
+  panel_app_default_dt <- NULL
   if (!is.null(input$panel_app) && nzchar(input$panel_app)) {
     cat("input$panel_app:", input$panel_app, "\n")
     if (file.exists(input$panel_app)) {
       panel_app_data <- load_panel_app_data(file = input$panel_app)
+      panel_app_default_dt <- make_boundary_table(panel_app_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
+      panel_app_data <- add_row_id(panel_app_data)
     } else {
       # shiny::showNotification("PanelApp TSV file not found.", type = "error")
       messages <- c(messages, "PanelApp TSV file not found.")
@@ -576,9 +582,11 @@ collect_inputs <- function(input) {
     pedigree = pedigree_data,
     snvs_data = snvs_data,
     svs_data = svs_data,
+    snv_default_dt = snv_default_dt,
+    sv_default_dt = sv_default_dt,
     panel_app_data = panel_app_data,
+    panel_app_default_dt = panel_app_default_dt,
     phenotype_data = phenotype_data,
-    default_dt = default_dt,
     snvs_vcf = snvs_vcf,
     svs_vcf = svs_vcf
   )

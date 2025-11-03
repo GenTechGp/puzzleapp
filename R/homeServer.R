@@ -17,9 +17,7 @@ home_server <- function(id, shared_store, shared_rx) {
     config_samples <- shiny::reactiveVal(list())
 
     clear_shared_store <- function() {
-      default_dt <- shared_store$data_for_data[["[Synthetic] Boundary"]]
       shared_store$data_for_data  <- list()
-      shared_store$data_for_data[["[Synthetic] Boundary"]] <- default_dt
       shared_store$original_data  <- list()
       shared_store$preferred_cols <- list()
       shared_store$samples <- NULL
@@ -148,7 +146,8 @@ home_server <- function(id, shared_store, shared_rx) {
       vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
       vep_consequences <- load_vep_consequences(file = vep_consequences_file)
 
-      shared_store$data_for_data[["[Synthetic] Boundary"]] <- collected$default_dt
+      shared_store$data_for_data[["[SNV]_Boundary"]] <- collected$snv_default_dt
+      shared_store$data_for_data[["[SV]_Boundary"]] <- collected$sv_default_dt
       shared_store$data_for_data[["SNV"]] <- collected$snvs_data
       shared_store$data_for_data[["SV"]] <- collected$svs_data
       shared_store$original_data[["SNV"]] <- data.table::copy(collected$snvs_data)
@@ -164,6 +163,9 @@ home_server <- function(id, shared_store, shared_rx) {
         svs_vcf = collected$svs_vcf,
         igv_genome = input$igv_genome
       )
+
+      shared_store$data_for_data[["[panel_app]_Boundary"]] <- collected$panel_app_default_dt
+      shared_store$data_for_data[["panel_app"]] <- collected$panel_app_data
 
       stopifnot(
         !identical(
@@ -190,6 +192,8 @@ home_server <- function(id, shared_store, shared_rx) {
 
       shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
+      shared_store$preferred_cols[["panel_app"]] <- input$panelapp_preferences
+      shared_store$preferred_cols[["Phenotype"]] <- input$phenotype_preferences
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
@@ -247,7 +251,7 @@ home_server <- function(id, shared_store, shared_rx) {
       colNames = c(
         "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort",
         "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort",
-        "Entity_Name;Level4;Model_Of_Inheritance;Sources",
+        "Entity_Name;Entity_type;Gene_Symbol;Sources;Level4;Level3;Level2;Model_Of_Inheritance;Phenotypes;Omim;Orphanet;HPO;Publications;Description;Flagged;GEL_Status;UserRatings_Green_amber_red;version;ready;Mode_of_pathogenicity;EnsemblId_GRch37;EnsemblId_GRch38;HGNC;Position_Chromosome;Position_GRCh37_Start;Position_GRCh37_End;Position_GRCh38_Start;Position_GRCh38_End;STR_Repeated_Sequence;STR_Normal_Repeats;STR_Pathogenic_Repeats;Region_Haploinsufficiency_Score;Region_Triplosensitivity_Score;Region_Required_Overlap_Percentage;Region_Variant_Type;Region_Verbose_Name;Panel_ID;Panel_Version",
         "disease_id;gene_symbol;hpo_id;hpo_name;ncbi_gene_id"
       )
     )
