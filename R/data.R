@@ -183,6 +183,8 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         cn <- colnames(df0)
         rid_idx0 <- which(cn == ".row_id") - 1L
         id_idx0 <- which(colnames(df0) == "ID") - 1L
+        genesymbol_idx0 <- which(colnames(df0) == "GENE_SYMBOL") - 1L
+        hpo_id_idx0 <- which(colnames(df0) == "HPO_ID") - 1L
 
         # Client-side renderer for the ID column (display only; underlying data remains raw)
         render_link_js <- JS("
@@ -191,6 +193,30 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
             var esc = $('<div>').text(data == null ? '' : String(data)).html();
             if (!esc) return data;
             return '<a href=\"#\" class=\"id-link\" data-id=\"' + esc + '\">' + esc + '</a>';
+          }
+        ")
+
+        # todo: treat multi-valued GENE_SYMBOL columns
+        render_gene_symbol_js <- JS("
+          function(data, type, row, meta) {
+            if (type !== 'display') return data;
+            var esc = $('<div>').text(data == null ? '' : String(data)).html();
+            if (!esc) return data;
+            return '<a href=\"#\" class=\"gene-symbol\" data-gene-symbol=\"' + esc + '\">' + esc + '</a>';
+          }
+        ")
+
+        # the HPO_ID column will have multiple HPO IDs separated by ; we need to split them and create links for each. but keep them in the same cell separated by ; no new lines.
+        render_hpo_id_js <- JS("
+          function(data, type, row, meta) {
+            if (type !== 'display') return data;
+            if (data == null || data === '') return data;
+            var ids = String(data).split(';');
+            var links = ids.map(function(id) {
+              var esc = $('<div>').text(id.trim()).html();
+              return '<a href=\"#\" class=\"hpo-id-link\" data-hpo-id=\"' + esc + '\">' + esc + '</a>';
+            });
+            return links.join(';&nbsp;');
           }
         ")
 
@@ -209,12 +235,28 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           )
         }
 
+        if (length(genesymbol_idx0)) {
+          column_defs <- c(
+            column_defs,
+            list(list(targets = genesymbol_idx0, render = render_gene_symbol_js))
+          )
+        }
+
+        if (length(hpo_id_idx0)) {
+          column_defs <- c(
+            column_defs,
+            list(list(targets = hpo_id_idx0, render = render_hpo_id_js))
+          )
+        }
+
         # Namespaced input ids for JS callbacks
         id_snapshot <- ns("tbl_snapshot")
         id_edit_row <- ns("tbl_edit_row_id")
         id_edit_col <- ns("tbl_edit_col_orig0")
         id_ready <- ns("tbl_ready")
         id_selected_igv <- ns("selected_igv_id") # input id for IGV selection
+        selected_genesymbol <- ns("selected_genesymbol") # input id for Gene Symbol selection
+        selected_hpo_id <- ns("selected_hpo_id") # input id for HPO selection
 
         # Pre-encode strings for safe JS embedding
         id_snapshot_json <- jsonlite::toJSON(id_snapshot, auto_unbox = TRUE)
@@ -222,6 +264,8 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         id_edit_col_json <- jsonlite::toJSON(id_edit_col, auto_unbox = TRUE)
         id_ready_json    <- jsonlite::toJSON(id_ready,    auto_unbox = TRUE)
         id_selected_igv_json <- jsonlite::toJSON(id_selected_igv, auto_unbox = TRUE)
+        selected_genesymbol_json <- jsonlite::toJSON(selected_genesymbol, auto_unbox = TRUE)
+        selected_hpo_id_json <- jsonlite::toJSON(selected_hpo_id, auto_unbox = TRUE)
         ds_js <- if (exists("dataset_specific_js_highlight")) dataset_specific_js_highlight() else character(0)
         cb_lines <- c(
           "var tbl = table;",
@@ -315,7 +359,24 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           "  if (id != null) {",
           "    Shiny.setInputValue(", id_selected_igv_json, ", id, {priority:'event'});",
           "  }",
+          "});",
+
+          "$(tbl.table().node()).off('click.genesymbol').on('click.genesymbol', 'a.gene-symbol', function(e){",
+          "  e.preventDefault();",
+          "  var geneSymbol = $(this).data('gene-symbol');",
+          "  if (geneSymbol != null) {",
+          "    Shiny.setInputValue(", selected_genesymbol_json, ", geneSymbol, {priority:'event'});",
+          "  }",
+          "});",
+
+          "$(tbl.table().node()).off('click.hpoidlink').on('click.hpoidlink', 'a.hpo-id-link', function(e){",
+          "  e.preventDefault();",
+          "  var hpoId = $(this).data('hpo-id');",
+          "  if (hpoId != null) {",
+          "    Shiny.setInputValue(", selected_hpo_id_json, ", hpoId, {priority:'event'});",
+          "  }",
           "});"
+
         )
 
         cb_code <- paste(cb_lines, collapse = "\n")
@@ -1014,6 +1075,44 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         shared_store$igv_data[["igv_info"]] <- info_list
         bump_version(version_type = "igv", shared_rx = shared_rx)
       }
+    }, ignoreInit = TRUE)
+
+    # obsever gene symbol clicks
+    observeEvent(input$selected_genesymbol, {
+      gene_symbol <- input$selected_genesymbol
+      log_info(sprintf("[Data] Gene symbol clicked: %s", as.character(gene_symbol)))
+      # store in shared_store$gene_symbol_data
+      shared_store$gene_symbol_data <- as.character(gene_symbol)
+      bump_version(version_type = "genesymbol", shared_rx = shared_rx)
+    }, ignoreInit = TRUE)
+
+    # observer for shared_rx$genesymbol_version and if the module is panelapp then update the search box
+    observeEvent(shared_rx$genesymbol_version(), {
+      req(rendered(), dt_ready(), !is.null(proxy))
+      # only if prefix is "panel_app"
+      if (prefix != "panel_app") return()
+      log_info("[Data] genesymbol_version bumped; updating search box")
+      gene_symbol <- shared_store$gene_symbol_data
+      DT::updateSearch(proxy, keywords = list(global = gene_symbol))
+    }, ignoreInit = TRUE)
+
+    # observer HPO ID clicks
+    observeEvent(input$selected_hpo_id, {
+      hpo_id <- input$selected_hpo_id
+      log_info(sprintf("[Data] HPO ID clicked: %s", as.character(hpo_id)))
+      # store in shared_store$hpo_id_data
+      shared_store$hpo_id_data <- as.character(hpo_id)
+      bump_version(version_type = "hpoid", shared_rx = shared_rx)
+    }, ignoreInit = TRUE)
+
+    # observer for shared_rx$hpoid_version and if the module is phenotype then update the search box
+    observeEvent(shared_rx$hpoid_version(), {
+      req(rendered(), dt_ready(), !is.null(proxy))
+      # only if prefix is "phenotype"
+      if (prefix != "phenotype") return()
+      log_info("[Data] hpoid_version bumped; updating search box")
+      hpo_id <- shared_store$hpo_id_data
+      DT::updateSearch(proxy, keywords = list(global = hpo_id))
     }, ignoreInit = TRUE)
 
   }) # # end moduleServer

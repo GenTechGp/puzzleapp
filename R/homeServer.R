@@ -167,6 +167,9 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["[panel_app]_Boundary"]] <- collected$panel_app_default_dt
       shared_store$data_for_data[["panel_app"]] <- collected$panel_app_data
 
+      shared_store$data_for_data[["[phenotype]_Boundary"]] <- collected$phenotype_default_dt
+      shared_store$data_for_data[["phenotype"]] <- collected$phenotype_data
+
       stopifnot(
         !identical(
           lobstr::obj_addr(shared_store$data_for_data[["SNV"]]),

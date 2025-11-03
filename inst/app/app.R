@@ -35,6 +35,7 @@ ui <- fluidPage(
     tabPanel("SV", dataUI("sv_variants")),
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
+    tabPanel("Phenotype", dataUI("phenotype")),
     tabPanel("Logs", log_viewer_ui("log"))
   )
 )
@@ -57,12 +58,16 @@ server <- function(input, output, session) {
   shared_store$phenotype_data <- NULL
   shared_store$vep_consequences <- NULL
   shared_store$igv_data <- NULL
+  shared_store$gene_symbol_data <- NULL
+  shared_store$hpo_id_data <- NULL
   shared_store$work_dir <- NULL
   shared_store$verbose_level <- 0L
   shared_rx <- list(
     data_version = reactiveVal(0L),
     panelapp_version = reactiveVal(0L),
-    igv_version = reactiveVal(0L)
+    igv_version = reactiveVal(0L),
+    genesymbol_version = reactiveVal(0L),
+    hpoid_version = reactiveVal(0L)
   )
 
   home_server("home", shared_store, shared_rx)
@@ -71,6 +76,7 @@ server <- function(input, output, session) {
   dataServer("sv_variants", shared_store, shared_rx, "SV", "SV")
   igv_server("igv", shared_store, shared_rx)
   dataServer("panel_app", shared_store, shared_rx, "panel_app", "panel_app")
+  dataServer("phenotype", shared_store, shared_rx, "phenotype", "phenotype")
 
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
@@ -82,6 +88,16 @@ server <- function(input, output, session) {
   # Switch to IGV tab whenever an ID is clicked
   observeEvent(shared_rx$igv_version(), {
     updateTabsetPanel(session, inputId = "main_tabs", selected = "IGV")
+  }, ignoreInit = TRUE)
+
+  # Switch to PanelApp tab whenever a Gene Symbol is clicked
+  observeEvent(shared_rx$genesymbol_version(), {
+    updateTabsetPanel(session, inputId = "main_tabs", selected = "PanelApp")
+  }, ignoreInit = TRUE)
+
+  # Switch to Data tab whenever an HPO ID is clicked
+  observeEvent(shared_rx$hpoid_version(), {
+    updateTabsetPanel(session, inputId = "main_tabs", selected = "Phenotype")
   }, ignoreInit = TRUE)
 
 }

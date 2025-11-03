@@ -559,9 +559,12 @@ collect_inputs <- function(input) {
 
   # Phenotype
   phenotype_data <- NULL
+  phenotype_default_dt <- NULL
   if (!is.null(input$phenotype_data) && nzchar(input$phenotype_data)) {
     if (file.exists(input$phenotype_data)) {
       phenotype_data <- load_phenotype_data(file = input$phenotype_data)
+      phenotype_default_dt <- make_boundary_table(phenotype_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
+      phenotype_data <- add_row_id(phenotype_data)
     } else {
       # shiny::showNotification("Human Phenotype Ontology TSV file not found.", type = "error")
       messages <- c(messages, "Human Phenotype Ontology TSV file not found.")
@@ -587,6 +590,7 @@ collect_inputs <- function(input) {
     panel_app_data = panel_app_data,
     panel_app_default_dt = panel_app_default_dt,
     phenotype_data = phenotype_data,
+    phenotype_default_dt = phenotype_default_dt,
     snvs_vcf = snvs_vcf,
     svs_vcf = svs_vcf
   )
@@ -603,13 +607,17 @@ prepare_table <- function(dt, selected_cols) {
   dt_subset
 }
 
-bump_version <- function(version_type = c("data", "panelapp", "igv"), shared_rx) {
+bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol", "hpoid"), shared_rx) {
   if (version_type == "data") {
     shared_rx$data_version(shared_rx$data_version() + 1L)
   } else if (version_type == "panelapp") {
     shared_rx$panelapp_version(shared_rx$panelapp_version() + 1L)
   } else if (version_type == "igv") {
     shared_rx$igv_version(shared_rx$igv_version() + 1L)
+  } else if (version_type == "genesymbol") {
+    shared_rx$genesymbol_version(shared_rx$genesymbol_version() + 1L)
+  } else if (version_type == "hpoid") {
+    shared_rx$hpoid_version(shared_rx$hpoid_version() + 1L)
   }
 }
 

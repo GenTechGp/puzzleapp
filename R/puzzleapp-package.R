@@ -16,7 +16,7 @@
 #'
 #' @importFrom shinybusy add_busy_spinner
 #' 
-#' @importFrom DT datatable renderDT dataTableProxy replaceData DTOutput
+#' @importFrom DT datatable renderDT dataTableProxy replaceData DTOutput updateSearch
 #'
 #' @importFrom htmlwidgets JS
 #'

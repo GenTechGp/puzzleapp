@@ -4,7 +4,7 @@
 \alias{dataServer}
 \title{Data Module Server}
 \usage{
-dataServer(id, shared_store, shared_rx, dataset_names = NULL)
+dataServer(id, shared_store, shared_rx, dataset_names = NULL, prefix = "")
 }
 \arguments{
 \item{id}{Module ID}
@@ -14,6 +14,8 @@ dataServer(id, shared_store, shared_rx, dataset_names = NULL)
 \item{shared_rx}{Shared reactive values (list of reactiveVal)}
 
 \item{dataset_names}{Optional character vector of allowed dataset names (NULL = all)}
+
+\item{prefix}{Optional prefix for handling multiple different datasets}
 }
 \description{
 Data Module Server
