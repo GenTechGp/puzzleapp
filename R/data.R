@@ -83,10 +83,11 @@ dataUI <- function(id) {
 #' @param shared_rx Shared reactive values (list of reactiveVal)
 #' @param dataset_names Optional character vector of allowed dataset names (NULL = all)
 #' @param prefix Optional prefix for handling multiple different datasets
+#' @param initial_row_threshold Integer; threshold for large datasets (default: 200,000 rows)
 #' @return NULL
 #' @export
 
-dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix = "") {
+dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix = "", initial_row_threshold = 200000) {
   moduleServer(id, function(input, output, session) {
     ns <- session$ns
     `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -101,7 +102,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
     # ---- Constants ----
     INITIAL_SLICE_PCT <- c(0, 100)
     BIG_DB_INITIAL_SLICE_PCT <- c(0, 10)  # show first 10% for large datasets initially
-    DB_INITIAL_ROW_THRESHOLD <- 200000    # threshold for large datasets
+    DB_INITIAL_ROW_THRESHOLD <- initial_row_threshold  # threshold for large datasets
 
     # ---- Data module local state ----
     active <- reactiveVal(NULL)           # active dataset key from shared_store$data_for_data
@@ -552,6 +553,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         )
         widget
       }, server = TRUE)
+      outputOptions(output, "tbl", suspendWhenHidden = FALSE)
 
       # Create proxy now that the table exists (IMPORTANT: scope with session)
       proxy <<- dataTableProxy("tbl", session = session)
@@ -1088,7 +1090,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
 
     # observer for shared_rx$genesymbol_version and if the module is panelapp then update the search box
     observeEvent(shared_rx$genesymbol_version(), {
-      req(rendered(), dt_ready(), !is.null(proxy))
+      req(rendered())
       # only if prefix is "panel_app"
       if (prefix != "panel_app") return()
       log_info("[Data] genesymbol_version bumped; updating search box")
@@ -1107,7 +1109,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
 
     # observer for shared_rx$hpoid_version and if the module is phenotype then update the search box
     observeEvent(shared_rx$hpoid_version(), {
-      req(rendered(), dt_ready(), !is.null(proxy))
+      req(rendered())
       # only if prefix is "phenotype"
       if (prefix != "phenotype") return()
       log_info("[Data] hpoid_version bumped; updating search box")

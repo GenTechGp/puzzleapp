@@ -419,7 +419,7 @@ load_vep_consequences <- function(file) {
 # Load Phenotype Data
 # Utility function to load phenotype-to-genes data from a TSV file.
 # @param file Path to the phenotype TSV file.
-# @return A data frame containing phenotype-to-gene mappings, typically with columns such as phenotype ID, phenotype name, gene symbol, and gene ID.
+# @return A data frame containing phenotype-to-gene mappings.
 load_phenotype_data <- function(file) {
   stopifnot(file.exists(file))
   # Read the file

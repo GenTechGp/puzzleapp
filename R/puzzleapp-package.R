@@ -31,7 +31,7 @@
 #'
 #' @importFrom stringr str_extract str_remove
 #'
-#' @importFrom tools file_path_sans_ext
+#' @importFrom tools file_path_sans_ext file_ext
 #'
 #' @importFrom lgr
 #'   get_log_levels get_logger

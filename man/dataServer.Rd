@@ -4,7 +4,14 @@
 \alias{dataServer}
 \title{Data Module Server}
 \usage{
-dataServer(id, shared_store, shared_rx, dataset_names = NULL, prefix = "")
+dataServer(
+  id,
+  shared_store,
+  shared_rx,
+  dataset_names = NULL,
+  prefix = "",
+  initial_row_threshold = 2e+05
+)
 }
 \arguments{
 \item{id}{Module ID}
@@ -16,6 +23,8 @@ dataServer(id, shared_store, shared_rx, dataset_names = NULL, prefix = "")
 \item{dataset_names}{Optional character vector of allowed dataset names (NULL = all)}
 
 \item{prefix}{Optional prefix for handling multiple different datasets}
+
+\item{initial_row_threshold}{Integer; threshold for large datasets (default: 200,000 rows)}
 }
 \description{
 Data Module Server

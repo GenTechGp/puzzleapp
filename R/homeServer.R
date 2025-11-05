@@ -76,6 +76,12 @@ home_server <- function(id, shared_store, shared_rx) {
 
       # Check that we have a valid path before reading
       if (!is.null(yml_path) && length(yml_path) == 1 && file.exists(yml_path)) {
+        ext <- tools::file_ext(yml_path)
+        #if not .yml or .yaml, show error
+        if (!ext %in% c("yml", "yaml")) {
+          shiny::showNotification("Uploaded file is not a YAML file (.yml or .yaml).", type = "error")
+          return()
+        }
         config <- yaml::read_yaml(yml_path)
 
         samples <- sanitise_samples(config$samples)
