@@ -33,10 +33,3 @@ Imports:
     VariantAnnotation,
     GenomicAlignments,
     Rsamtools
-Remotes:
-    bioc::igvShiny,
-    bioc::GenomicRanges,
-    bioc::IRanges,
-    bioc::VariantAnnotation,
-    bioc::GenomicAlignments,
-    bioc::Rsamtools
