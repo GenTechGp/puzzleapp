@@ -324,5 +324,5 @@ home_server <- function(id, shared_store, shared_rx) {
       showNotification("Saved as a browser cookie!", type = "message")
     })
 
-  })
-}
+  }) # end moduleServer
+} # end home_server

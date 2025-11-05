@@ -37,7 +37,7 @@ home_ui <- function(id) {
       shiny::column(3, 
       shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary")
       ),
-      shiny::column(3)  # empty space
+      shiny::column(3, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
     ),
 
     shiny::strong("Number of Individuals (set this value first):"),
@@ -85,6 +85,29 @@ home_ui <- function(id) {
     # Feedback text
     shiny::textOutput(ns("status")),
 
+
+    shiny::tags$script(shiny::HTML(sprintf("
+      (function(){
+        var btn = document.getElementById('%s');
+        if (!btn) return;
+        btn.addEventListener('click', function(e){
+          e.preventDefault();
+          try {
+            var url = new URL(window.location.href);
+            // Remove any existing newSession to avoid duplicates
+            url.searchParams.delete('newSession');
+            // Add a fresh unique value
+            url.searchParams.set('newSession', Date.now().toString());
+            window.open(url.toString(), '_blank', 'noopener');
+          } catch(err) {
+            // Fallback: still open a new tab without modifying the URL
+            window.open(window.location.href, '_blank', 'noopener');
+          }
+        }, false);
+      })();
+    ", ns("open_new_session"))))
+
   )
+
 
 }
