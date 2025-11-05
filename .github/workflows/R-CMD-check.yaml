@@ -20,13 +20,13 @@ jobs:
       matrix:
         config:
           - {os: macos-latest,   r: 'release'}
-          # - {os: windows-latest, r: 'release'}
-          # - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'} # devel builds faild dueo to bioconductor issues
-          # - {os: ubuntu-latest,   r: 'release'}
-          # - {os: ubuntu-latest,   r: 'oldrel-1'}
-          # - {os: macos-latest,   r: '4.4.2'}
-          # - {os: windows-latest, r: '4.4.2'}
-          # - {os: ubuntu-latest,   r: '4.4.2'} # works because igvshiny is in Bioconductor since 3.19 (R-4.4)
+          - {os: windows-latest, r: 'release'}
+          # - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'} # devel builds faild dueo to bioconductor issues VariantAnnotation not available yet?
+          - {os: ubuntu-latest,   r: 'release'}
+          - {os: ubuntu-latest,   r: 'oldrel-1'}
+          - {os: macos-latest,   r: '4.4.2'}
+          - {os: windows-latest, r: '4.4.2'}
+          - {os: ubuntu-latest,   r: '4.4.2'} # works because igvshiny is in Bioconductor since 3.19 (R-4.4)
           # - {os: ubuntu-latest,   r: '4.1.3'} # fails because igvshiny not in Bioconductor 3.14
           # - {os: ubuntu-latest,   r: '4.2.3'} # fails because igvshiny not in Bioconductor 3.16
           # - {os: ubuntu-latest,   r: '4.3.3'} # fails because igvshiny not in Bioconductor 3.18
@@ -51,59 +51,3 @@ jobs:
         with:
           upload-snapshots: true
           build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
-  # New: dedicated Bioconductor devel job in Bioc's official container
-  R-CMD-check-bioc-devel:
-    name: ubuntu-latest (Bioconductor devel container)
-    runs-on: ubuntu-latest
-    container: bioconductor/bioconductor_docker:devel
-
-    env:
-      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
-      R_KEEP_PKG_SOURCE: yes
-      # Avoid CRAN-only overrides by any tooling (e.g., RSPM)
-      RSPM: ""
-
-    steps:
-      - uses: actions/checkout@v4
-      - uses: r-lib/actions/setup-pandoc@v2
-
-      - name: Show R and configured repositories
-        shell: Rscript {0}
-        run: |
-          cat(R.version.string, "\n")
-          print(getOption("repos"))
-
-      # Install dependencies manually via Bioconductor + remotes (no pak)
-      - name: Install package dependencies (Bioconductor devel)
-        shell: Rscript {0}
-        run: |
-          # Ensure Bioconductor repos are active
-          if (!requireNamespace("BiocManager", quietly = TRUE)) {
-            install.packages("BiocManager", repos = "https://cloud.r-project.org")
-          }
-          options(repos = BiocManager::repositories())
-
-          # Helpers
-          if (!requireNamespace("remotes", quietly = TRUE)) {
-            install.packages("remotes")
-          }
-          if (!requireNamespace("rcmdcheck", quietly = TRUE)) {
-            install.packages("rcmdcheck")
-          }
-
-          # Preinstall key Bioconductor deps explicitly (your Imports)
-          bioc_pkgs <- c("VariantAnnotation","GenomicRanges","IRanges","GenomicAlignments","Rsamtools","igvShiny")
-          to_install <- bioc_pkgs[!vapply(bioc_pkgs, requireNamespace, quietly = TRUE, FUN.VALUE = logical(1))]
-          if (length(to_install)) {
-            BiocManager::install(to_install, update = FALSE, ask = FALSE)
-          }
-
-          # Install the remaining deps from DESCRIPTION using Bioc + CRAN repos
-          remotes::install_deps(dependencies = TRUE, upgrade = "never")
-
-      # Run check without attempting to resolve/install deps again
-      - uses: r-lib/actions/check-r-package@v2
-        with:
-          upload-snapshots: true
-          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
-          install-deps: false
