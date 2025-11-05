@@ -46,10 +46,23 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      # Only for R-devel: configure Bioconductor repositories so pak can resolve Bioc deps
+      - name: Configure Bioconductor repositories (devel only)
+        if: ${{ matrix.config.r == 'devel' }}
+        shell: Rscript {0}
+        run: |
+          if (!requireNamespace("BiocManager", quietly = TRUE)) {
+            install.packages("BiocManager", repos = "https://cloud.r-project.org")
+          }
+          repos <- BiocManager::repositories()
+          message("Using Bioconductor version: ", as.character(BiocManager::version()))
+          print(repos)
+          # Persist for subsequent R processes in this job
+          writeLines(sprintf("options(repos = %s)", deparse(repos)), ".Rprofile")
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: >-
-            ${{ matrix.config.r == 'devel' && 'bioc::VariantAnnotation any::rcmdcheck' || 'any::rcmdcheck' }}
+          extra-packages: any::rcmdcheck
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
