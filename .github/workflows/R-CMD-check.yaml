@@ -46,10 +46,27 @@ jobs:
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
 
+      # Devel-only: configure Bioconductor repos
+      - name: Configure Bioconductor repositories (devel only)
+        if: ${{ matrix.config.r == 'devel' }}
+        shell: Rscript {0}
+        run: |
+          if (!requireNamespace("BiocManager", quietly = TRUE)) {
+            install.packages("BiocManager", repos = "https://cloud.r-project.org")
+          }
+          repos <- BiocManager::repositories()  # matches R-devel’s Bioc (e.g., 3.23)
+          message("Using Bioconductor version: ", as.character(BiocManager::version()))
+          print(repos)
+          writeLines(sprintf("options(repos = %s)", deparse(repos)), ".Rprofile")
+
+      # Devel-only: make sure all later Rscript calls read that .Rprofile
+      - name: Enable .Rprofile for subsequent steps (devel only)
+        if: ${{ matrix.config.r == 'devel' }}
+        run: echo "R_PROFILE_USER=${GITHUB_WORKSPACE}/.Rprofile" >> $GITHUB_ENV
+
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          extra-packages: >-
-            ${{ matrix.config.r == 'devel' && 'bioc::VariantAnnotation any::rcmdcheck' || 'any::rcmdcheck' }}
+          extra-packages: any::rcmdcheck
           needs: check
 
       - uses: r-lib/actions/check-r-package@v2
