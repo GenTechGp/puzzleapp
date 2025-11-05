@@ -21,7 +21,7 @@ jobs:
         config:
           - {os: macos-latest,   r: 'release'}
           - {os: windows-latest, r: 'release'}
-          - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'}
+          # - {os: ubuntu-latest,   r: 'devel', http-user-agent: 'release'} # devel builds faild dueo to bioconductor issues
           - {os: ubuntu-latest,   r: 'release'}
           - {os: ubuntu-latest,   r: 'oldrel-1'}
           - {os: macos-latest,   r: '4.4.2'}
@@ -37,31 +37,42 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: r-lib/actions/setup-pandoc@v2
-
       - uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.config.r }}
           http-user-agent: ${{ matrix.config.http-user-agent }}
           use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck
+          needs: check
+      - uses: r-lib/actions/check-r-package@v2
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual","--compact-vignettes=gs+qpdf")'
+# New: dedicated Bioconductor devel job in Bioc's official container
+  R-CMD-check-bioc-devel:
+    name: ubuntu-latest (R devel via Bioc container)
+    runs-on: ubuntu-latest
+    # Use Bioconductor's R-devel container. It includes the right Bioc repos.
+    container: bioconductor/bioconductor_docker:devel
 
-      # Devel-only: configure Bioconductor repos
-      - name: Configure Bioconductor repositories (devel only)
-        if: ${{ matrix.config.r == 'devel' }}
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      # No setup-r needed; container already has R-devel.
+      # Set CRAN mirror to a fast one; Bioc repos are already configured in the container.
+      - name: Configure CRAN mirror
         shell: Rscript {0}
         run: |
-          if (!requireNamespace("BiocManager", quietly = TRUE)) {
-            install.packages("BiocManager", repos = "https://cloud.r-project.org")
-          }
-          repos <- BiocManager::repositories()
-          # Collapse deparse output to one line to avoid a broken .Rprofile
-          expr <- sprintf("options(repos = %s)", paste(deparse(repos), collapse = ""))
-          cat(expr, "\n", file = ".Rprofile")
-
-      - name: Enable .Rprofile for subsequent steps (devel only)
-        if: ${{ matrix.config.r == 'devel' }}
-        run: echo "R_PROFILE_USER=${GITHUB_WORKSPACE}/.Rprofile" >> $GITHUB_ENV
+          options(repos = c(CRAN = "https://cloud.r-project.org"))
+          print(getOption("repos"))
 
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
