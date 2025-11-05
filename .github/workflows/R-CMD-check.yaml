@@ -54,12 +54,11 @@ jobs:
           if (!requireNamespace("BiocManager", quietly = TRUE)) {
             install.packages("BiocManager", repos = "https://cloud.r-project.org")
           }
-          repos <- BiocManager::repositories()  # matches R-devel’s Bioc (e.g., 3.23)
-          message("Using Bioconductor version: ", as.character(BiocManager::version()))
-          print(repos)
-          writeLines(sprintf("options(repos = %s)", deparse(repos)), ".Rprofile")
+          repos <- BiocManager::repositories()
+          # Collapse deparse output to one line to avoid a broken .Rprofile
+          expr <- sprintf("options(repos = %s)", paste(deparse(repos), collapse = ""))
+          cat(expr, "\n", file = ".Rprofile")
 
-      # Devel-only: make sure all later Rscript calls read that .Rprofile
       - name: Enable .Rprofile for subsequent steps (devel only)
         if: ${{ matrix.config.r == 'devel' }}
         run: echo "R_PROFILE_USER=${GITHUB_WORKSPACE}/.Rprofile" >> $GITHUB_ENV
