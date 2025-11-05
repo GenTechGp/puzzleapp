@@ -49,7 +49,7 @@ jobs:
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
           extra-packages: any::rcmdcheck
-          repos: ${{ matrix.config.r == 'devel' && 'https://packagemanager.posit.co/cran/latest,R-devel,bioc/bioc' || 'https://packagemanager.posit.co/cran/latest' }}
+          needs: check
 
       - uses: r-lib/actions/check-r-package@v2
         with:
