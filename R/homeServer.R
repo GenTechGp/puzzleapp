@@ -140,6 +140,8 @@ home_server <- function(id, shared_store, shared_rx) {
       } else {
         shared_store$work_dir <- input$work_dir
       }
+      shared_store$sticky_work_dir <- input$sticky_work_dir
+      create_work_dir(shared_store$work_dir, shared_store$sticky_work_dir)
       # Store in shared_store
       collected <- collect_inputs(input)
       if (length(collected$messages) > 0) {
@@ -150,7 +152,7 @@ home_server <- function(id, shared_store, shared_rx) {
         return()
       }
       vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
-      vep_consequences <- load_vep_consequences(file = vep_consequences_file)
+      vep_consequences <- puzzlecore_load_vep_consequences(file = vep_consequences_file)
 
       shared_store$data_for_data[["[SNV]_Boundary"]] <- collected$snv_default_dt
       shared_store$data_for_data[["[SV]_Boundary"]] <- collected$sv_default_dt

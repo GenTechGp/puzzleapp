@@ -1,7 +1,7 @@
 library(puzzleapp)
 
 # App-level init: console logging + purge logs older than 100 days
-# use the $HOME/puzzleapp_logs directory if available, otherwise "logs" in current dir
+# use the $HOME/puzzleapp/logs directory if available, otherwise "logs" in current dir
 logs_dir <- if (nzchar(Sys.getenv("HOME"))) file.path(Sys.getenv("HOME"), "puzzleapp/logs") else "logs"
 dir.create(logs_dir, showWarnings = FALSE, recursive = TRUE)
 setup_app_logging(level = "debug", logs_dir = logs_dir, older_than_days = 100, console = TRUE)
@@ -61,6 +61,7 @@ server <- function(input, output, session) {
   shared_store$gene_symbol_data <- NULL
   shared_store$hpo_id_data <- NULL
   shared_store$work_dir <- NULL
+  shared_store$sticky_work_dir <- FALSE
   shared_store$verbose_level <- 0L
   shared_rx <- list(
     data_version = reactiveVal(0L),

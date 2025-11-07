@@ -1,6 +1,3 @@
-
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # puzzleapp
 
 <!-- badges: start -->
@@ -51,21 +48,40 @@ run_app()
 2.  Launch an RStudio job. Remember to add `gdata/if89` to the storage
     parameter. Example parameters:
 
-<!-- -->
-
+```
       mem=64GB
       ncpus=4
       jobfs=10GB
       storage=gdata/if89+gdata/project1+gdata/project2
       modules=R/4.5.0
-
+```
 3.  (Optional) File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
-
-<!-- -->
-
+```
     library(puzzleapp, lib="/g/data/if89/testdir/puzzleapp/app/31102025/Rlib")
     run_app(port=8888) # change port if needed
+```
+
+## Working directory (shared-safe mode)
+
+```
+# Example directory tree
+puzzleapp/            <- Base folder (read-only for group users)
+├── saved_filters/     <- Safe folder for files
+│   ├── f0.tsv         <- You can add new files here
+│   ├── f1.tsv         <- Cannot overwrite other users’ files
+│   └── f2.tsv
+└── saved_sessions/    <- Safe folder for subdirectories
+    ├── sample_A/      <- You can create new sessions under this sample
+    │   ├── session_a/ <- Cannot overwrite existing session_a (other users’ data)
+    │   └── session_b/ <- You can create new sessions under this sample
+    └── sample_B/      <- You can create this new sample folder
+        └── session_c/ <- You can create sessions under your own sample
+```
+* `puzzleapp/`: traverse and list only, do not create files or subdirs here.
+* `saved_filters/`: add your own files; cannot delete/overwrite others’ files.
+* `saved_sessions/`: create new sample folders or session subdirs; cannot overwrite existing sessions of other users.
+* `saved_sessions/sample/`: add subdir freely; existing sessions (subdirs) from others are protected.
 
 ## Development
 

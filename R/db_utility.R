@@ -407,82 +407,6 @@ load_local_db <- function(key, file_name) {
   return(db_path)
 }
 
-
-load_vep_consequences <- function(file) {
-  stopifnot(file.exists(file))
-  # Read the file
-  dt <- data.table::fread(file = file, header = TRUE, nThread = nthreads)
-  # Debug print removed for production use
-  return(dt)
-}
-
-# Load Phenotype Data
-# Utility function to load phenotype-to-genes data from a TSV file.
-# @param file Path to the phenotype TSV file.
-# @return A data frame containing phenotype-to-gene mappings.
-load_phenotype_data <- function(file) {
-  stopifnot(file.exists(file))
-  # Read the file
-  dt <- fread(file, header = TRUE, nThread = nthreads)
-  return(dt)
-}
-
-# Load PanelApp Data
-# Utility function to load PanelApp data from a TSV file.
-# @param file Path to the PanelApp TSV file.
-# @return A data frame containing PanelApp data.
-# Processed behavior of the Sources column:
-
-# Original Sources              -> Processed Sources
-# ------------------------------------------------
-# "Expert Review Green"         -> "Green"
-# "Expert Review Red"           -> "Red"
-# Other                      -> Unclassified"
-load_panel_app_data <- function(file) {
-  stopifnot(file.exists(file))
-  # read as data.table and ensure it's data.table-aware
-  panel_app <- data.table::fread(file, header = TRUE, data.table = TRUE, nThread = nthreads)
-  # required columns
-  required_cols <- c("Entity_Name", "Sources", "Level4", "Model_Of_Inheritance")
-  missing <- setdiff(required_cols, names(panel_app))
-  if (length(missing) > 0) {
-    warning("Missing required columns in PanelApp file: ", paste(missing, collapse = ", "))
-    return(NULL)
-  }
-  # keep all the columns (not only the required ones)
-  panel_app_genes <- data.table::copy(panel_app)
-  panel_app_genes[, Sources := str_extract(Sources, "Expert Review ([[:alnum:].]+)")]
-  panel_app_genes[, Sources := str_remove(Sources, "Expert Review ")]
-  panel_app_genes[, Model_Of_Inheritance := tstrsplit(panel_app$Model_Of_Inheritance, ",")[[1]]]
-  panel_app_genes <- as.data.table(panel_app_genes)
-  panel_app_genes
-}
-
-add_extra_columns <- function(dt) {
-  # Return NULL immediately if input is NULL
-  if (is.null(dt)) return(NULL)
-
-  # Define extra columns with their default types
-  extra_columns <- list(
-    PRIORITY = 0L,            # integer
-    NOTES = NA_character_,
-    INHERITANCE = NA_character_,
-    PANEL_APP = NA_character_,
-    HPO_ID = NA_character_,
-    HPO_COUNT = 0L,        # numeric
-    spliceai_override = FALSE,      # logical
-    clinvar_override = FALSE,       # logical
-    PRIORITYFlag = as.logical(NA)           # logical later
-  )
-  # Add any missing columns
-  for (col in names(extra_columns)) {
-    if (!(col %in% names(dt))) {
-      dt[[col]] <- rep(extra_columns[[col]], nrow(dt))
-    }
-  }
-  dt
-}
-
 collect_inputs <- function(input) {
   messages <- list()
   # Collect sample info
@@ -514,8 +438,7 @@ collect_inputs <- function(input) {
   snv_default_dt <- NULL
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
-      snvs_data <- data.table::fread(input$snvs_tsv, nThread = nthreads)
-      snvs_data <- add_extra_columns(snvs_data)
+      snvs_data <- puzzlecore_read_variant_tsv(input$snvs_tsv, nthreads = nthreads)
       snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       snvs_data <- add_row_id(snvs_data)
     } else {
@@ -529,8 +452,7 @@ collect_inputs <- function(input) {
   sv_default_dt <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
-      svs_data <- data.table::fread(input$svs_tsv, nThread = nthreads)
-      svs_data <- add_extra_columns(svs_data)
+      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads)
       sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       svs_data <- add_row_id(svs_data)
     } else {
@@ -539,14 +461,13 @@ collect_inputs <- function(input) {
     }
   }
 
-
   # PanelApp
   panel_app_data <- NULL
   panel_app_default_dt <- NULL
   if (!is.null(input$panel_app) && nzchar(input$panel_app)) {
     cat("input$panel_app:", input$panel_app, "\n")
     if (file.exists(input$panel_app)) {
-      panel_app_data <- load_panel_app_data(file = input$panel_app)
+      panel_app_data <- puzzlecore_load_panel_app_data(file = input$panel_app)
       panel_app_default_dt <- make_boundary_table(panel_app_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       panel_app_data <- add_row_id(panel_app_data)
     } else {
@@ -562,7 +483,7 @@ collect_inputs <- function(input) {
   phenotype_default_dt <- NULL
   if (!is.null(input$phenotype_data) && nzchar(input$phenotype_data)) {
     if (file.exists(input$phenotype_data)) {
-      phenotype_data <- load_phenotype_data(file = input$phenotype_data)
+      phenotype_data <- puzzlecore_load_phenotype_data(file = input$phenotype_data)
       phenotype_default_dt <- make_boundary_table(phenotype_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       phenotype_data <- add_row_id(phenotype_data)
     } else {
@@ -651,4 +572,86 @@ sanitise_samples <- function(samples) {
     }
   }
   samples
+}
+
+create_work_dir <- function(work_dir, sticky = TRUE) {
+  # Ensure last dir is "puzzleapp"
+  if (basename(work_dir) != "puzzleapp") {
+    work_dir <- file.path(work_dir, "puzzleapp")
+  }
+  
+  # -------------------------------
+  # 1. puzzleapp directory
+  # -------------------------------
+  # - Only owner can read/write/execute (0700)
+  # - No one else can create files or subdirs here
+  if (!dir.exists(work_dir)) {
+    dir.create(work_dir, recursive = TRUE, showWarnings = FALSE)
+    Sys.chmod(work_dir, mode = "0750", use_umask = FALSE)
+  }
+  
+  # -------------------------------
+  # 2. saved_filters directory
+  # -------------------------------
+  # Safe shared folder for storing files
+  # Permissions if sticky = TRUE:
+  # - Owner: rwx
+  # - Group: rwx
+  # - Others: none
+  # - Sticky bit (+t): users cannot delete/rename files owned by others
+  # - Setgid (+s): new files inherit the directory's group
+  saved_filters_dir <- file.path(work_dir, "saved_filters")
+  if (!dir.exists(saved_filters_dir)) {
+    dir.create(saved_filters_dir, recursive = TRUE, showWarnings = FALSE)
+    if (sticky) {
+      # Sys.chmod(saved_filters_dir, mode = "2770", use_umask = FALSE) # setgid
+      # Sys.chmod(saved_filters_dir, mode = "1770", use_umask = FALSE) # sticky bit
+      Sys.chmod(saved_filters_dir, mode = "3770", use_umask = FALSE)
+    }
+  }
+  
+  # -------------------------------
+  # 3. saved_sessions directory
+  # -------------------------------
+  # Safe shared folder for storing subdirectories
+  # Permissions if sticky = TRUE:
+  # - Owner: rwx
+  # - Group: rwx
+  # - Others: none
+  # - Sticky bit (+t): users cannot delete/rename subdirs owned by others
+  # - Setgid (+s): new subdirs inherit the directory's group
+  saved_sessions_dir <- file.path(work_dir, "saved_sessions")
+  if (!dir.exists(saved_sessions_dir)) {
+    dir.create(saved_sessions_dir, recursive = TRUE, showWarnings = FALSE)
+    if (sticky) {
+      # Sys.chmod(saved_sessions_dir, mode = "2770", use_umask = FALSE) # setgid
+      # Sys.chmod(saved_sessions_dir, mode = "1770", use_umask = FALSE) # sticky bit
+      Sys.chmod(saved_sessions_dir, mode = "3770", use_umask = FALSE)
+    }
+  }
+  
+  # Return paths for convenience
+  invisible(list(
+    work_dir = work_dir,
+    saved_filters_dir = saved_filters_dir,
+    saved_sessions_dir = saved_sessions_dir
+  ))
+}
+
+
+# Helper: create a directory with optional sticky/setgid permissions
+create_safe_dir <- function(dir_path, sticky = TRUE) {
+  log_info(sprintf("Creating safe directory: %s\n", dir_path))
+  if (!dir.exists(dir_path)) {
+    dir.create(dir_path, recursive = TRUE, showWarnings = FALSE)
+    if (.Platform$OS.type == "unix" && sticky) {
+      # Convert desired permissions to octal
+      # owner rwx = 7, group rwx = 7, others none = 0
+      # sticky + setgid = 1 + 2 = 3 in leading digit
+      # Example: sticky+setgid + rwxrwx--- = 3770
+      Sys.chmod(dir_path, mode = "3770", use_umask = FALSE)
+      log_info(sprintf("Set sticky and setgid permissions on: %s\n", dir_path))
+    }
+  }
+  return(dir_path)
 }

@@ -49,7 +49,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         showNotification("No data available to save. Please load datasets in the Home tab.", type = "error")
         return()
       }
-      if (save_session_data(input, input$session_name, sessions_dir(), snvs_data, svs_data, phenos(), shared_store$samples)) {
+      if (save_session_data(input, input$session_name, sessions_dir(), snvs_data, svs_data, phenos(), shared_store$samples, shared_store$sticky_work_dir)) {
         sessions(list_files(sessions_dir()))
         message("Session saved. It will appear in the list automatically.")
         showNotification(sprintf("Session '%s' saved.", input$session_name), type = "message")
@@ -185,9 +185,12 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
       )
-      filtered_data <- apply_filter_legacy_mode2(input=input, snvs_data=snvs_data, svs_data=svs_data,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
-      shared_store$data_for_data[["SNV"]] <- filtered_data$snv_filtered_data
-      shared_store$data_for_data[["SV"]] <- filtered_data$sv_filtered_data
+      # filtered_data <- apply_filter_legacy_mode2(snvs_data=snvs_data, svs_data=svs_data,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      # shared_store$data_for_data[["SNV"]] <- filtered_data$snv_filtered_data
+      # shared_store$data_for_data[["SV"]] <- filtered_data$sv_filtered_data
+      shared_store$data_for_data[["SNV"]] <- puzzlecore_variant_filter(data=snvs_data, filters=snv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      shared_store$data_for_data[["SV"]] <- puzzlecore_variant_filter(data=svs_data, filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data, is_snv=FALSE)
+
       # add a check if columns order is same as before error out
       col_order <- colnames(shared_store$original_data[["SNV"]])
       col_order_filtered <- colnames(shared_store$data_for_data[["SNV"]])
@@ -381,7 +384,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         return()
       }
       file_path <- file.path(file_path, saved_filters)
-      save_filters(input, phenos(), file_path, shared_store$samples)
+      save_filters(input, phenos(), file_path, shared_store$samples, shared_store$sticky_work_dir)
       update_filters_dropdowns(session, shared_store, saved_filters)
       showNotification(sprintf("Filters saved as '%s'.", input$filters_save_name), type = "message")
     })
