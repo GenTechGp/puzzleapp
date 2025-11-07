@@ -232,7 +232,10 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     if (!is.null(filters$polyphen_filter) && nzchar(filters$polyphen_filter)) {
       filter_expression <- add_filter_condition(filter_expression, text_filter("PolyPhen", gsub(" ", "_", filters$polyphen_filter)))
     }
-
+    # REVEL threshold (allow NA to pass)
+    if (!is.null(filters$revel_value) && filters$revel_value > 0) {
+      filter_expression <- add_filter_condition(filter_expression, sprintf("(is.na(REVEL) | REVEL >= %f)", filters$revel_value))
+    }
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
       log_info("[filtServer][filter_dataset] Applying ClinVar filter")
