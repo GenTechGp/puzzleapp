@@ -67,6 +67,10 @@ text_filter <- function(column, values) {
 # Helper function: Handle frequency and quality filters
 quality_filters <- function(filters, data) {
   conditions <- list()
+  # let's add filter pass_variants to look at FILTER column
+  if (!is.null(filters$pass_variants) && filters$pass_variants == 'PASS only variants') {
+    conditions <- c(conditions, "FILTER == 'PASS'")
+  }
 
   if (!is.null(filters$af_value) && filters$af_value < 1) 
     conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))

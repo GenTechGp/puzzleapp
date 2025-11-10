@@ -42,7 +42,10 @@ get_snv_filters <- function(input, phenos) {
     treat_negative = input$treat_negative,
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
-    hpo_terms_list = phenos
+    hpo_terms_list = phenos,
+    affected_only = input$affected_switch,
+    pass_variants = input$pass_variants
+
   )
   return(snv_filters)
 }
@@ -62,7 +65,9 @@ get_sv_filters <- function(input, phenos) {
     genotype_quality_value = input$sv_genotype_quality,
     allele_balance_value = input$sv_allele_balance,
     af_value = as.numeric(input$sv_af),
-    hpo_terms_list = phenos
+    hpo_terms_list = phenos,
+    affected_only = input$sv_affected_switch,
+    pass_variants = input$sv_pass_variants
   )
   return(sv_filters)
 }
