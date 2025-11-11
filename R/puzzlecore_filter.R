@@ -65,7 +65,7 @@ text_filter <- function(column, values) {
 }
 
 # Helper function: Handle frequency and quality filters
-quality_filters <- function(filters, data) {
+quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
   # let's add filter pass_variants to look at FILTER column
   if (!is.null(filters$pass_variants) && filters$pass_variants == 'PASS only variants') {
@@ -75,12 +75,22 @@ quality_filters <- function(filters, data) {
   if (!is.null(filters$af_value) && filters$af_value < 1) 
     conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
 
-  if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0) 
-    conditions <- c(conditions, sprintf("QUAL >= %f", filters$genotype_quality_value))
+  # check if pedigree samples have status "affected" if so get their codes
+  gq_vars <- grep("^GQ_", colnames(data), value = TRUE)
+  vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
+  if (isTRUE(filters$affected_only)) {
+    affected_codes <- pedigree$code[pedigree$status == "affected"]
+    log_info(sprintf("Affected codes: %s", affected_codes))
+    gq_vars <- paste0("GQ_", affected_codes)
+    vaf_vars <- paste0("VAF_", affected_codes)
+  }
 
-  if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0) {
-    vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
-    conditions <- c(conditions, paste(sprintf("get('%s') >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
+  if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0 && length(gq_vars) > 0) {
+    conditions <- c(conditions, paste(sprintf("as.numeric(get('%s')) >= %f", gq_vars, filters$genotype_quality_value), collapse = " & "))
+  }
+
+  if (!is.null(filters$allele_balance_value) && filters$allele_balance_value > 0 && length(vaf_vars) > 0) {
+    conditions <- c(conditions, paste(sprintf("as.numeric(get('%s')) >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
   }
 
   return(paste(conditions, collapse = " & "))
@@ -218,7 +228,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   }
   
   log_info("[filtServer][filter_dataset] Applying quality filters")
-  filter_expression <- add_filter_condition(filter_expression, quality_filters(filters, data))
+  filter_expression <- add_filter_condition(filter_expression, quality_filters(filters, data, pedigree))
 
   # Apply VEP Annotation filter (for both SNVs and SVs)
   log_info("[filtServer][filter_dataset] Applying VEP annotation filter")

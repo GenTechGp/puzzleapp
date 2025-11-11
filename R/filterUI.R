@@ -57,9 +57,13 @@ QualityUI <- function(ns, label = "snv") {
   tagList(
     h4("Call quality"),
     selectInput(ns(paste0(prefix, "pass_variants")), "Filter:", choices = callquality_filter_opts, selected = "All variants"),
-    sliderInput(ns(paste0(prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0, ticks = FALSE),
-    sliderInput(ns(paste0(prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0, ticks = FALSE),
-    checkboxInput(ns(paste0(prefix, "affected_switch")), "Affected only", value = FALSE)
+    strong("Per-sample filters:"),
+    div(
+      style = "padding-left: 10px;",  # small indentation
+      sliderInput(ns(paste0(prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0, ticks = FALSE),
+      sliderInput(ns(paste0(prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0, ticks = FALSE),
+      checkboxInput(ns(paste0(prefix, "affected_switch")), "Consider 'affected' samples only", value = FALSE)
+    )
   )
 }
 
