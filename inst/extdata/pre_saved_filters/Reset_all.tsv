@@ -3,6 +3,7 @@ Inheritance
 PanelApp_Genes	
 Custom_Genes	
 Treat_Negative	FALSE
+Inheritance_PanelAPP_Gene	FALSE
 Substract_PanelApp_Gene_Lists	
 Substract_PanelApp_Genes	
 HPO_Terms	

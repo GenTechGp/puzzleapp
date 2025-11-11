@@ -196,6 +196,21 @@ panelapp_filter <- function(filters, panel_app_genes) {
   list(panel_app_condition, genes_search, genes)
 }
 
+# Helper: Apply PanelApp inheritance + allele count gating
+apply_inheritance_panelapp_gene <- function(filters, genes) {
+  # Bare-minimum logic for Dominant/De Novo
+  if (!isTRUE(filters$inheritance_panelapp_gene)) return(NULL)
+  if (is.null(filters$inheritance_filter)) return(NULL)
+  
+  if (filters$inheritance_filter == "Dominant/De Novo") {
+    # using GENE_SYMBOL because INHERITANCE is not yet merged into data at this point
+    dom_genes <- genes[grepl("MONOALLELIC|BOTH", INHERITANCE), GENE_SYMBOL]
+    if (length(dom_genes) == 0) return(NULL)
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(dom_genes, collapse = "','")))
+  }
+  return(NULL)
+}
+
 # Generic filter function for SNVs and SVs
 filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
   # Return NULL immediately if input is NULL
@@ -225,6 +240,11 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     print(class(genes))
     filter_expression <- add_filter_condition(filter_expression, panelapp_filter_condition)
     global_filters_expression <- add_filter_condition(global_filters_expression, panelapp_filter_condition)
+
+    # Apply PanelApp inheritance + proband allele-count gating (Dominant/De Novo)
+    inheritance_pa_condition <- apply_inheritance_panelapp_gene(filters, genes)
+    filter_expression <- add_filter_condition(filter_expression, inheritance_pa_condition)
+    global_filters_expression <- add_filter_condition(global_filters_expression, inheritance_pa_condition)
   }
   
   log_info("[filtServer][filter_dataset] Applying quality filters")

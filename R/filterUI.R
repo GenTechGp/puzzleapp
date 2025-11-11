@@ -165,7 +165,8 @@ panelAppOptsUI <- function(ns) {
       column(12, textInput(ns("custom_genes"), "Custom genes (comma/semi-colon/tab/space-separated):", value = "", width = "100%"))
     ),
     fluidRow(
-      column(12, checkboxInput(ns("treat_negative"), "Consider PanelApp genes and Custom genes as negative", value = FALSE, width = "100%"))
+      column(6, checkboxInput(ns("treat_negative"), "Consider PanelApp genes and Custom genes as negative", value = FALSE, width = "100%")),
+      column(6, checkboxInput(ns("inheritance_panelapp_gene"), "Filter panel app gene lists by mode of inheritance", value = FALSE, width = "100%"))
     )
   )
 }

@@ -40,6 +40,7 @@ get_snv_filters <- function(input, phenos) {
     substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
     substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
     treat_negative = input$treat_negative,
+    inheritance_panelapp_gene = input$inheritance_panelapp_gene,
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
     hpo_terms_list = phenos,
@@ -58,6 +59,7 @@ get_sv_filters <- function(input, phenos) {
     substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
     substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
     treat_negative = input$treat_negative,
+    inheritance_panelapp_gene = input$inheritance_panelapp_gene,
     annotation_filter = input$sv_conseq_checkboxes,
     sv_features = input$sv_features_checkboxes,
     min_svlen = input$min_svlen,
@@ -164,6 +166,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     shared_filters[["Substract_PanelApp_Genes"]] <- input$substract_panelapp_genes
     shared_filters[["Custom_Genes"]] <- input$custom_genes
     shared_filters[["Treat_Negative"]] <- input$treat_negative
+    shared_filters[["Inheritance_PanelApp_Gene"]] <- input$inheritance_panelapp_gene
     shared_filters[["HPO_Terms"]] <- paste(phenos, collapse = "; ")
   }
 
@@ -262,6 +265,9 @@ update_filters_params <- function(search_params, session) {
     ),
     "Substract_PanelApp_Genes" = list(
       shared = list(func = updateTextInput, id = "substract_panelapp_genes", value = TRUE)
+    ),
+    "Inheritance_PanelApp_Gene" = list(
+      shared = list(func = updateCheckboxInput, id = "inheritance_panelapp_gene", value = TRUE, as_logical = TRUE)
     )
   )
 
@@ -283,7 +289,7 @@ update_filters_params <- function(search_params, session) {
       update_info <- mapping_entry$sv
     } else {
       # Shared params: extend allowlist to include the new three
-      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative", "Substract_PanelApp_Gene_Lists", "Substract_PanelApp_Genes")) next
+      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative", "Substract_PanelApp_Gene_Lists", "Substract_PanelApp_Genes", "Inheritance_PanelApp_Gene")) next
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
