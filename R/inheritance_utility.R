@@ -24,6 +24,14 @@ check_pedigree_sanity <- function(pedigree) {
   if (sum(kinships == "proband") != 1) {
     issues <- c(issues, paste("Expected exactly 1 proband, found", sum(kinships == "proband")))
   }
+  # proband code should be 1
+  proband_index <- which(kinships == "proband")
+  if (length(proband_index) == 1) {
+    proband_code <- pedigree[[proband_index]]$code
+    if (proband_code != 1) {
+      issues <- c(issues, paste("Proband code should be 1, found", proband_code))
+    }
+  }
   # father/mother uniqueness
   if (sum(kinships == "father") > 1) {
     issues <- c(issues, paste("More than one father found (", sum(kinships == "father"), ")", sep=""))
@@ -35,15 +43,17 @@ check_pedigree_sanity <- function(pedigree) {
   if (anyDuplicated(sample_ids)) {
     issues <- c(issues, "Duplicate sample_id values found")
   }
-  if (length(issues) > 0) {
-    cat("Pedigree sanity check found issues:\n")
-    for (msg in issues) {
-      cat(" -", msg, "\n")
-    }
-    return(FALSE)
-  }
-  cat("Pedigree sanity check passed.\n")
-  TRUE
+  return(issues)
+  # if (length(issues) > 0) {
+  #   retr
+  #   cat("Pedigree sanity check found issues:\n")
+  #   for (msg in issues) {
+  #     cat(" -", msg, "\n")
+  #   }
+  #   return(FALSE)
+  # }
+  # cat("Pedigree sanity check passed.\n")
+  # TRUE
 }
 
 convert_samples_to_pedigree <- function(samples_list) {

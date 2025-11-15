@@ -132,7 +132,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     output$allele_ui <- renderUI({
       req(input$inher)
       if(is.null(shared_store$samples)) return(NULL)
-      ped <- convert_samples_to_pedigree(shared_store$samples)
+      # ped <- convert_samples_to_pedigree(shared_store$samples)
+      ped <- shared_store$samples
       if (input$inher == "") return(NULL)
       if (input$inher == "Custom") {
         # Render input radio buttons for custom allele counts
@@ -172,7 +173,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         showNotification("No data available to filter. Please load datasets in the Home tab.", type = "error")
         return()
       }
-      ped <- convert_samples_to_pedigree(shared_store$samples)
+      # ped <- convert_samples_to_pedigree(shared_store$samples)
+      ped <- shared_store$samples
       allele_counts <- getAlleleCounts(ped, input)
       cat("class of allele_counts:", class(allele_counts), "\n")
       cat("Allele counts:\n")

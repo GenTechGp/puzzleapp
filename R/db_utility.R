@@ -422,6 +422,13 @@ collect_inputs <- function(input) {
       coverage  = input[[paste0("coverage_", i)]]
     )
   })
+  issues <- check_pedigree_sanity(samples)
+  if (length(issues) > 0) {
+    for (msg in issues) {
+      messages <- c(messages, paste("Pedigree issue:", msg))
+    }
+    return(list(messages = messages))
+  }
   cat("Collected sample info for", length(samples), "individuals.\n")
   cat("Samples:", str(samples), "\n")
 
@@ -430,8 +437,9 @@ collect_inputs <- function(input) {
     rbindlist(lapply(samples, as.data.table), fill = TRUE)
   }, error = function(e) {
     messages <<- c(messages, paste("Error processing pedigree data:", e$message))
-    stop("Error processing pedigree data:", e$message)
+    return(list(messages = messages))
   })
+
 
   # SNVs
   snvs_data <- NULL
@@ -444,6 +452,7 @@ collect_inputs <- function(input) {
     } else {
       # shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
       messages <- c(messages, "SNVs & Indels TSV file not found.")
+      return(list(messages = messages))
     }
   }
 
@@ -458,6 +467,7 @@ collect_inputs <- function(input) {
     } else {
       # shiny::showNotification("SVs TSV file not found.", type = "error")
       messages <- c(messages, "SVs TSV file not found.")
+      return(list(messages = messages))
     }
   }
 
@@ -473,9 +483,11 @@ collect_inputs <- function(input) {
     } else {
       # shiny::showNotification("PanelApp TSV file not found.", type = "error")
       messages <- c(messages, "PanelApp TSV file not found.")
+      return(list(messages = messages))
     }
   } else {
     messages <- c(messages, "PanelApp TSV file not provided.")
+    return(list(messages = messages))
   }
 
   # Phenotype
@@ -489,10 +501,11 @@ collect_inputs <- function(input) {
     } else {
       # shiny::showNotification("Human Phenotype Ontology TSV file not found.", type = "error")
       messages <- c(messages, "Human Phenotype Ontology TSV file not found.")
-
+      return(list(messages = messages))
     }
   } else {
     messages <- c(messages, "Human Phenotype Ontology TSV file not provided.")
+    return(list(messages = messages))
   }
 
   # SNVs vcf

@@ -147,7 +147,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
 
   # if Inheritace is Custom then we need to save the Allele counts for each sample
   if (input$inher == "Custom") {
-    ped <- convert_samples_to_pedigree(samples)
+    # ped <- convert_samples_to_pedigree(samples)
+    ped <- samples
     allele_counts <- getAlleleCounts(ped, input)
     # paste allele counts into a single string with sample_id:count;sample_id:count;...
     allele_counts_str <- paste(sapply(names(allele_counts), function(sid) {
