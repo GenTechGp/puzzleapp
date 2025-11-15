@@ -197,16 +197,33 @@ panelapp_filter <- function(filters, panel_app_genes) {
 }
 
 # Helper: Apply PanelApp inheritance + allele count gating
-apply_inheritance_panelapp_gene <- function(filters, genes) {
+apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
   # Bare-minimum logic for Dominant/De Novo
   if (!isTRUE(filters$inheritance_panelapp_gene)) return(NULL)
   if (is.null(filters$inheritance_filter)) return(NULL)
   
   if (filters$inheritance_filter == "Dominant/De Novo") {
     # using GENE_SYMBOL because INHERITANCE is not yet merged into data at this point
-    dom_genes <- genes[grepl("MONOALLELIC|BOTH", INHERITANCE), GENE_SYMBOL]
+    dom_genes <- genes[grepl("MONOALLELIC|BOTH", INHERITANCE, ignore.case = TRUE), GENE_SYMBOL]
     if (length(dom_genes) == 0) return(NULL)
     return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(dom_genes, collapse = "','")))
+  }
+  
+  if (filters$inheritance_filter == "Homozygous Recessive") {
+    rec_genes <- genes[grepl("BIALLELIC|BOTH", INHERITANCE, ignore.case = TRUE), GENE_SYMBOL]
+    if (length(rec_genes) == 0) return(NULL)
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(rec_genes, collapse = "','")))
+  }
+
+  if (filters$inheritance_filter == "X-Linked Recessive") {
+    x_genes <- genes[grepl("X[[:space:]-]?linked", INHERITANCE, ignore.case = TRUE), GENE_SYMBOL]
+    if (length(x_genes) == 0) return(NULL)
+    # check if proband is male or female
+    proband <- pedigree[pedigree$kinship == "proband", ]
+    if (proband$sex == "male") {
+      return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(x_genes, collapse = "','")))
+    }
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(x_genes, collapse = "','")))
   }
   return(NULL)
 }
@@ -242,7 +259,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     global_filters_expression <- add_filter_condition(global_filters_expression, panelapp_filter_condition)
 
     # Apply PanelApp inheritance + proband allele-count gating (Dominant/De Novo)
-    inheritance_pa_condition <- apply_inheritance_panelapp_gene(filters, genes)
+    inheritance_pa_condition <- apply_inheritance_panelapp_gene(filters, genes, pedigree)
     filter_expression <- add_filter_condition(filter_expression, inheritance_pa_condition)
     global_filters_expression <- add_filter_condition(global_filters_expression, inheritance_pa_condition)
   }
@@ -447,8 +464,16 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 }
 
 # Function to apply compound heterozygous filtering to a filtered dataset
-apply_compound_het <- function(all_filtered_data, pedigree, inheritance_type) {
+apply_compound_het <- function(all_filtered_data, pedigree, filters) {
+  inheritance_type <- filters$inheritance_filter
   if (inheritance_type != "Compound Heterozygous" || nrow(all_filtered_data) == 0) return(all_filtered_data)
+
+  # If PanelApp inheritance gating is ON, restrict to Biallelic genes and proband hets
+  inheritance_panelapp_gene <- filters$inheritance_panelapp_gene
+  if (isTRUE(inheritance_panelapp_gene)) {
+    all_filtered_data <- all_filtered_data[grepl("Biallelic", INHERITANCE, ignore.case = TRUE) & alt_allele_count_1 == 1]
+  }
+
   is_trio <- sum(pedigree$kinship %in% c("mother", "father")) == 2
   if (!is_trio) {
     comp_hets_1 <- all_filtered_data[alt_allele_count_1 == 1 & GT_1 == "1|0", .(VAR_COUNT_1 = .N), by = GENE_SYMBOL]
@@ -487,7 +512,7 @@ puzzlecore_variant_filter <- function(data, filters, pedigree, allele_tab, panel
     })
     log_info(sprintf("nrow(filtered_data): %d", nrow(filtered_data)))
     log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
-    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, filters$inheritance_filter)
+    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, filters)
     log_info(sprintf("nrow(filtered_data_comphet): %d", nrow(filtered_data_comphet)))
     return(filtered_data_comphet)
 }
