@@ -143,7 +143,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         return(ui)
       } else {
         # Compute allele counts (named list) and convert to data.frame for display
-        counts <- compute_allele_table(ped, input$inher)
+        counts <- puzzlecore_compute_allele_table(ped, input$inher)
         if (length(counts) == 0) return(NULL)
         tbl <- data.frame(
           Sample_ID = names(counts),
@@ -421,6 +421,27 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       reset_params <- filters_state$all[['Reset_all']]
       update_filters_params(reset_params, session)
       phenos(character(0))
+    })
+
+
+    # Helper to normalize HPO IDs
+    clean_hpo_ids <- function(x) {
+      if (is.null(x) || !length(x)) return(character(0))
+      x <- gsub("\u00A0", " ", as.character(x), fixed = TRUE)      # normalize NBSP
+      hits <- regmatches(x, gregexpr("\\bHP:\\d{7}\\b", x, perl = TRUE))
+      ids <- unlist(hits, use.names = FALSE)
+      if (!length(ids)) return(character(0))
+      ids <- ids[!duplicated(ids)]                                 # preserve first order
+      ids
+    }
+
+    # Sanitize phenos() in place whenever it changes (and once on startup)
+    observe({
+      ids <- phenos()
+      cleaned <- clean_hpo_ids(ids)
+      if (!identical(ids, cleaned)) {
+        isolate(phenos(cleaned))
+      }
     })
 
   })

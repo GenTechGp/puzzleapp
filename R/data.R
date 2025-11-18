@@ -217,7 +217,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
               var esc = $('<div>').text(id.trim()).html();
               return '<a href=\"#\" class=\"hpo-id-link\" data-hpo-id=\"' + esc + '\">' + esc + '</a>';
             });
-            return links.join(';&nbsp;');
+            return links.join('; ');
           }
         ")
 
@@ -267,29 +267,45 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         id_selected_igv_json <- jsonlite::toJSON(id_selected_igv, auto_unbox = TRUE)
         selected_genesymbol_json <- jsonlite::toJSON(selected_genesymbol, auto_unbox = TRUE)
         selected_hpo_id_json <- jsonlite::toJSON(selected_hpo_id, auto_unbox = TRUE)
+        initial_colnames_json <- jsonlite::toJSON(unname(as.character(names(df0))), auto_unbox = TRUE)
         ds_js <- if (exists("dataset_specific_js_highlight")) dataset_specific_js_highlight() else character(0)
         cb_lines <- c(
           "var tbl = table;",
           "var ridIdx0 = ", ifelse(length(rid_idx0), rid_idx0, "null"), ";",
           "var preferredInit = ", pref_js, ";",
+          "var initialColNames = ", initial_colnames_json, ";",
 
           ds_js,
 
           "function computeSnapshot(reason){",
-          " try{",
-          "  var headers=[];",
-          "  tbl.columns(':visible').every(function(idx){",
-          "    var label=(this.header() && this.header().textContent)?this.header().textContent.trim():(''+idx);",
-          "    headers.push(label);",
-          "  });",
-          "  var orderAll = tbl.colReorder ? tbl.colReorder.order() : null;",
-          "  if(!orderAll){ orderAll=[]; var nCols=tbl.columns().count(); for(var i=0;i<nCols;i++) orderAll.push(i); }",
-          "  var dataSrc = tbl.columns().dataSrc();",
-          "  if(dataSrc && dataSrc.toArray) dataSrc = dataSrc.toArray();",
-          "  Shiny.setInputValue(", id_snapshot_json, ", {",
-          "    headers: headers, orderAll: orderAll, dataSrc: dataSrc, reason: reason || 'unspecified', version: 'exact-colrow-v3', ts: Date.now()",
-          "  }, {priority:'event'});",
-          " }catch(e){ console && console.error && console.error('computeSnapshot error', e); }",
+          "  try {",
+          "    var s = tbl.settings()[0];",
+          "    if (!s || !s.aoColumns) {",
+          "      Shiny.setInputValue(", id_snapshot_json, ", { headers: [], orderAll: [], dataSrc: [], reason: reason||'unspecified', version: 'exact-colrow-v3', ts: Date.now() }, {priority:'event'});",
+          "      return;",
+          "    }",
+          "    var nCols = s.aoColumns.length;",
+          "    var orderAll = (tbl.colReorder && typeof tbl.colReorder.order === 'function') ? tbl.colReorder.order() : (function(){ var a=[]; for (var i=0;i<nCols;i++) a.push(i); return a; })();",
+          "    var headers = [];",
+          "    for (var k=0; k<orderAll.length; k++){",
+          "      var i = orderAll[k];",
+          "      var c = s.aoColumns[i];",
+          "      if (c && c.bVisible) {",
+          "        var nm = (initialColNames && initialColNames[i] != null) ? String(initialColNames[i]) : String(i);",
+          "        headers.push(nm);",
+          "      }",
+          "    }",
+          "    var dataSrc = tbl.columns().dataSrc();",
+          "    if (dataSrc && dataSrc.toArray) dataSrc = dataSrc.toArray();",
+          "    Shiny.setInputValue(", id_snapshot_json, ", {",
+          "      headers: headers,",
+          "      orderAll: orderAll,",
+          "      dataSrc: dataSrc,",
+          "      reason: reason || 'unspecified',",
+          "      version: 'exact-colrow-v3',",
+          "      ts: Date.now()",
+          "    }, {priority:'event'});",
+          "  } catch(e){ if (console && console.error) console.error('computeSnapshot error', e); }",
           "}",
 
           "function captureEditCtx(node){",
@@ -349,7 +365,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           "tbl.on('focusin.dt','tbody input, tbody textarea',function(e){ captureEditCtx(this); });",
           "tbl.on('focusout.dt','tbody td', function(e){ captureEditCtx(this); });",
           "tbl.on('focusout.dt','tbody input, tbody textarea', function(e){ captureEditCtx(this); });",
-          
+
           "setTimeout(function(){ computeSnapshot('tick0'); }, 0);",
           "setTimeout(function(){ computeSnapshot('tick50'); }, 50);",
           "computeSnapshot('manual');",
@@ -1042,6 +1058,10 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         stop(sprintf("Directory '%s' does not exist. The server will not create directories automatically.", dirpath))
       }
       # Write TSV
+      # if .row_id is present, remove it before writing
+      if (".row_id" %in% colnames(final_tbl)) {
+        final_tbl <- final_tbl[, !".row_id", with = FALSE]
+      }
       write.table(final_tbl, file = path, sep = "\t", row.names = FALSE, quote = FALSE)
       TRUE
     }

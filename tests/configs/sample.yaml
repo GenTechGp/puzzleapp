@@ -1,0 +1,40 @@
+samples:
+  - sample_id: "SAMPLE_ID-00-RF-01"
+    kinship: "proband"
+    status: "affected"
+    sex:  "male"
+    code: 1
+    bam: "/g/data/SAMPLE_ID-00-RF-01.hg38.minimap2.whatshap.sorted.haplotagged.bam"
+    coverage: "/g/data/SAMPLE_ID-00-RF-01.hg38.mosdepth.depth.txt"
+  - sample_id: "SAMPLE_ID-01-RF-01"
+    kinship: "mother"
+    status: "unaffected"
+    sex:  "female"
+    code: 2
+    bam: "/g/data/SAMPLE_ID-01-RF-01.hg38.minimap2.whatshap.sorted.haplotagged.bam"
+    coverage: "/g/data/SAMPLE_ID-01-RF-01.hg38.mosdepth.depth.txt"
+  - sample_id: "SAMPLE_ID-03-RF-01"
+    kinship: "brother"
+    status: "NA"
+    sex:  "male"
+    code: 3
+    bam: "/g/data/SAMPLE_ID-03-RF-01.hg38.minimap2.whatshap.sorted.haplotagged.bam"
+    coverage: "/g/data/SAMPLE_ID-03-RF-01.hg38.mosdepth.depth.txt"
+  - sample_id: "SAMPLE_ID-04-RF-01"
+    kinship: "uncle"
+    status: "NA"
+    sex:  "male"
+    code: 4
+    bam: "/g/data/kr68/projects/NSW_RareDisease/SAMPLE_ID/pipeface-v0.8.0/20250719-052421/SAMPLE_ID-04-RF-01/SAMPLE_ID-04-RF-01.hg38.minimap2.whatshap.sorted.haplotagged.bam"
+    coverage: "/g/data/kr68/projects/NSW_RareDisease/SAMPLE_ID/pipeface-v0.8.0/20250719-052421/SAMPLE_ID-04-RF-01/SAMPLE_ID-04-RF-01.hg38.mosdepth.depth.txt"
+
+paths:
+  snvs_vcf: "/g/data/SAMPLE_ID.hg38.deepvariant.snp_indel.phased.annotated.vcf.gz"
+  snvs_tsv: "/g/data/SAMPLE_ID_head_snv.tsv"
+  svs_vcf: "/g/data/SAMPLE_ID.hg38.sniffles.sv.phased.annotated.vcf.gz"
+  svs_tsv: "/g/data/SAMPLE_ID.hg38.sniffles.sv.phased.annotated.tsv"
+
+dependencies:
+  panel_app: "/g/data/all_panel_app.tsv"
+  vep_consequences: "/g/data/vep_annotations.tsv"
+  phenotype_data: "/g/data/phenotype_to_genes.txt"

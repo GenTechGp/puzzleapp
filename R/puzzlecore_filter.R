@@ -25,7 +25,7 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
   if (!is.null(filters$inheritance_filter) && filters$inheritance_filter != "") {
     allele_count <- allele_tab
     names(allele_count) <- c("sample_id", "allele_count")
-    print(pedigree)
+    # print(pedigree)
     # browser()
     # pedigree[, code := seq_len(.N)]
     pedigree$code <- seq_len(nrow(pedigree))
@@ -67,11 +67,6 @@ text_filter <- function(column, values) {
 # Helper function: Handle frequency and quality filters
 quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
-  # let's add filter pass_variants to look at FILTER column
-  if (!is.null(filters$pass_variants) && filters$pass_variants == 'PASS only variants') {
-    conditions <- c(conditions, "FILTER == 'PASS'")
-  }
-
   if (!is.null(filters$af_value) && filters$af_value < 1) 
     conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
 
@@ -436,6 +431,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   if (!is.null(filters$hpo_terms_list) && length(filters$hpo_terms_list) > 0) {
     split_hpo_terms_list <- unlist(strsplit(filters$hpo_terms_list, "; "))
     hpo_terms_data <- phenotype_data[hpo_id %in% split_hpo_terms_list & gene_symbol %in% filtered_data$GENE_SYMBOL, .(HPO_ID = hpo_id, GENE_SYMBOL = gene_symbol)]
+    hpo_terms_data <- unique(hpo_terms_data, by = c("GENE_SYMBOL", "HPO_ID"))
     hpo_terms_summary <- hpo_terms_data[, .(HPO_ID = paste(HPO_ID, collapse=";"), HPO_COUNT = .N), by = GENE_SYMBOL]
     filtered_data[hpo_terms_summary, on = "GENE_SYMBOL", `:=`(HPO_ID = i.HPO_ID, HPO_COUNT = i.HPO_COUNT)][is.na(HPO_COUNT), HPO_COUNT := 0]
   }

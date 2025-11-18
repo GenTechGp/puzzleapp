@@ -44,9 +44,7 @@ get_snv_filters <- function(input, phenos) {
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
     hpo_terms_list = phenos,
-    affected_only = input$affected_switch,
-    pass_variants = input$pass_variants
-
+    affected_only = input$affected_switch
   )
   return(snv_filters)
 }
@@ -68,8 +66,7 @@ get_sv_filters <- function(input, phenos) {
     allele_balance_value = input$sv_allele_balance,
     af_value = as.numeric(input$sv_af),
     hpo_terms_list = phenos,
-    affected_only = input$sv_affected_switch,
-    pass_variants = input$sv_pass_variants
+    affected_only = input$sv_affected_switch
   )
   return(sv_filters)
 }
@@ -100,7 +97,7 @@ getAlleleCounts <- function(pedigree, input) {
         cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
       }
     } else if (input$inher != "") {
-      counts <- compute_allele_table(pedigree, input$inher)  # named list
+      counts <- puzzlecore_compute_allele_table(pedigree, input$inher)  # named list
       cat("Allele table counts:\n")
       for (sid in names(counts)) {
         cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
@@ -123,8 +120,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "gnomADv4 AF" = input$af,
     "Affected only" = input$affected_switch,
     "Allele balance" = input$allele_balance,
-    "Genotype quality" = input$genotype_quality,
-    "Filter value" = input$pass_variants
+    "Genotype quality" = input$genotype_quality
   )
 
   # SV filters (excluding shared)
@@ -136,8 +132,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "gnomADv4 AF" = input$sv_af,
     "Affected only" = input$sv_affected_switch,
     "Allele balance" = input$sv_allele_balance,
-    "Genotype quality" = input$sv_genotype_quality,
-    "Filter value" = input$sv_pass_variants
+    "Genotype quality" = input$sv_genotype_quality
   )
 
   # Shared filters
@@ -241,10 +236,6 @@ update_filters_params <- function(search_params, session) {
     "Genotype quality" = list(
       snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
-    ),
-    "Filter value" = list(
-      snv = list(func = updateSelectInput, id = "pass_variants", selected = TRUE),
-      sv  = list(func = updateSelectInput, id = "sv_pass_variants", selected = TRUE)
     ),
     "Inheritance" = list(
       shared = list(func = updateRadioButtons, id = "inher", selected = TRUE)

@@ -32,7 +32,7 @@ add_extra_columns <- function(dt) {
 #' # variant_data <- puzzlecore_read_variant_tsv("path/to/variant_file.tsv", nthreads = 4)
 #' @export
 puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
-    data <- data.table::fread(file_path, nThread = nthreads)
+    data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
     data <- add_extra_columns(data)
     return(data)
 }
@@ -43,7 +43,7 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
 #' @param file The path to the PanelApp data file.
 #' @return A data.table containing the processed PanelApp gene data.
 #' @examples
-#' # panel_app_genes <- load_panel_app_data("path/to/panelapp_file.tsv")
+#' # panel_app_genes <- puzzlecore_load_panel_app_data("path/to/panelapp_file.tsv")
 #' # Processed behavior of the Sources column:
 #' # Original Sources              -> Processed Sources
 #' # ------------------------------------------------
@@ -100,4 +100,120 @@ puzzlecore_load_vep_consequences <- function(file) {
   dt <- data.table::fread(file = file, header = TRUE, nThread = nthreads)
   # Debug print removed for production use
   return(dt)
+}
+
+#' Check Pedigree Sanity
+#' This function checks the sanity of a pedigree list.
+#' It verifies that there is exactly one proband, that the proband's code is 1,
+#' that there is at most one father and one mother, and that there are no duplicate sample IDs.
+#' @param pedigree A list of pedigree entries, each containing sample_id, kinship, status, sex, and code.
+#' @return A list of issues found in the pedigree. If no issues are found, the list will be empty.
+#' @examples
+#' pedigree <- list(
+#'   list(sample_id = "S1", kinship = "proband", status = "affected", sex = "male", code = 1),
+#'   list(sample_id = "S2", kinship = "father", status = "unaffected", sex = "male", code = 2),
+#'   list(sample_id = "S3", kinship = "mother", status = "unaffected", sex = "female", code = 3)
+#' )
+#' issues <- puzzlecore_check_pedigree_sanity(pedigree)
+#' if (length(issues) == 0) {
+#'   print("Pedigree is sane.")
+#' } else {
+#'   print(issues)
+#' }
+#' @export
+puzzlecore_check_pedigree_sanity <- function(pedigree) {
+  issues <- list()
+  # check required fields exist for all entries
+  required_fields <- c("sample_id", "kinship", "status", "sex", "code")
+  for (i in seq_along(pedigree)) {
+    missing_fields <- setdiff(required_fields, names(pedigree[[i]]))
+    if (length(missing_fields) > 0) {
+      issues <- c(issues, paste0("Sample ", i, " missing fields: ", paste(missing_fields, collapse = ", ")))
+    }
+  }
+  # collect kinship info
+  kinships <- vapply(pedigree, function(x) x$kinship, character(1))
+  sample_ids <- vapply(pedigree, function(x) x$sample_id, character(1))
+  # proband count
+  if (sum(kinships == "proband") != 1) {
+    issues <- c(issues, paste("Expected exactly 1 proband, found", sum(kinships == "proband")))
+  }
+  # proband code should be 1
+  proband_index <- which(kinships == "proband")
+  if (length(proband_index) == 1) {
+    proband_code <- pedigree[[proband_index]]$code
+    if (proband_code != 1) {
+      issues <- c(issues, paste("Proband code should be 1, found", proband_code))
+    }
+  }
+  # father/mother uniqueness
+  if (sum(kinships == "father") > 1) {
+    issues <- c(issues, paste("More than one father found (", sum(kinships == "father"), ")", sep=""))
+  }
+  if (sum(kinships == "mother") > 1) {
+    issues <- c(issues, paste("More than one mother found (", sum(kinships == "mother"), ")", sep=""))
+  }
+  # duplicate sample_id
+  if (anyDuplicated(sample_ids)) {
+    issues <- c(issues, "Duplicate sample_id values found")
+  }
+  return(issues)
+}
+
+
+#' Compute Allele Count for a Sample
+#' This function computes the allele count for a given sample based on the inheritance model,
+#' status, and sex.
+#' @param inher The inheritance model (e.g., "Homozygous Recessive", "Dominant/ De Novo", "Compound Heterozygous", "X-Linked Recessive").
+#' @param status The status of the sample ("affected", "unaffected", or "NA").
+#' @param sex The sex of the sample ("male" or "female").
+#' @return A string representing the allele count for the sample.
+#' @examples
+#' puzzlecore_allele_count("Homozygous Recessive", "affected", "male") # returns "2"
+#' puzzlecore_allele_count("Dominant/ De Novo", "unaffected", "female") # returns "0"
+#' @export
+puzzlecore_allele_count <- function(inher, status, sex) {
+  if (status == "NA") return("")  # special case
+
+  if (inher == "Homozygous Recessive") {
+    if (status == "affected") "2" else "0-1"
+  } else if (inher == "Dominant/De Novo") {
+    if (status == "affected") "1-2" else "0"
+  } else if (inher == "Compound Heterozygous") {
+    if (status == "affected") "1" else "0-1"
+  } else if (inher == "X-Linked Recessive") {
+    if (sex == "male") {
+      if (status == "affected") "1" else "0"
+    } else {
+      if (status == "affected") "2" else "0-1"
+    }
+  } else {
+    ""
+  }
+}
+
+
+#' Compute Allele Table for Pedigree
+#' This function computes the allele count table for a given pedigree and inheritance model.
+#' @param pedigree A list of pedigree entries, each containing sample_id, kinship, status, sex, and code.
+#' @param inher The inheritance model as a string.
+#' @return A named list where each name is a sample_id and the value is the corresponding allele count.
+#' @examples
+#' pedigree <- list(
+#'   list(sample_id = "S1", kinship = "proband", status = "affected", sex = "male", code = 1),
+#'   list(sample_id = "S2", kinship = "father", status = "unaffected", sex = "male", code = 2),
+#'   list(sample_id = "S3", kinship = "mother", status = "unaffected", sex = "female", code = 3)
+#' )
+#' allele_table <- puzzlecore_compute_allele_table(pedigree, "Homozygous Recessive")
+#' print(allele_table)
+#' @export
+puzzlecore_compute_allele_table <- function(pedigree, inher) {
+  if (length(pedigree) == 0 || inher == "") return(list())
+  res <- list()
+  for (sample in pedigree) {
+    sid <- sample$sample_id
+    res[[sid]] <- puzzlecore_allele_count(inher, sample$status, sample$sex)
+    # cat("Sample:", sid, "Allele Count:", res[[sid]], "status:", sample$status, "sex:", sample$sex, "\n")
+  }
+  res
 }

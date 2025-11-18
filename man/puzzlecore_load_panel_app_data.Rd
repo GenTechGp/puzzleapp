@@ -18,7 +18,7 @@ Load and Process PanelApp Data
 This function loads PanelApp data from a specified file and processes it to extract relevant information.
 }
 \examples{
-# panel_app_genes <- load_panel_app_data("path/to/panelapp_file.tsv")
+# panel_app_genes <- puzzlecore_load_panel_app_data("path/to/panelapp_file.tsv")
 # Processed behavior of the Sources column:
 # Original Sources              -> Processed Sources
 # ------------------------------------------------

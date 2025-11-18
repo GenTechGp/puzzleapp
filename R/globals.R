@@ -8,5 +8,5 @@ utils::globalVariables(c(
   "consequence", "gene_symbol", "hpo_id", "i.HPO_COUNT",
   "i.HPO_ID", "i.INHERITANCE", "i.NOTES", "i.PANEL_APP",
   "i.PRIORITY", "kinship", "sample_id", "spliceai_override",
-  "term"
+  "term", "value"
 ))

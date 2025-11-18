@@ -422,7 +422,7 @@ collect_inputs <- function(input) {
       coverage  = input[[paste0("coverage_", i)]]
     )
   })
-  issues <- check_pedigree_sanity(samples)
+  issues <- puzzlecore_check_pedigree_sanity(samples)
   if (length(issues) > 0) {
     for (msg in issues) {
       messages <- c(messages, paste("Pedigree issue:", msg))

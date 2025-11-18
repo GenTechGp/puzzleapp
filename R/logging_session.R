@@ -374,3 +374,61 @@ log_timed <- function(label, expr, ..., .session = NULL, .fields = NULL, .user =
   force(expr)
   invisible(NULL)
 }
+
+
+#' Use minimal headless logging (lgr only; no token/ip/path/user fields)
+#'
+#' Call once in a non-Shiny/headless context (e.g. inside run_puzzle_pipeline)
+#' to suppress per-session fields and simplify console output.
+#'
+#' Effects:
+#'   - Disables token/ip/path/user via set_log_privacy(FALSE, ...)
+#'   - Ensures the 'shinyapp' logger has a console appender with a minimal layout.
+#'   - Does NOT alter file appenders (session JSONL logs keep full structured fields
+#'     unless you also call set_log_privacy(FALSE, ...) before starting session loggers).
+#'
+#' If you want JSON files ALSO to omit those fields, call use_headless_logging_lgr()
+#' BEFORE start_session_logger().
+#'
+#' @param layout Format string for console (default: \code{\%l [\%t] \%m}).
+#'   Tokens: \code{\%l} = level, \code{\%t} = timestamp, \code{\%m} = message.
+#' @param threshold Optional logging threshold override (e.g., "info", "debug").
+#'                  NULL leaves existing threshold unchanged.
+#' @return TRUE (invisibly)
+#' @export
+use_headless_logging_lgr <- function(layout = "%l [%t] %m",
+                                     threshold = NULL) {
+  if (!requireNamespace("lgr", quietly = TRUE)) {
+    stop("Package 'lgr' not installed; cannot configure logging.")
+  }
+
+  # Disable inclusion of session-derived fields globally.
+  set_log_privacy(include_token = FALSE,
+                  include_ip    = FALSE,
+                  include_path  = FALSE,
+                  include_user  = FALSE)
+
+  lg <- lgr::get_logger("shinyapp")
+
+  if (!is.null(threshold)) {
+    lg$set_threshold(threshold)
+  }
+
+  # Remove any existing console appender named "console-headless" to avoid duplicates.
+  if ("console-headless" %in% names(lg$appenders)) {
+    try(lg$remove_appender("console-headless"), silent = TRUE)
+  }
+
+  # Add (or replace) a minimal console appender.
+  lg$add_appender(
+    lgr::AppenderConsole$new(
+      layout = lgr::LayoutFormat$new(layout)
+    ),
+    name = "console-headless"
+  )
+
+  # Prevent propagation to root to avoid duplicate console prints.
+  lg$set_propagate(FALSE)
+
+  invisible(TRUE)
+}

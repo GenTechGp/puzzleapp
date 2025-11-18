@@ -83,6 +83,35 @@ puzzleapp/            <- Base folder (read-only for group users)
 * `saved_sessions/`: create new sample folders or session subdirs; cannot overwrite existing sessions of other users.
 * `saved_sessions/sample/`: add subdir freely; existing sessions (subdirs) from others are protected.
 
+## Command-line based pipeline
+
+Run the core variant filtering without Shiny web application. The pipeline is driven by:
+- a YAML config, and
+- a tab-delimited filter table with two columns: `Key` and `Value`.
+
+### Usage
+```
+library(puzzleapp)
+
+run_pipeline(
+  config_yaml = "path/to/config.yml",
+  filter_table = "path/to/filters.tsv",
+  mode = "both",                 # "snv", "sv", or "both"
+  output_dir = "pipeline_output",
+  nthreads = 4L,                 # threads for fread/processing
+  verbose = TRUE                 # progress messages
+)
+```
+
+### Parameters
+
+- config_yaml: Path to the pipeline YAML (e.g., tests/configs/samples.yml).
+- filter_table: Path to the two‑column filters file (e.g., tests/filters/*).
+- mode: One of "snv", "sv", or "both" (default: "both").
+- output_dir: Directory to write outputs (default: "pipeline_output").
+- nthreads: Number of threads for reading/processing (default: 4).
+- verbose: Whether to print progress messages (default: TRUE).
+
 ## Development
 
 ``` r

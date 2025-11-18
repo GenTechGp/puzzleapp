@@ -1,0 +1,30 @@
+SNV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant;Synonymous variant;5'UTR variant;3'UTR variant;Intron variant
+SNV_Pathogenicity	Pathogenic;Likely pathogenic;VUS;Conflicting;Not available
+SNV_SpliceAI score	
+SNV_REVEL	
+SNV_AlphaMissense	
+SNV_SIFT	
+SNV_PolyPhen	
+SNV_gnomADv4 AF	
+SNV_Affected only	TRUE
+SNV_Allele balance	
+SNV_Genotype quality	20
+SNV_Filter value	All variants
+SV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant;Synonymous variant;5'UTR variant;3'UTR variant;Intron variant
+SV_SV type	
+SV_Min SV Length	0
+SV_Max SV Length	0
+SV_gnomADv4 AF	0.001
+SV_Affected only	TRUE
+SV_Allele balance	0
+SV_Genotype quality	20
+SV_Filter value	All variants
+Inheritance	Dominant/De Novo
+PanelApp_Genes	Mendeliome
+Substract_PanelApp_Gene_Lists	
+Substract_PanelApp_Genes	
+Custom_Genes	
+Treat_Negative	FALSE
+Inheritance_PanelApp_Gene	FALSE
+HPO_Terms	; HP:0001257; HP:0100022
+PreSaved_Filter	Dominant_DeNovo_Permissive
