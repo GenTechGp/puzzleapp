@@ -112,6 +112,19 @@ run_pipeline(
 - nthreads: Number of threads for reading/processing (default: 4).
 - verbose: Whether to print progress messages (default: TRUE).
 
+
+## Preprocessing
+A one time preprocessing step is required to extract required information from the VCF files to create the SNV and SV tsv files.
+```
+library(puzzleapp)
+
+run_preprocess(
+  config_yaml = "path/to/config.yml",
+)
+```
+
+TODO: A documentation on the yaml file format will be added in the future.
+
 ## Development
 
 ``` r
