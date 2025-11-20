@@ -34,6 +34,16 @@ add_extra_columns <- function(dt) {
 puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
     data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
     data <- add_extra_columns(data)
+
+    factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR","GENE_ID", "GENE_SYMBOL")
+    for (col in factor_cols) {
+      if (col %in% names(data)) data[, (col) := as.factor(get(col))]
+    }
+    # and any column that starts with GT_
+    gt_cols <- grep("^GT_", names(data), value = TRUE)
+    for (col in gt_cols) {
+      data[, (col) := as.factor(get(col))]
+    }
     return(data)
 }
 

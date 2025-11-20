@@ -117,6 +117,8 @@ run_preprocess <- function(config_yaml,
       pedigree_data   = pedigree_data,
       snvs_vcf_cohort = snvs_vcf_cohort
     )
+
+    # snv_dt <- snv_dt[1:10000, ]
     data.table::fwrite(snv_dt, snvs_tsv, sep = "\t", quote = FALSE, na = "NA")
     result$snv_path <- snvs_tsv
     result$snv_dt <- snv_dt

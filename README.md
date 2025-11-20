@@ -58,7 +58,7 @@ run_app()
 3.  (Optional) File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
 ```
-    library(puzzleapp, lib="/g/data/if89/testdir/puzzleapp/app/31102025/Rlib")
+    library(puzzleapp, lib="/g/data/if89/testdir/puzzleapp/app/20112025/Rlib")
     run_app(port=8888) # change port if needed
 ```
 
@@ -119,7 +119,7 @@ A one time preprocessing step is required to extract required information from t
 library(puzzleapp)
 
 run_preprocess(
-  config_yaml = "path/to/config.yml",
+  config_yaml = "path/to/config.yml"
 )
 ```
 
