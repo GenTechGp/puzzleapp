@@ -1083,15 +1083,23 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           log_info(sprintf("[Data] Missing columns for ID %s: %s", as.character(id_clicked), paste(missing_cols, collapse = ", ")))
           return()
         }
+        var_type <- if("VAR_TYPE" %in% names(row)) row$VAR_TYPE[1] else NULL
+        if (is.null(var_type)){
+          log_info(sprintf("[Data] Missing VAR_TYPE for ID %s", as.character(id_clicked)))
+          return()
+        }
         chrom <- if ("CHROM" %in% names(row)) row$CHROM[1] else NULL
         pos <- if ("POS" %in% names(row)) row$POS[1] else NULL
         var_length <- if ("VAR_LENGTH" %in% names(row)) row$VAR_LENGTH[1] else NULL
-        log_info(sprintf("[Data] ID %s maps to CHROM=%s POS=%s VAR_LENGTH=%s", as.character(id_clicked), as.character(chrom), as.character(pos), as.character(var_length)))
+        alt <- if ("ALT" %in% names(row)) row$ALT[1] else NULL
+        log_info(sprintf("[Data] ID %s maps to CHROM=%s POS=%s VAR_LENGTH=%s VAR_TYPE=%s", as.character(id_clicked), as.character(chrom), as.character(pos), as.character(var_length), as.character(var_type)))
         info_list <- list(
           ID =  as.character(id_clicked),
           CHROM = as.character(chrom),
           POS = as.integer(pos),
-          VAR_LENGTH = as.integer(var_length)
+          VAR_LENGTH = as.integer(var_length),
+          ALT = as.character(alt),
+          VAR_TYPE = as.character(var_type)
         )
         # add to the shared_store$igv_data list
         shared_store$igv_data[["igv_info"]] <- info_list

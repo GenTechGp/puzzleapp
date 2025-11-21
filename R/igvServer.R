@@ -23,7 +23,7 @@ igv_server <- function(id, shared_store, shared_rx) {
       flanking <- input$igv_flanking %||% default_flanking
       max_window <- input$igv_max_window %||% default_max_window
       log_info(sprintf("flanking: %d  max_window: %d", flanking, max_window))
-      pos <- as.numeric(pos); len <- as.numeric(len %||% 0)
+      pos <- as.numeric(pos)
       start <- max(1, pos - flanking)
       end   <- max(start, pos + len + flanking)
       if ((end - start) > max_window) {
@@ -112,6 +112,21 @@ igv_server <- function(id, shared_store, shared_rx) {
       TRUE
     }
 
+    make_locus_from_alt <- function(alt) {
+      # ALT format: N[chrX:12345[ or ]chrX:12345]N
+      m <- regexec("[][](chr[^:]+):(\\d+)[][]", alt)
+      matches <- regmatches(alt, m)
+      if (length(matches) == 0 || length(matches[[1]]) < 3) {
+        showNotification(sprintf("Cannot parse ALT field for locus: %s", alt), type = "error")
+        return(NULL)
+      }
+      chrom <- matches[[1]][2]
+      pos <- as.numeric(matches[[1]][3])
+      locus <- make_locus(chrom, pos, 100)
+      log_info(sprintf("[igvServer] Parsed locus from ALT %s: %s", alt, locus))
+      locus
+    }
+
     # ---- Load tracks when IGV is ready ----
     observeEvent(input$igvReady, {
       log_info("[igvServer] IGV is ready, loading tracks...")
@@ -182,11 +197,15 @@ igv_server <- function(id, shared_store, shared_rx) {
         return()
       }
       log_info(sprintf("[igvServer] Received IGV version bump: %d", shared_rx$igv_version()))
-      # print only the values of the list 
-      log_info(sprintf("[igvServer] IGV info: %s", paste(names(igv_info), unlist(igv_info), sep = "=", collapse = ", ")))
-
       updateTextInput(session, "igv_var_id", value = igv_info$ID)
-      locus <- make_locus(igv_info$CHROM, igv_info$POS, igv_info$VAR_LENGTH %||% 0)
+      log_info(sprintf("[igvServer] IGV info: %s", paste(names(igv_info), unlist(igv_info), sep = "=", collapse = ", ")))
+      if (igv_info$VAR_TYPE == "BND" || igv_info$VAR_TYPE == "TRA") {
+        locus1 <- make_locus(igv_info$CHROM, igv_info$POS, 100)
+        locus2 <- make_locus_from_alt(igv_info$ALT)
+        locus <- paste(locus1, locus2, sep = ", ")
+      } else {
+        locus <- make_locus(igv_info$CHROM, igv_info$POS, igv_info$VAR_LENGTH %||% 100)
+      }
       updateTextInput(session, "genome_coords", value = locus)
       updateIgvViewer(locus, assembly_val())
     }, ignoreInit = FALSE)
@@ -228,8 +247,18 @@ igv_server <- function(id, shared_store, shared_rx) {
         showNotification(sprintf("Variant ID not found: %s", id), type = "error")
         return()
       }
+      if (is.null(var_row$VAR_TYPE)){
+        showNotification(sprintf("VAR_TYPE missing for variant ID: %s", id), type = "error")
+        return()
+      }
       log_info(sprintf("[igvServer] Found variant %s at %s:%d", id, var_row$CHROM, var_row$POS))
-      locus <- make_locus(var_row$CHROM, var_row$POS, var_row$VAR_LENGTH %||% 0)
+      if (var_row$VAR_TYPE == "BND" || var_row$VAR_TYPE == "TRA") {
+        locus1 <- make_locus(var_row$CHROM, var_row$POS, 100)
+        locus2 <- make_locus_from_alt(var_row$ALT)
+        locus <- paste(locus1, locus2, sep = ", ")
+      } else{
+        locus <- make_locus(var_row$CHROM, var_row$POS, var_row$VAR_LENGTH %||% 0)
+      }
       updateTextInput(session, "genome_coords", value = locus)
 
       updateIgvViewer(locus, assembly_val())
