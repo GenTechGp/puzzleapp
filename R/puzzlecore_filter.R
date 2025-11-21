@@ -284,15 +284,35 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
+      # Normalize input
+      filters$clinvar_filter <- gsub(" ", "_", filters$clinvar_filter)
       log_info("[filtServer][filter_dataset] Applying ClinVar filter")
-      # Main ClinVar condition
-      clinvar_filter_updated <- gsub("VUS", "uncertain", filters$clinvar_filter)
-      clinvar_pattern <- paste(sapply(clinvar_filter_updated, function(x) paste0("\\\\b", x, "\\\\b")), collapse = "|")
+
+      # Mapping for special cases
+      special_map <- list(
+        "VUS" = "uncertain",
+        "Conflicting" = "conflicting"
+      )
+
+      # Containers for pattern parts
+      word_boundary_terms <- c()
+      substring_terms <- c()
+      for (term in filters$clinvar_filter) {
+        if (term %in% names(special_map)) {
+          # special case → substring match (no word boundaries)
+          substring_terms <- c(substring_terms, special_map[[term]])
+        } else {
+          # normal case → strict word-boundary match
+          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+        }
+      }
+      # Combine all patterns into one regex
+      clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+
 
       # Add condition for "Not available" (i.e., NA values in CLINVAR)
       if ("Not available" %in% filters$clinvar_filter) {
-        clinvar_condition <- sprintf("(%s | is.na(CLINVAR))",
-                                     paste0("grepl('", clinvar_pattern, "', CLINVAR, ignore.case = TRUE)"))
+        clinvar_condition <- sprintf("(%s | is.na(CLINVAR))", paste0("grepl('", clinvar_pattern, "', CLINVAR, ignore.case = TRUE)"))
       } else {
         clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
       }
@@ -302,15 +322,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       # ClinVar override for specific terms
       override_patterns <- c()
       if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bPathogenic\\\\b")
-      if ("Likely pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely pathogenic\\\\b")
-      if ("uncertain" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\buncertain\\\\b")
+      if ("Likely_pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely_pathogenic\\\\b")
+      if ("VUS" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "uncertain")
 
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
-        clinvar_override_condition <- sprintf(
-          "(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < 0.05))",
-          override_pattern
-        )
+        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < 0.05))", override_pattern)
       }
     }
 
