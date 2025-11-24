@@ -6,7 +6,7 @@ AnnotUI <- function(ns, type = "snv") {
     "Stop gained", "Start lost", "Stop lost", "Splice variant",
     "Frameshift variant", "Missense variant", "In-frame variant",
     "Synonymous variant", "5'UTR variant", "3'UTR variant",
-    "Intron variant", "Other"
+    "Intron variant", "Intergenic variant", "Regulatory variant", "Other"
   )
   id_prefix <- if (type == "sv") "sv_" else ""
   ui_elements <- list(

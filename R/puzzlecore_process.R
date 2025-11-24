@@ -35,6 +35,11 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
     data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
     data <- add_extra_columns(data)
 
+    # CONSEQUENCE column has & symbol. replace with ;
+    if ("CONSEQUENCE" %in% names(data)) {
+      data[, CONSEQUENCE := gsub("&", ";", CONSEQUENCE)]
+    }
+
     factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR")
     # factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR","GENE_ID", "GENE_SYMBOL")
     for (col in factor_cols) {

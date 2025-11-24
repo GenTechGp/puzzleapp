@@ -12,3 +12,5 @@ tests/Scripts
 tests/dev_code
 tests/configs/real.yaml
 tests/preprocess_out/
+tests/out_snv/
+tests/filters/f3.tsv

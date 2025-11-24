@@ -36,6 +36,7 @@ ui <- fluidPage(
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Phenotype", dataUI("phenotype")),
+    tabPanel("VEP Consequences", dataUI("vep_consequences")),
     tabPanel("Logs", log_viewer_ui("log"))
   )
 )
@@ -78,6 +79,7 @@ server <- function(input, output, session) {
   igv_server("igv", shared_store, shared_rx)
   dataServer("panel_app", shared_store, shared_rx, "panel_app", "panel_app")
   dataServer("phenotype", shared_store, shared_rx, "phenotype", "phenotype", 1000000)
+  dataServer("vep_consequences", shared_store, shared_rx, "vep_consequences", "vep_consequences")
 
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
