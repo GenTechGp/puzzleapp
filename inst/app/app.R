@@ -36,8 +36,15 @@ ui <- fluidPage(
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Phenotype", dataUI("phenotype")),
-    tabPanel("VEP Consequences", dataUI("vep_consequences")),
-    tabPanel("Logs", log_viewer_ui("log"))
+    tabPanel("Logs", log_viewer_ui("log")),
+    tabPanel(
+      "Help",
+      tabsetPanel(
+        id = "help_tabs",
+        tabPanel("VEP Consequences", dataUI("vep_consequences"))
+        # tabPanel("Another Info", dataUI("another_info"))
+      )
+    )
   )
 )
 

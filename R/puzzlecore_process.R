@@ -40,6 +40,11 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
       data[, CONSEQUENCE := gsub("&", ";", CONSEQUENCE)]
     }
 
+    # CLINVAR column empty rows replace with "Not_available"
+    if ("CLINVAR" %in% names(data)) {
+      data[is.na(CLINVAR) | CLINVAR == "", CLINVAR := "Not_available"]
+    }
+
     factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR")
     # factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR","GENE_ID", "GENE_SYMBOL")
     for (col in factor_cols) {
