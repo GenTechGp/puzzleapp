@@ -286,10 +286,41 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
 #' @param svs_vcf_cohort Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)
 #' @return data.table
 #' @export
-process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
+process_sv_data <- function(svs_vcf, pedigree_data, 
+                            svs_vcf_cohort = NA, svlog = NULL) {
   cat("Processing SV VCF:", svs_vcf, "\n")
   if (!file.exists(svs_vcf)) stop("SV VCF file not found: ", svs_vcf)
-
+  svlog_dt <- NULL
+  if (!is.null(svlog)) {
+    if (!file.exists(svlog)) {
+      stop("SVlog file not found: ", svlog)
+    }
+    cat("Using SVlog table:", svlog, "\n")
+    svlog_dt <- data.table::fread(svlog, sep = "\t", header = TRUE)
+    
+    # 1) Rename variant_id -> ID (if present)
+    if ("variant_id" %in% names(svlog_dt)) {
+      data.table::setnames(svlog_dt, "variant_id", "ID")
+    }
+    
+    # 2) Capitalise all column names
+    data.table::setnames(
+      svlog_dt,
+      old = names(svlog_dt),
+      new = toupper(names(svlog_dt))
+    )
+    
+    # 3) Drop CHROM / START / END if present
+    cols_to_drop <- intersect(c("CHROM", "START", "END"), names(svlog_dt))
+    if (length(cols_to_drop)) {
+      svlog_dt[, (cols_to_drop) := NULL]
+    }
+    
+    # 4) Rename CONSEQUENCE -> SVLOG_CONSEQUENCE if present
+    if ("CONSEQUENCE" %in% names(svlog_dt)) {
+      data.table::setnames(svlog_dt, "CONSEQUENCE", "SVLOG_CONSEQUENCE")
+    }
+  }
   svs_data <- data.table::fread(cmd = paste("gunzip -c", svs_vcf),
                                 sep = "\t", skip = "#CHROM", header = TRUE)
   vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", svs_vcf),
@@ -313,7 +344,7 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
 
   data.table::setnames(svs_data, names(svs_data), gsub("#", "", names(svs_data)))
   svs_data[, VariantID := ID]
-  svs_data[, ID := paste0(CHROM, "_", POS, "_", .I)]
+  #svs_data[, ID := paste0(CHROM, "_", POS, "_", .I)]
 
   id_vars <- setdiff(names(svs_data), trio)
   svs_data_melt <- data.table::melt(
@@ -395,6 +426,24 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
   svs_data_melt[, SpliceAI_pred := NA_character_]
   svs_data_melt[, SVTYPE := sub(".*SVTYPE=([^;]*);.*", "\\1", INFO)]
   svs_data_melt[, SVLEN := suppressWarnings(as.numeric(sub(".*SVLEN=([^;]*);.*", "\\1", INFO)))]
+  
+  svscanner_tags <- c(
+    "RM_CLASSIFICATION", "RM_RECIPROCAL", "RM_TOTAL_SV_COVERAGE",
+    "TRF_CLASSIFICATION", "TRF_SV_COVERAGE", "TRF_PERIOD_SIZE",
+    "TRF_COPY_NUMBER", "TRF_TOTAL_SV_COVERAGE",
+    "CONSENSUS_REPEAT", "FINAL_CLASSIFICATION"
+  )
+  
+  for (tag in svscanner_tags) {
+    colname <- tag
+    if (!colname %in% names(svs_data_melt)) {
+      svs_data_melt[, (colname) := ifelse(
+        grepl(paste0("(^|;)", tag, "="), INFO),
+        sub(paste0(".*", tag, "=([^;]*).*"), "\\1", INFO),
+        NA_character_
+      )]
+    }
+  }
 
   num_samples <- nrow(pedigree_data)
   ad_cols <- paste0("AD_", seq_len(num_samples))
@@ -448,6 +497,7 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
   for (col in required_cols) if (!col %in% names(svs_data_melt)) svs_data_melt[[col]] <- NA
 
   # ADD legacy columns (CADD + SpliceAI component placeholders) to SV core
+  # core: keep your usual columns + SVscanner tags
   core <- svs_data_melt[, .(
     ID,
     CATEGORY = "SV",
@@ -459,29 +509,36 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
     GENE_SYMBOL = SYMBOL,
     TRANSCRIPT = Feature,
     HGVSg, HGVSc, HGVSp,
-    CONSEQUENCE = Consequence,
-    CLINVAR = CLIN_SIG,
-    CLINVAR_ID,
-    gnomAD_ID,
-    AF,
-    N_HOM_ALT = suppressWarnings(as.numeric(gnomAD_sv_N_HOMALT)),
-    N_Cohort,
-    SIFT, PolyPhen,
-    REVEL = NA_real_,
-    am_class = NA_character_,
-    am_pathogenicity = NA_character_,
-    CADD_PHRED, CADD_RAW,
-    SpliceAI_pred,
-    Donor_Loss = NA_real_,
-    Donor_Gain = NA_real_,
-    Acceptor_Loss = NA_real_,
-    Acceptor_Gain = NA_real_
+    VEP_CONSEQUENCE = Consequence,
+    RM_CLASSIFICATION,
+    RM_RECIPROCAL,
+    RM_TOTAL_SV_COVERAGE,
+    TRF_CLASSIFICATION,
+    TRF_SV_COVERAGE,
+    TRF_PERIOD_SIZE,
+    TRF_COPY_NUMBER,
+    TRF_TOTAL_SV_COVERAGE,
+    CONSENSUS_REPEAT,
+    FINAL_CLASSIFICATION
   )]
 
   full <- cbind(core, svs_data_melt[, c(ad_cols, dp_cols, vaf_cols, gt_cols, gq_cols), with = FALSE])
-
-  full[, CLINVAR := stringr::str_replace_all(CLINVAR, "&", ",")]
-  full[CLINVAR == "", CLINVAR := NA]
+  
+  # If SVlog table is present, merge it in by ID
+  if (!is.null(svlog_dt)) {
+    # Avoid overwriting shared columns apart from ID
+    overlap <- intersect(names(svlog_dt), names(full))
+    overlap <- setdiff(overlap, "ID")
+    if (length(overlap)) {
+      data.table::setnames(
+        svlog_dt,
+        old = overlap,
+        new = paste0("SVLOG_", overlap)
+      )
+    }
+    
+    full <- merge(full, svlog_dt, by = "ID", all = TRUE)
+  }
 
   for (col_name in grep("^GT_", names(full), value = TRUE)) {
     idx <- tstrsplit(col_name, "_", fixed = TRUE)[[2]]
