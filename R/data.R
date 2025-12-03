@@ -9,6 +9,28 @@
 dataUI <- function(id) {
   ns <- NS(id)
   tagList(
+    tags$style(HTML(sprintf("
+      /* scope rules to the DT container so we don't affect other selectize widgets */
+      #%s table.dataTable thead .selectize-control .selectize-dropdown,
+      #%s table.dataTable thead .selectize-control .selectize-dropdown .selectize-dropdown-content,
+      #%s table.dataTable thead .selectize-control .selectize-dropdown .option {
+        white-space: nowrap !important;
+        max-width: none !important;
+        overflow-x: auto !important;
+        overflow-y: auto !important;
+        box-sizing: content-box !important;
+      }
+      #%s table.dataTable thead .selectize-control .selectize-dropdown {
+        width: auto !important;
+        min-width: 0 !important;
+        z-index: 2000 !important;
+      }
+      #%s table.dataTable thead .selectize-control .selectize-dropdown-content .option {
+        display: block !important;
+        white-space: nowrap !important;
+        padding-right: 16px !important;
+      }
+    ", ns("tbl"), ns("tbl"), ns("tbl"), ns("tbl"), ns("tbl")))),
     tags$style(HTML("
       /* DT ColVis dropdown: single column with ~20 items visible and vertical scroll */
       div.dt-button-collection {
@@ -18,18 +40,6 @@ dataUI <- function(id) {
       }
     ")),
     if (exists("dataset_specific_css")) dataset_specific_css(),
-    # fluidRow(
-    #   column(5,),
-    #   column(2,
-    #     tags$div(strong("Active dataset:"), textOutput(ns("active_label"), inline = TRUE)),
-    #   ),
-    #   column(2,
-    #     selectInput(ns("dataset_select"), label = NULL, choices = character(0)),
-    #   ),
-    #   column(1,
-    #     actionButton(ns("use_dataset"), "Switch dataset")
-    #   )
-    # ),
     DTOutput(ns("tbl")),
     tags$script(HTML(sprintf("
     Shiny.addCustomMessageHandler('%s', function(txt) {
@@ -72,8 +82,7 @@ dataUI <- function(id) {
         if (console && console.error) console.error('set_splice_threshold handler error', e);
       }
     });
-    ", ns("set_splice_threshold"), ns("tbl"), ns("set_splice_thresho ld"))))
-
+    ", ns("set_splice_threshold"), ns("tbl"), ns("set_splice_threshold"))))
   )
 }
 
