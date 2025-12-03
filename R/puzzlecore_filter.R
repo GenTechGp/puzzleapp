@@ -299,6 +299,9 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     if (!is.null(filters$revel_value) && filters$revel_value > 0) {
       filter_expression <- add_filter_condition(filter_expression, sprintf("(is.na(REVEL) | REVEL >= %f)", filters$revel_value))
     }
+
+    override_threshold <- if (isTRUE(filters$use_af)) filters$af_value else 0.05
+
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
       # Normalize input
@@ -344,19 +347,20 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
-        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < 0.05))", override_pattern)
+        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, override_threshold)
       }
     }
 
     # SpliceAI override
-    if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
+      if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
       log_info("[filtServer][filter_dataset] Applying SpliceAI override filter")
       spliceai_override_condition <- sprintf(
-        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f)",
+        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f) & (is.na(AF) | AF < 0.05)",
         filters$spliceai_filter,
         filters$spliceai_filter,
         filters$spliceai_filter,
-        filters$spliceai_filter
+        filters$spliceai_filter,
+        override_threshold
       )
     }
 

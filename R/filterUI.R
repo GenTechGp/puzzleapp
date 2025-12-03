@@ -70,7 +70,10 @@ FreqUI <- function(ns, label) {
   prefix <- ifelse(label == "sv", "sv_", "")
   tagList(
     h4("Frequency"),
-    selectInput(ns(paste0(prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1)
+    selectInput(ns(paste0(prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    if (label == "snv"){
+      checkboxInput(ns(paste0(prefix, "use_af")), "Use for clinvar and spliceAI override filters", value = FALSE)
+    }
   )
 }
 
