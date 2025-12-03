@@ -204,12 +204,12 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
   snvs_data_melt[AF > 0, gnomAD_ID :=
     paste0(stringr::str_remove(CHROM, "chr"), "-", POS, "-", REF, "-", ALT)]
   snvs_data_melt[AF > 0 & !is.na(gnomAD_ID), gnomAD_ID := sprintf(
-    '<a href="https://gnomad.broadinstitute.org/variant/%s?dataset=gnomad_r4" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">%s</a>',
+    '<a href="https://gnomad.broadinstitute.org/variant/%s?dataset=gnomad_r4" target="_blank">%s</a>',
     gnomAD_ID, gnomAD_ID
   )]
 
   snvs_data_melt[!is.na(ClinVar) & ClinVar != "", CLINVAR_ID := sprintf(
-    '<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/%s/" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">%s</a>',
+    '<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/%s/" target="_blank">%s</a>',
     ClinVar, ClinVar
   )]
 
@@ -411,7 +411,7 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
   if ("gnomAD_sv" %in% names(svs_data_melt)) {
     svs_data_melt[, gnomAD_ID := sub(".*?(DEL|DUP|INV|INS|CNV|TRA|BND)_", "\\1_", gnomAD_sv)]
     svs_data_melt[AF > 0 & !is.na(gnomAD_ID), gnomAD_ID := sprintf(
-      '<a href="https://gnomad.broadinstitute.org/variant/%s?dataset=gnomad_sv_r4" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">%s</a>',
+      '<a href="https://gnomad.broadinstitute.org/variant/%s?dataset=gnomad_sv_r4" target="_blank">%s</a>',
       gnomAD_ID, gnomAD_ID
     )]
   } else {
@@ -419,7 +419,7 @@ process_sv_data <- function(svs_vcf, pedigree_data, svs_vcf_cohort = NA) {
   }
   if ("ClinVar" %in% names(svs_data_melt)) {
     svs_data_melt[!is.na(ClinVar) & ClinVar != "", CLINVAR_ID := sprintf(
-      '<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/%s/" target="_blank" style="color: blue; text-decoration: underline; cursor: pointer;">%s</a>',
+      '<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/%s/" target="_blank">%s</a>',
       ClinVar, ClinVar
     )]
   } else {
