@@ -352,10 +352,10 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
 
     # SpliceAI override
-      if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
+    if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
       log_info("[filtServer][filter_dataset] Applying SpliceAI override filter")
       spliceai_override_condition <- sprintf(
-        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f) & (is.na(AF) | AF < 0.05)",
+        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f) & (is.na(AF) | AF < %f)",
         filters$spliceai_filter,
         filters$spliceai_filter,
         filters$spliceai_filter,

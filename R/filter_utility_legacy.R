@@ -44,7 +44,8 @@ get_snv_filters <- function(input, phenos) {
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
     hpo_terms_list = phenos,
-    affected_only = input$affected_switch
+    affected_only = input$affected_switch,
+    use_af = input$use_af
   )
   return(snv_filters)
 }
