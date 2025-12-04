@@ -314,30 +314,43 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         "Conflicting" = "conflicting"
       )
 
-      # Containers for pattern parts
-      word_boundary_terms <- c()
-      substring_terms <- c()
-      for (term in filters$clinvar_filter) {
-        if (term %in% names(special_map)) {
-          # special case → substring match (no word boundaries)
-          substring_terms <- c(substring_terms, special_map[[term]])
-        } else {
-          # normal case → strict word-boundary match
-          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+      if ("Other" %in% filters$clinvar_filter) {
+        # Exclude all explicit categories except those explicitly selected alongside "Other"
+        explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
+        selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
+        exclude_explicit <- setdiff(explicit_terms, selected_explicit)
+
+        if (length(exclude_explicit) > 0) {
+          word_boundary_terms <- c()
+          substring_terms <- c()
+          for (term in exclude_explicit) {
+            if (term %in% names(special_map)) {
+              substring_terms <- c(substring_terms, special_map[[term]])
+            } else {
+              word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+            }
+          }
+          clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+          negation_expr <- sprintf("!grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
         }
-      }
-      # Combine all patterns into one regex
-      clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-
-
-      # Add condition for "Not available" (i.e., NA values in CLINVAR)
-      if ("Not available" %in% filters$clinvar_filter) {
-        clinvar_condition <- sprintf("(%s | is.na(CLINVAR))", paste0("grepl('", clinvar_pattern, "', CLINVAR, ignore.case = TRUE)"))
       } else {
+        word_boundary_terms <- c()
+        substring_terms <- c()
+        for (term in filters$clinvar_filter) {
+          if (term %in% names(special_map)) {
+            # special case → substring match (no word boundaries)
+            substring_terms <- c(substring_terms, special_map[[term]])
+          } else {
+            # normal case → strict word-boundary match
+            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+          }
+        }
+        # Combine all patterns into one regex
+        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
         clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+        filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
       }
-      #clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-      filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
 
       # ClinVar override for specific terms
       override_patterns <- c()

@@ -28,7 +28,7 @@ snvPathoUI <- function(ns) {
   snv_pathogenicity_clinvar_select_opts <- c("None", "Pathogenic/Likely pathogenic", "Not benign")
   snv_pathogenicity_clinvar_opts <- c(
     "Pathogenic", "Likely pathogenic", "VUS", "Conflicting",
-    "Benign", "Likely benign", "Not available"
+    "Benign", "Likely benign", "Not available", "Other"
   )
   tagList(
     h4("Pathogenicity"),
