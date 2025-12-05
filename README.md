@@ -58,9 +58,10 @@ run_app()
 3.  (Optional) File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
 ```
-  d <- sort(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE), TRUE)[1]
-  cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
-  library(puzzleapp, lib.loc = lib); run_app(port = 8888) # change port if needed
+dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
+d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
+cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
+.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8989) # change port if needed
 ```
 
 ## Working directory (shared-safe mode)
