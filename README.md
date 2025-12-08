@@ -98,7 +98,6 @@ library(puzzleapp)
 run_pipeline(
   config_yaml = "path/to/config.yml",
   filter_table = "path/to/filters.tsv",
-  mode = "both",                 # "snv", "sv", or "both"
   output_dir = "pipeline_output",
   nthreads = 4L,                 # threads for fread/processing
   verbose = TRUE                 # progress messages
@@ -109,7 +108,6 @@ run_pipeline(
 
 - config_yaml: Path to the pipeline YAML (e.g., tests/configs/samples.yml).
 - filter_table: Path to the two‑column filters file (e.g., tests/filters/*).
-- mode: One of "snv", "sv", or "both" (default: "both").
 - output_dir: Directory to write outputs (default: "pipeline_output").
 - nthreads: Number of threads for reading/processing (default: 4).
 - verbose: Whether to print progress messages (default: TRUE).

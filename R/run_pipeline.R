@@ -12,7 +12,6 @@
 #'
 #' @param config_yaml Path to pipeline YAML (see pipeline_samples.yml schema)
 #' @param filter_table Path to the two-column filters file (Key<TAB>Value)
-#' @param mode One of "snv", "sv", "both" (default: "both")
 #' @param output_dir Directory to write outputs (default: "pipeline_output")
 #' @param nthreads Integer threads used for fread (default: 4)
 #' @param verbose Logical for progress messages (default: TRUE)
@@ -21,7 +20,6 @@
 run_pipeline <- function(
   config_yaml,
   filter_table,
-  mode = "both",
   output_dir = "pipeline_output",
   nthreads = 4L,
   verbose = TRUE
@@ -36,10 +34,6 @@ run_pipeline <- function(
   }
 
   stopifnot(file.exists(config_yaml), file.exists(filter_table))
-  mode <- tolower(mode)
-  if (!mode %in% c("snv", "sv", "both")) {
-    stop("mode must be one of: snv, sv, both")
-  }
 
   # Ensure output dir
   if (!dir.exists(output_dir)) {
@@ -100,57 +94,45 @@ run_pipeline <- function(
     allele_count = unlist(allele_counts, use.names = FALSE)
   )
 
-  # Run SNV
-  result_snv <- NULL
-  if (mode %in% c("snv", "both")) {
-    snv_path <- cfg$paths$snvs_tsv %||% ""
-    result_snv <- puzzlecore_read_variant_tsv(snv_path, nthreads = nthreads)
-    if (!is.null(result_snv)) {
-      if (verbose) message(sprintf("[pipeline] SNV input rows: %s", nrow(result_snv)))
-      result_snv <- puzzlecore_variant_filter(
-        data             = result_snv,
-        filters          = filters_snv,
-        pedigree         = pedigree,
-        allele_tab       = allele_counts_dt,
-        panel_app_genes  = panel_app_genes,
-        vep_consequences = vep_consequences,
-        phenotype_data   = phenotype_data,
-        is_snv           = TRUE
-      )
-      if (verbose) message(sprintf("[pipeline] SNV filtered rows: %s", nrow(result_snv)))
-      out_snv <- file.path(output_dir, "filtered_snv.tsv")
-      write.table(result_snv, file = out_snv, sep = "\t", row.names = FALSE, quote = FALSE)
-      if (verbose) message("[pipeline] Wrote: ", out_snv)
-    } else if (verbose) {
-      message("[pipeline] SNV path not found or empty: ", snv_path)
-    }
+  snv_path <- cfg$paths$snvs_tsv %||% ""
+  sv_path  <- cfg$paths$svs_tsv  %||% ""
+  if (!file.exists(snv_path)) {
+    stop("SNV TSV file does not exist: ", snv_path)
   }
+  if (!file.exists(sv_path)) {
+    stop("SV TSV file does not exist: ", sv_path)
+  }
+  snv_data <- puzzlecore_read_variant_tsv(snv_path, nthreads = nthreads)
+  sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads)
 
-  # Run SV
-  result_sv <- NULL
-  if (mode %in% c("sv", "both")) {
-    sv_path <- cfg$paths$svs_tsv %||% ""
-    result_sv <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads)
-    if (!is.null(result_sv)) {
-      if (verbose) message(sprintf("[pipeline] SV input rows: %s", nrow(result_sv)))
-      result_sv <- puzzlecore_variant_filter(
-        data             = result_sv,
-        filters          = filters_sv,
-        pedigree         = pedigree,
-        allele_tab       = allele_counts_dt,
-        panel_app_genes  = panel_app_genes,
-        vep_consequences = vep_consequences,
-        phenotype_data   = phenotype_data,
-        is_snv           = FALSE
-      )
-      if (verbose) message(sprintf("[pipeline] SV filtered rows: %s", nrow(result_sv)))
-      out_sv <- file.path(output_dir, "filtered_sv.tsv")
-      write.table(result_sv, file = out_sv, sep = "\t", row.names = FALSE, quote = FALSE)
-      if (verbose) message("[pipeline] Wrote: ", out_sv)
-    } else if (verbose) {
-      message("[pipeline] SV path not found or empty: ", sv_path)
-    }
-  }
+  filtered_data <- puzzlecore_variant_filter(
+    snv_data = snv_data,
+    sv_data = sv_data,
+    snv_filters = filters_snv,
+    sv_filters = filters_sv,
+    pedigree = pedigree,
+    allele_tab = allele_counts_dt,
+    panel_app_genes = panel_app_genes,
+    vep_consequences = vep_consequences,
+    phenotype_data = phenotype_data
+  )
+  result_snv <- filtered_data$snv
+  result_sv <- filtered_data$sv
+  if (verbose) message(sprintf("[pipeline] SNV filtered rows: %s", nrow(result_snv)))
+  if (verbose) message(sprintf("[pipeline] SV filtered rows: %s", nrow(result_sv)))
+  # cat("colnames SNV:", paste(colnames(result_snv), collapse = ", "), "\n")
+  out_snv <- file.path(output_dir, "filtered_snv.tsv")
+  write.table(result_snv, file = out_snv, sep = "\t", row.names = FALSE, quote = FALSE)
+  if (verbose) message("[pipeline] Wrote: ", out_snv)
+  out_sv <- file.path(output_dir, "filtered_sv.tsv")
+  write.table(result_sv, file = out_sv, sep = "\t", row.names = FALSE, quote = FALSE)
+  if (verbose) message("[pipeline] Wrote: ", out_sv)
+
+  cat("Pipeline completed successfully.\n")
+  invisible(list(
+    snv_result = result_snv,
+    sv_result = result_sv
+  ))
 }
 
 # ---------- Internal helpers (not exported) ----------

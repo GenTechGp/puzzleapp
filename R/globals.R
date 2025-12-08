@@ -24,5 +24,5 @@ utils::globalVariables(c(
   "PolyPhen", "REVEL", "am_class", "am_pathogenicity", "CADD_PHRED",
   "CADD_RAW", "CLINVAR", "Genotype", "VariantIndex", "GT",
   "AlleleCount", "SVTYPE", "SVLEN", "gnomAD_sv_AF", "gnomAD_sv",
-  "gnomAD_sv_N_HOMALT", "IDLIST", "IDLIST_VEC"
+  "gnomAD_sv_N_HOMALT", "IDLIST", "IDLIST_VEC", "CONSEQUENCE", "VAR_TYPE", "CATEGORY"
 ))

@@ -528,10 +528,16 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
     comp_hets <- merge(comp_hets_1, comp_hets_2, by = "GENE_SYMBOL", all = TRUE)[VAR_COUNT_1 > 0 & VAR_COUNT_2 > 0]
     all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% comp_hets$GENE_SYMBOL]
   } else {
-    comp_hets <- all_filtered_data[
-      alt_allele_count_1 == 1 &  # Proband is heterozygous
-        ((GT_2 == "1|0" & GT_3 == "0|1") | (GT_2 == "0|1" & GT_3 == "1|0")),  # Opposite inheritance from parents
-      .(VAR_COUNT = .N), by = GENE_SYMBOL]
+    mom_code <- pedigree$code[pedigree$kinship == "mother"]
+    dad_code <- pedigree$code[pedigree$kinship == "father"]
+    mom_gt_col <- paste0("GT_", mom_code)
+    dad_gt_col <- paste0("GT_", dad_code)
+    mom <- all_filtered_data[[mom_gt_col]]
+    dad <- all_filtered_data[[dad_gt_col]]
+    het <- all_filtered_data[["alt_allele_count_1"]] == 1 # Proband is heterozygous
+    cond1 <- het & mom == "1|0" & dad == "0|1" # Inherited from different parents
+    cond2 <- het & mom == "0|1" & dad == "1|0" # Inherited from different parents
+    comp_hets <- all_filtered_data[cond1 | cond2, .(VAR_COUNT = .N), by = GENE_SYMBOL]
     # Keep genes where at least 2 variants exist and are inherited from different parents
     valid_genes <- comp_hets[VAR_COUNT > 1, GENE_SYMBOL]
     all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% valid_genes]
@@ -541,25 +547,46 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
 
 # export this function in roxygen
 #' Variant filtering function for SNVs and SVs
-#' @param data Data table of variants (SNVs or SVs)
-#' @param filters List of filter parameters
+#' @param snv_data Data table of SNV variants
+#' @param sv_data Data table of SV variants
+#' @param snv_filters List of SNV filter parameters
+#' @param sv_filters List of SV filter parameters
 #' @param pedigree Data table representing the pedigree information
 #' @param allele_tab Data table of allele counts
 #' @param panel_app_genes Data table of PanelApp genes
 #' @param vep_consequences Data table of VEP consequences
 #' @param phenotype_data Data table of phenotype information
-#' @param is_snv Logical indicating if the data is SNVs (TRUE) or SVs (FALSE)
 #' @return Filtered data table of variants after applying filters and compound heterozygous filtering
 #' @export
-puzzlecore_variant_filter <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
-    variant_type <- if (is_snv) "SNV" else "SV"
-    log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", variant_type))
-    filter_time <- system.time({
-      filtered_data <- filter_dataset(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv)
-    })
-    log_info(sprintf("nrow(filtered_data): %d", nrow(filtered_data)))
-    log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
-    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, filters)
+puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
+  log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SNV"))
+  filter_time <- system.time({
+    snv_filtered_data <- filter_dataset(snv_data, snv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, TRUE)
+  })
+  log_info(sprintf("nrow(filtered_data): %d", nrow(snv_filtered_data)))
+  log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
+
+  log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SV"))
+  filter_time <- system.time({
+    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE)
+  })
+  log_info(sprintf("nrow(filtered_data): %d", nrow(sv_filtered_data)))
+  log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
+  
+  # Only combine and apply compound het if requested
+  if (!is.null(snv_filters$inheritance_filter) && snv_filters$inheritance_filter == "Compound Heterozygous") {
+    # Combine, allowing empty inputs
+    filtered_data <- data.table::rbindlist(list(snv_filtered_data, sv_filtered_data), use.names = TRUE, fill = TRUE)
+    log_info(sprintf("nrow(combined filtered_data): %d", nrow(filtered_data)))
+
+    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, snv_filters)
     log_info(sprintf("nrow(filtered_data_comphet): %d", nrow(filtered_data_comphet)))
-    return(filtered_data_comphet)
+
+    # Separate back purely by CATEGORY (no ID or gene logic)
+    snv_out <- filtered_data_comphet[CATEGORY == "SNV & Indel"]
+    sv_out  <- filtered_data_comphet[CATEGORY == "SV"]
+    return(list(snv = snv_out, sv = sv_out))
+  }
+  # Passthrough when not Compound Heterozygous (no combine)
+  return(list(snv = snv_filtered_data, sv = sv_filtered_data))
 }

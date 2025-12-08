@@ -127,6 +127,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shiny::updateActionButton(session, "load_data", disabled = TRUE)
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
+        shiny::updateActionButton(session, "load_data", disabled = FALSE)
         return()
       }
       clear_shared_store()
