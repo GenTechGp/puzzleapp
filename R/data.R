@@ -485,10 +485,11 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           selection = "none",
           escape = FALSE,
           rownames = FALSE,
-          extensions = c("ColReorder", "Buttons"),
+          extensions = c("ColReorder", "Buttons", "SearchBuilder"),
           editable = list(target = "cell", numeric = "none"),
           options = list(
-            dom = "Blfrtip",
+            dom = "BlfrtipQ",
+            searchBuilder = TRUE,
             buttons = list(
               list(
                 extend = "colvis",

@@ -44,6 +44,11 @@ ui <- fluidPage(
     .nav-tabs > li > a:hover {
       filter: brightness(0.95);
     }
+    /* Active tab highlight */
+    .nav-tabs > li.active > a {
+        border-bottom: 2px solid #007bff !important;
+        font-weight: bold;
+    }
   "))),
   shinyjs::useShinyjs(),
   tabsetPanel(
