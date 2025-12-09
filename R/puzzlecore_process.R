@@ -32,9 +32,9 @@ add_extra_columns <- function(dt) {
 #' # variant_data <- puzzlecore_read_variant_tsv("path/to/variant_file.tsv", nthreads = 4)
 #' @export
 puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
-    # data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
+    data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
     # read only 2000 rows for testing
-    data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"), nrows = 2000)
+    # data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"), nrows = 2000)
 
     data <- add_extra_columns(data)
 
