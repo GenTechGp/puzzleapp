@@ -230,18 +230,34 @@ run_pipeline <- function(
     sv_features                            = as_vec("SV_SV type"),
     panelapp_filter                        = as_vec("PanelApp_Genes"),
     custom_genes                           = as_vec("Custom_Genes"),
-    substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Genes_Lists"),
+    # same key fix here
+    substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Gene_Lists"),
     substract_panelapp_genes_filter        = as_vec("Substract_PanelApp_Genes"),
     hpo_terms_list                         = as_vec("HPO_Terms"),
 
+    clinvar_filter                         = as_vec("SV_Pathogenicity"),
+    classification_filter                  = as_vec("SV_Classification"),
+    
     # Numerics -> NULL when blank
-    af_value             = as_num("SV_gnomADv4 AF"),
-    min_svlen            = as_num("SV_Min SV Length"),
-    max_svlen            = as_num("SV_Max SV Length"),
-    genotype_quality_value = as_num("SV_Genotype quality"),
-    allele_balance_value   = as_num("SV_Allele balance"),
-    inheritance_filter     = as_scalar_str("Inheritance"),
-
+    af_value                 = as_num("SV_SVlog_gnomAD_AF"),
+    min_svlen                = as_num("SV_Min SV Length"),
+    max_svlen                = as_num("SV_Max SV Length"),
+    genotype_quality_value   = as_num("SV_Genotype quality"),
+    allele_balance_value     = as_num("SV_Allele balance"),
+    inheritance_filter       = as_scalar_str("Inheritance"),
+    
+    # SVlog specific numeric filters
+    svlog_min_recip_overlap   = as_num("SV_SVlog_min_recip_overlap"),
+    svlog_max_break_distance  = as_num("SV_SVlog_max_break_distance"),
+    svlog_max_abs_dlen        = as_num("SV_SVlog_max_abs_dlen"),
+    svlog_gnomad_af           = as_num("SV_SVlog_gnomAD_AF"),
+    svlog_1000g_max_carriers  = as_num("SV_SVlog_1000G_max_carriers"),
+    svlog_internal_max_carriers = as_num("SV_SVlog_internal_max_carriers"),
+    svlog_internal_max_families = as_num("SV_SVlog_internal_max_families"),
+    
+    # SVlog matching mode (string)
+    svlog_matching_mode       = as_scalar_str("SV_SVlog_matching_mode"),
+    
     # Booleans
     treat_negative             = as_bool("Treat_Negative", FALSE),
     affected_only              = as_bool("SV_Affected only", FALSE),

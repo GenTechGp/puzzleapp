@@ -68,7 +68,7 @@ text_filter <- function(column, values) {
 quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
   if (!is.null(filters$af_value) && filters$af_value < 1) 
-    conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
+    #conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
 
   # check if pedigree samples have status "affected" if so get their codes
   gq_vars <- grep("^GQ_", colnames(data), value = TRUE)
@@ -224,7 +224,7 @@ apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
 }
 
 # Generic filter function for SNVs and SVs
-filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
+filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE, svlog_db = NULL) {
   # Return NULL immediately if input is NULL
   if (is.null(data)) return(NULL)
   if (nrow(data) == 0) return(data)
@@ -273,13 +273,13 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       specific_list <- setdiff(specific_list, mapped_other_terms)
     }
     if (length(specific_list) > 0) {
-      negation_expr <- sprintf("!grepl('%s', CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
+      negation_expr <- sprintf("!grepl('%s', VEP_CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
       filter_expression <- add_filter_condition(filter_expression, negation_expr)
     }
   } else {
     filter_expression <- add_filter_condition(
       filter_expression,
-      text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
+      text_filter("VEP_CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
     )
   }
 
@@ -388,6 +388,64 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
     if (!is.null(filters$max_svlen) && filters$max_svlen > 0) {
       filter_expression <- add_filter_condition(filter_expression, sprintf("VAR_LENGTH <= %d", filters$max_svlen))
+    }
+    if (!is.null(filters$classification_filter) &&
+        length(filters$classification_filter) > 0) {
+      
+      # exact match on FINAL_CLASSIFICATION
+      # (assumes TSV values == FINAL_CLASSIFICATION values)
+      cls_vals <- paste(sprintf("'%s'", filters$classification_filter),
+                        collapse = ", ")
+      class_expr <- sprintf(
+        "FINAL_CLASSIFICATION %%in%% c(%s)",
+        cls_vals
+      )
+      filter_expression <- add_filter_condition(filter_expression, class_expr)
+      log_info("[filtServer][filter_dataset] Applying FINAL_CLASSIFICATION filter")
+    }
+    if (!is.null(svlog_db)) {
+      
+      log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")
+      
+      # keep a copy of original data before SVlog merge
+      data_before_svlog <- data
+      
+      # IDs that have *no* entry in svlog_db at all
+      if (!"ID" %in% names(data)) {
+        stop("SV data does not contain 'ID' column, required for SVlog merge.")
+      }
+      if (!"ID" %in% names(svlog_db)) {
+        stop("svlog_db does not contain 'ID' column, required for SVlog merge.")
+      }
+      
+      ids_no_svlog <- setdiff(
+        unique(data$ID),
+        unique(svlog_db$ID)
+      )
+      
+      svlog_summary <- filter_svlog_to_wide(
+        svlog_db  = svlog_db,
+        sv_filters = filters
+      )
+      
+      # inner join: only IDs with passing SVlog evidence survive here
+      data <- merge(
+        data,
+        svlog_summary,
+        by = "ID"
+      )
+      log_info(sprintf("[filtServer][filter_dataset] SVlog filter: %d variants with passing SVlog database evidence", nrow(data)))
+      # rescue variants that had no SVlog record at all
+      if (length(ids_no_svlog) > 0) {
+        rescued <- data_before_svlog[ID %in% ids_no_svlog]
+        log_info(sprintf("[filtServer][filter_dataset] SVlog rescue: %d variants had no SVlog record and were kept unfiltered", nrow(rescued)))
+        # bind them back; they will have NA in the SVlog columns
+        data <- data.table::rbindlist(
+          list(data, rescued),
+          use.names = TRUE,
+          fill = TRUE
+        )
+      }
     }
   }
 
@@ -534,15 +592,248 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
 #' @param is_snv Logical indicating if the data is SNVs (TRUE) or SVs (FALSE)
 #' @return Filtered data table of variants after applying filters and compound heterozygous filtering
 #' @export
-puzzlecore_variant_filter <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
+puzzlecore_variant_filter <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE, svlog_db = NULL) {
     variant_type <- if (is_snv) "SNV" else "SV"
     log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", variant_type))
     filter_time <- system.time({
-      filtered_data <- filter_dataset(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv)
+      filtered_data <- filter_dataset(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv,svlog_db)
     })
     log_info(sprintf("nrow(filtered_data): %d", nrow(filtered_data)))
     log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
     filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, filters)
     log_info(sprintf("nrow(filtered_data_comphet): %d", nrow(filtered_data_comphet)))
     return(filtered_data_comphet)
+}
+
+filter_svlog_to_wide <- function(svlog_db, sv_filters) {
+  if (is.null(svlog_db) || !nrow(svlog_db)) {
+    return(data.table::data.table())
+  }
+  
+  dt <- data.table::as.data.table(data.table::copy(svlog_db))
+  
+  # ---------- helpers ----------
+  safe_max_num <- function(x) {
+    x <- x[!is.na(x)]
+    if (!length(x)) return(NA_real_)
+    max(x)
+  }
+  safe_max_int <- function(x) {
+    x <- x[!is.na(x)]
+    if (!length(x)) return(NA_integer_)
+    as.integer(max(x))
+  }
+  
+  # carriers = HET + HOM (NA-aware)
+  dt[, carriers := {
+    h <- ifelse(is.na(HET), 0L, as.integer(HET))
+    m <- ifelse(is.na(HOM), 0L, as.integer(HOM))
+    out <- h + m
+    both_na <- is.na(HET) & is.na(HOM)
+    out[both_na] <- NA_integer_
+    out
+  }]
+  
+  # ---------- 1) similarity / matching filters (row-level) ----------
+  keep <- rep(TRUE, nrow(dt))
+  
+  # Non-INS: reciprocal overlap
+  if (!is.null(sv_filters$svlog_min_recip_overlap)) {
+    thr <- sv_filters$svlog_min_recip_overlap
+    has_ov <- !is.na(dt$OVL_Q) & !is.na(dt$OVL_T)
+    keep[has_ov] <- keep[has_ov] & (pmin(dt$OVL_Q[has_ov], dt$OVL_T[has_ov]) >= thr)
+    # rows with no overlap info (INS) are unaffected
+  }
+  
+  # INS: breakpoint distance
+  if (!is.null(sv_filters$svlog_max_break_distance)) {
+    thr <- sv_filters$svlog_max_break_distance
+    has_dist <- !is.na(dt$DIST)
+    keep[has_dist] <- keep[has_dist] & (dt$DIST[has_dist] <= thr)
+    # non-INS (DIST NA) unaffected
+  }
+  
+  # INS: |Δlen|
+  if (!is.null(sv_filters$svlog_max_abs_dlen)) {
+    thr <- sv_filters$svlog_max_abs_dlen
+    has_dlen <- !is.na(dt$DLEN)
+    keep[has_dlen] <- keep[has_dlen] & (abs(dt$DLEN[has_dlen]) <= thr)
+    # non-INS (DLEN NA) unaffected
+  }
+  
+  dt <- dt[keep]
+  if (!nrow(dt)) return(data.table::data.table())
+  
+  # ---------- 2) per-svlog_id DB summaries & pass/fail ----------
+  agg <- unique(dt[, .(svlog_id)])
+  
+  # gnomAD
+  gnom <- dt[SRC == "gnomAD",
+             .(gnomAD_AF_max = safe_max_num(AF)),
+             by = svlog_id]
+  agg <- merge(agg, gnom, by = "svlog_id", all.x = TRUE)
+  has_gnomAD <- !is.na(agg$gnomAD_AF_max)
+  if (!is.null(sv_filters$svlog_gnomad_af)) {
+    thr <- sv_filters$svlog_gnomad_af
+    agg[, gnomAD_pass := is.na(gnomAD_AF_max) | gnomAD_AF_max <= thr]
+  } else {
+    agg[, gnomAD_pass := NA]
+  }
+  
+  # ONT 1000G
+  kg <- dt[SRC %in% c("ONT1000G", "1000g"),
+           .(ont1000g_max_carriers = safe_max_int(carriers)),
+           by = svlog_id]
+  agg <- merge(agg, kg, by = "svlog_id", all.x = TRUE)
+  has_kg <- !is.na(agg$ont1000g_max_carriers)
+  if (!is.null(sv_filters$svlog_1000g_max_carriers)) {
+    thr <- as.integer(sv_filters$svlog_1000g_max_carriers)
+    agg[, ont1000g_pass :=
+          is.na(ont1000g_max_carriers) | ont1000g_max_carriers <= thr]
+  } else {
+    agg[, ont1000g_pass := NA]
+  }
+  
+  # Internal cohort
+  internal <- dt[SRC %in% c("InternalCohort", "internal"),
+                 .(
+                   internal_max_carriers = safe_max_int(carriers),
+                   internal_max_families = safe_max_int(NUM_FAMS)
+                 ),
+                 by = svlog_id]
+  agg <- merge(agg, internal, by = "svlog_id", all.x = TRUE)
+  has_internal <- !is.na(agg$internal_max_carriers) | !is.na(agg$internal_max_families)
+  
+  if (!is.null(sv_filters$svlog_internal_max_carriers)) {
+    thr <- as.integer(sv_filters$svlog_internal_max_carriers)
+    carriers_ok <- is.na(agg$internal_max_carriers) | agg$internal_max_carriers <= thr
+  } else {
+    carriers_ok <- rep(TRUE, nrow(agg))
+  }
+  if (!is.null(sv_filters$svlog_internal_max_families)) {
+    thr <- as.integer(sv_filters$svlog_internal_max_families)
+    fam_ok <- is.na(agg$internal_max_families) | agg$internal_max_families <= thr
+  } else {
+    fam_ok <- rep(TRUE, nrow(agg))
+  }
+  agg[, internal_pass := carriers_ok & fam_ok]
+  
+  # ClinVar
+  clin <- dt[SRC == "ClinVar" & !is.na(CLNSIG) & nzchar(CLNSIG),
+             .(clinvar_labels = paste(unique(CLNSIG), collapse = ";")),
+             by = svlog_id]
+  agg <- merge(agg, clin, by = "svlog_id", all.x = TRUE)
+  has_clinvar <- !is.na(agg$clinvar_labels) & nzchar(agg$clinvar_labels)
+  agg[, clinvar_pass := TRUE]
+  
+  if (!is.null(sv_filters$clinvar_filter) &&
+      length(sv_filters$clinvar_filter) > 0) {
+    
+    cf <- sv_filters$clinvar_filter
+    cf <- gsub(" ", "_", cf)
+    
+    special_map <- list(
+      "VUS"        = "uncertain",
+      "Conflicting" = "conflicting"
+    )
+    
+    word_boundary_terms <- character()
+    substring_terms     <- character()
+    for (term in cf) {
+      if (term %in% names(special_map)) {
+        substring_terms <- c(substring_terms, special_map[[term]])
+      } else {
+        word_boundary_terms <- c(word_boundary_terms,
+                                 paste0("\\b", term, "\\b"))
+      }
+    }
+    clinvar_pattern <- paste(c(word_boundary_terms, substring_terms),
+                             collapse = "|")
+    want_na <- "Not available" %in% sv_filters$clinvar_filter
+    
+    agg[, clinvar_pass := {
+      lab <- clinvar_labels
+      has_lab <- !is.na(lab) & nzchar(lab)
+      hit <- rep(FALSE, .N)
+      if (any(has_lab)) {
+        hit[has_lab] <- grepl(clinvar_pattern, lab[has_lab], ignore.case = TRUE)
+      }
+      if (want_na) {
+        hit | !has_lab
+      } else {
+        hit
+      }
+    }]
+  }
+  
+  # which DBs actually contribute evidence per svlog_id
+  used_gnomAD   <- has_gnomAD   & !is.na(agg$gnomAD_pass)
+  used_kg       <- has_kg       & !is.na(agg$ont1000g_pass)
+  used_internal <- has_internal
+  used_clinvar  <- has_clinvar   # only constrains if filter actually applied above
+  
+  # agg[, pass_svlog :=
+  #       (used_gnomAD   & gnomAD_pass) |
+  #       (used_kg       & ont1000g_pass) |
+  #       (used_internal & internal_pass) |
+  #       (used_clinvar  & clinvar_pass)]
+  
+  agg[, pass_svlog :=
+        (used_gnomAD   & gnomAD_pass) |
+        (used_kg & ont1000g_pass & used_internal & internal_pass) |
+        (used_clinvar  & clinvar_pass)]
+  
+  # No evidence from any DB → do not filter on SVlog
+  no_evidence <- !(used_gnomAD | used_kg | used_internal | used_clinvar)
+  agg[no_evidence, pass_svlog := TRUE]
+  
+  # ---------- 3) keep only passing svlog_id ----------
+  keep_ids <- agg[pass_svlog == TRUE, svlog_id]
+  dt_pass  <- dt[svlog_id %in% keep_ids]
+  if (!nrow(dt_pass)) return(data.table::data.table())
+  
+  # ---------- 4) long → wide: id = (svlog_id, ID), columns = SRC, value = STRING ----------
+  # collapse multiple STRINGs per (svlog_id, ID, SRC)
+  collapsed <- dt_pass[
+    ,
+    .(STRING = paste(unique(STRING), collapse = ",")),
+    by = .(ID, SRC)
+  ]
+  
+  wide <- data.table::dcast(
+    collapsed,
+    ID ~ SRC,
+    value.var = "STRING",
+    fill = NA_character_
+  )
+  
+  # ---------- 5) add per-ID summary columns ----------
+  # map svlog_id -> ID for passing rows
+  id_map <- unique(dt_pass[, .(svlog_id, ID)])
+  id_agg <- merge(id_map, agg, by = "svlog_id", all.x = TRUE)
+  
+  id_summary <- id_agg[
+    ,
+    .(
+      gnomAD_AF_max            = safe_max_num(gnomAD_AF_max),
+      ONT1000G_carriers_max    = safe_max_int(ont1000g_max_carriers),
+      Internal_carriers_max    = safe_max_int(internal_max_carriers),
+      Internal_families_max    = safe_max_int(internal_max_families),
+      ClinVar_CLASS = {
+        labs <- clinvar_labels
+        labs <- labs[!is.na(labs) & nzchar(labs)]
+        if (!length(labs)) NA_character_ else paste(unique(labs), collapse = ",")
+      }
+    ),
+    by = ID
+  ]
+  
+  wide <- merge(
+    wide,
+    id_summary,
+    by = "ID",
+    all.x = TRUE
+  )
+  
+  wide[]
 }

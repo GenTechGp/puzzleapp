@@ -287,16 +287,16 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
 #' @return data.table
 #' @export
 process_sv_data <- function(svs_vcf, pedigree_data, 
-                            svs_vcf_cohort = NA, svlog = NULL) {
+                            svs_vcf_cohort = NA, svlog_static = NULL, svlog_db = NULL) {
   cat("Processing SV VCF:", svs_vcf, "\n")
   if (!file.exists(svs_vcf)) stop("SV VCF file not found: ", svs_vcf)
   svlog_dt <- NULL
-  if (!is.null(svlog)) {
-    if (!file.exists(svlog)) {
-      stop("SVlog file not found: ", svlog)
+  if (!is.null(svlog_static)) {
+    if (!file.exists(svlog_static)) {
+      stop("SVlog file not found: ", svlog_static)
     }
-    cat("Using SVlog table:", svlog, "\n")
-    svlog_dt <- data.table::fread(svlog, sep = "\t", header = TRUE)
+    cat("Using SVlog table:", svlog_static, "\n")
+    svlog_dt <- data.table::fread(svlog_static, sep = "\t", header = TRUE)
     
     # 1) Rename variant_id -> ID (if present)
     if ("variant_id" %in% names(svlog_dt)) {
@@ -323,6 +323,7 @@ process_sv_data <- function(svs_vcf, pedigree_data,
   }
   svs_data <- data.table::fread(cmd = paste("gunzip -c", svs_vcf),
                                 sep = "\t", skip = "#CHROM", header = TRUE)
+  svs_data[, ID := make.unique(as.character(ID), sep = ".")]
   vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", svs_vcf),
                                   sep = "\n", header = FALSE)
 

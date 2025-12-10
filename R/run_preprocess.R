@@ -15,7 +15,8 @@
 #'   snvs_vcf_cohort: /abs/path/to/cohort.snvs.vcf.gz    # optional (enables N_Cohort)
 #'   svs_vcf:  /abs/path/to/input.svs.vcf.gz             # optional (for SV)
 #'   svs_tsv:  /abs/path/to/output_sv.tsv                # required if svs_vcf given
-#'   svlog:    /abs/path/to/svlog_table                  # optional (SVlog dir/file)
+#'   svlog_static: /abs/path/to/svlog_static.tsv         # optional (SVlog static)
+#'   svlog_db:     /abs/path/to/svlog_db.tsv             # optional (SVlog database)
 #' samples:
 #'   - sample_id: SAMPLE1
 #'     kinship: proband
@@ -72,7 +73,8 @@ run_preprocess <- function(config_yaml,
   snvs_vcf_cohort  <- paths$snvs_vcf_cohort  %||% NA
   svs_vcf          <- paths$svs_vcf          %||% NULL
   svs_tsv          <- paths$svs_tsv          %||% NULL
-  svlog_path       <- paths$svlog            %||% NULL
+  svlog_static     <- paths$svlog_static     %||% NULL
+  svlog_db         <- paths$svlog_db         %||% NULL
 
   # Validation rules
   if (!is.null(snvs_vcf) && is.null(snvs_tsv)) {
@@ -94,7 +96,8 @@ run_preprocess <- function(config_yaml,
     snv_dt = NULL,
     sv_dt = NULL,
     snvs_vcf_cohort = snvs_vcf_cohort,
-    svlog_path = svlog_path
+    svlog_static = svlog_static,
+    svlog_db = svlog_db
   )
 
   # Ensure output directory for each TSV exists (if paths provided)
@@ -138,8 +141,8 @@ run_preprocess <- function(config_yaml,
     sv_dt <- process_sv_data(
       svs_vcf       = svs_vcf,
       pedigree_data = pedigree_data,
-      svlog         = svlog_path
-      # add svs_vcf_cohort parameter later if implemented
+      svlog_static  = svlog_static,
+      svlog_db      = svlog_db
     )
     data.table::fwrite(sv_dt, svs_tsv, sep = "\t", quote = FALSE, na = "NA")
     result$sv_path <- svs_tsv
