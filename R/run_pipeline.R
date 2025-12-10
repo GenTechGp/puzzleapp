@@ -238,6 +238,9 @@ run_pipeline <- function(
     clinvar_filter                         = as_vec("SV_Pathogenicity"),
     classification_filter                  = as_vec("SV_Classification"),
     
+    keeping_tiers        = as_vec("SV_Keeping"),
+    filtering_out_tiers  = as_vec("SV_Filtering out"),
+    
     # Numerics -> NULL when blank
     af_value                 = as_num("SV_SVlog_gnomAD_AF"),
     min_svlen                = as_num("SV_Min SV Length"),

@@ -403,6 +403,55 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       filter_expression <- add_filter_condition(filter_expression, class_expr)
       log_info("[filtServer][filter_dataset] Applying FINAL_CLASSIFICATION filter")
     }
+    
+    # ---- Tier prioritisation: Keeping / Filtering out ----
+    K <- filters$keeping_tiers
+    F <- filters$filtering_out_tiers
+    
+    # Normalise: drop empty strings if they slip through
+    if (!is.null(K)) K <- K[nzchar(K)] else K <- character(0)
+    if (!is.null(F)) F <- F[nzchar(F)] else F <- character(0)
+    
+    if (length(K) > 0 || length(F) > 0) {
+      
+      # Helper: build regex that matches a tier as a whole token in
+      # a comma-separated string (e.g. "1" matches "1,2" but not "10")
+      mk_tier_pattern <- function(x) {
+        paste(sprintf("(^|,)%s(,|$)", x), collapse = "|")
+      }
+      
+      # Part 1: KEEPING has at least one of the selected Keeping tiers
+      if (length(K) > 0) {
+        pat_keep <- mk_tier_pattern(K)
+        keep_part <- sprintf(
+          "(!is.na(KEEPING) & grepl('%s', KEEPING))",
+          pat_keep
+        )
+      } else {
+        keep_part <- "TRUE"
+      }
+      
+      # Part 2: FILTERING_OUT has none of the selected Filtering out tiers
+      if (length(F) > 0) {
+        pat_out <- mk_tier_pattern(F)
+        out_part <- sprintf(
+          "(is.na(FILTERING_OUT) | !grepl('%s', FILTERING_OUT))",
+          pat_out
+        )
+      } else {
+        out_part <- "TRUE"
+      }
+      
+      tier_expr <- sprintf("(%s & %s)", keep_part, out_part)
+      
+      filter_expression <- add_filter_condition(filter_expression, tier_expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying tier filter (Keeping=%s, Filtering out=%s)",
+        paste(K, collapse = ","),
+        paste(F, collapse = ",")
+      ))
+    }
+    
     if (!is.null(svlog_db)) {
       
       log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")
