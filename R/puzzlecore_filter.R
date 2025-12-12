@@ -376,7 +376,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # }
 
   } else {
+    
+    # --------------------------------------------------------------------------
     # SV-specific filters
+    # --------------------------------------------------------------------------
+    
+    # ---- 1) Basic SV properties: type + length ----
     log_info("[filtServer][filter_dataset] Filtering SVs based on type and length")
     sv_type_map <- list("Insertion" = "INS", "Deletion" = "DEL", "Duplication" = "DUP", "Inversion" = "INV", "Translocation" = "TRA|BND")
     sv_types <- unlist(sv_type_map[filters$sv_features])
@@ -389,6 +394,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     if (!is.null(filters$max_svlen) && filters$max_svlen > 0) {
       filter_expression <- add_filter_condition(filter_expression, sprintf("VAR_LENGTH <= %d", filters$max_svlen))
     }
+    
+    # ---- 2) SV classification labels ----
     if (!is.null(filters$classification_filter) &&
         length(filters$classification_filter) > 0) {
       
@@ -404,7 +411,80 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       log_info("[filtServer][filter_dataset] Applying FINAL_CLASSIFICATION filter")
     }
     
-    # ---- Tier prioritisation: Keeping / Filtering out ----
+    # --------------------------------------------------------------------------
+    # Genomic context filters
+    # --------------------------------------------------------------------------
+    
+    # 1) Max distance to splice site (bp) — intronic
+    if (!is.null(filters$intronic_splice_max_dist)) {
+      expr <- sprintf(
+        "(is.na(INTRON_MIN_DIST) | INTRON_MIN_DIST <= %d)",
+        as.integer(filters$intronic_splice_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying intronic splice distance filter")
+    }
+    
+    # 2) Min ratio SV length / intron length — intronic
+    #    Treat non-intronic (INTRON_LENGTH NA or <= 0) as passing.
+    if (!is.null(filters$intronic_min_len_intron_ratio)) {
+      expr <- sprintf(
+        "(is.na(INTRON_LENGTH) | INTRON_LENGTH <= 0 | VAR_LENGTH / INTRON_LENGTH >= %f)",
+        filters$intronic_min_len_intron_ratio
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying intronic length/intron ratio filter")
+    }
+    
+    # 3) Max distance to nearest TAD boundary (bp)
+    #    Use min(upstream, downstream); if both NA, pass.
+    if (!is.null(filters$tad_max_dist)) {
+      expr <- sprintf(
+        "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | " %+%
+          " pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)",
+        as.integer(filters$tad_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying TAD boundary distance filter")
+    }
+    
+    # 4) Max distance to nearest enhancer (bp)
+    #    Use min(upstream, downstream); if both NA, pass.
+    if (!is.null(filters$enhancer_max_dist)) {
+      expr <- sprintf(
+        "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | " %+%
+          " pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)",
+        as.integer(filters$enhancer_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying enhancer distance filter")
+    }
+    
+    # 5) Intra / inter TAD boundary
+    #    If both FALSE → no filter.
+    #    If only intra TRUE → type == 'intra'
+    #    If only inter TRUE → type == 'inter'
+    #    If both TRUE → restrict to intra or inter (exclude NA/other).
+    if (isTRUE(filters$intra_tad_only) || isTRUE(filters$inter_tad_only)) {
+      wanted <- character()
+      if (isTRUE(filters$intra_tad_only)) wanted <- c(wanted, "intra")
+      if (isTRUE(filters$inter_tad_only)) wanted <- c(wanted, "inter")
+      
+      vals <- paste(sprintf("'%s'", wanted), collapse = ", ")
+      expr <- sprintf(
+        "INTERGENIC_BOUNDARY_SPAN_TYPE %%in%% c(%s)",
+        vals
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying TAD span filter: %s",
+        paste(wanted, collapse = ",")
+      ))
+    }
+    
+    # --------------------------------------------------------------------------
+    # Tier prioritisation: Keeping / Filtering out
+    # --------------------------------------------------------------------------
     K <- filters$keeping_tiers
     F <- filters$filtering_out_tiers
     
@@ -452,6 +532,9 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       ))
     }
     
+    # --------------------------------------------------------------------------
+    # SVlog database filters (this mutates `data`, so keep it last)
+    # --------------------------------------------------------------------------
     if (!is.null(svlog_db)) {
       
       log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")

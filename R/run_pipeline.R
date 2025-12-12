@@ -224,49 +224,117 @@ run_pipeline <- function(
     inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE)
   )
 
-  sv_filters <- list(
-    # Vectors -> character(0) when blank
-    annotation_filter                      = as_vec("SV_Annotation"),
-    sv_features                            = as_vec("SV_SV type"),
-    panelapp_filter                        = as_vec("PanelApp_Genes"),
-    custom_genes                           = as_vec("Custom_Genes"),
-    # same key fix here
-    substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Gene_Lists"),
-    substract_panelapp_genes_filter        = as_vec("Substract_PanelApp_Genes"),
-    hpo_terms_list                         = as_vec("HPO_Terms"),
+  # sv_filters <- list(
+  #   # Vectors -> character(0) when blank
+  #   annotation_filter                      = as_vec("SV_Annotation"),
+  #   sv_features                            = as_vec("SV_SV type"),
+  #   panelapp_filter                        = as_vec("PanelApp_Genes"),
+  #   custom_genes                           = as_vec("Custom_Genes"),
+  #   # same key fix here
+  #   substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Gene_Lists"),
+  #   substract_panelapp_genes_filter        = as_vec("Substract_PanelApp_Genes"),
+  #   hpo_terms_list                         = as_vec("HPO_Terms"),
+  # 
+  #   clinvar_filter                         = as_vec("SV_Pathogenicity"),
+  #   classification_filter                  = as_vec("SV_Classification"),
+  #   
+  #   keeping_tiers        = as_vec("SV_Keeping"),
+  #   filtering_out_tiers  = as_vec("SV_Filtering out"),
+  #   
+  #   # Numerics -> NULL when blank
+  #   af_value                 = as_num("SV_SVlog_gnomAD_AF"),
+  #   min_svlen                = as_num("SV_Min SV Length"),
+  #   max_svlen                = as_num("SV_Max SV Length"),
+  #   genotype_quality_value   = as_num("SV_Genotype quality"),
+  #   allele_balance_value     = as_num("SV_Allele balance"),
+  #   inheritance_filter       = as_scalar_str("Inheritance"),
+  #   intronic_splice_max_dist      = as_num("SV_intronic_splice_max_dist"),
+  #   intronic_min_len_intron_ratio = as_num("SV_intronic_min_len_intron_ratio"),
+  #   tad_max_dist                  = as_num("SV_tad_max_dist"),
+  #   enhancer_max_dist             = as_num("SV_enhancer_max_dist"),
+  #   svlog_min_recip_overlap   = as_num("SV_SVlog_min_recip_overlap"),
+  #   svlog_max_break_distance  = as_num("SV_SVlog_max_break_distance"),
+  #   svlog_max_abs_dlen        = as_num("SV_SVlog_max_abs_dlen"),
+  #   svlog_gnomad_af           = as_num("SV_SVlog_gnomAD_AF"),
+  #   svlog_1000g_max_carriers  = as_num("SV_SVlog_1000G_max_carriers"),
+  #   svlog_internal_max_carriers = as_num("SV_SVlog_internal_max_carriers"),
+  #   svlog_internal_max_families = as_num("SV_SVlog_internal_max_families"),
+  #   
+  #   # SVlog matching mode (string)
+  #   svlog_matching_mode       = as_scalar_str("SV_SVlog_matching_mode"),
+  #   
+  #   # Booleans
+  #   treat_negative             = as_bool("Treat_Negative", FALSE),
+  #   affected_only              = as_bool("SV_Affected only", FALSE),
+  #   inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE),
+  #   intra_tad_only = as_bool("SV_intra_tad_only",  FALSE),
+  #   inter_tad_only = as_bool("SV_inter_tad_only", FALSE)
+  # 
+  # )
 
-    clinvar_filter                         = as_vec("SV_Pathogenicity"),
-    classification_filter                  = as_vec("SV_Classification"),
+  sv_filters <- list(
+    # ------------------------------------------------------------------
+    # Common / shared filters
+    # ------------------------------------------------------------------
+    inheritance_filter       = as_scalar_str("Inheritance"),
+    panelapp_filter          = as_vec("PanelApp_Genes"),
+    custom_genes             = as_vec("Custom_Genes"),
+    substract_panelapp_gene_lists_filter = as_vec("Substract_PanelApp_Gene_Lists"),
+    substract_panelapp_genes_filter      = as_vec("Substract_PanelApp_Genes"),
+    hpo_terms_list           = as_vec("HPO_Terms"),
     
-    keeping_tiers        = as_vec("SV_Keeping"),
-    filtering_out_tiers  = as_vec("SV_Filtering out"),
+    annotation_filter        = as_vec("SV_Annotation"),
     
-    # Numerics -> NULL when blank
-    af_value                 = as_num("SV_SVlog_gnomAD_AF"),
-    min_svlen                = as_num("SV_Min SV Length"),
-    max_svlen                = as_num("SV_Max SV Length"),
     genotype_quality_value   = as_num("SV_Genotype quality"),
     allele_balance_value     = as_num("SV_Allele balance"),
-    inheritance_filter       = as_scalar_str("Inheritance"),
+    af_value                 = as_num("SV_SVlog_gnomAD_AF"),
     
-    # SVlog specific numeric filters
-    svlog_min_recip_overlap   = as_num("SV_SVlog_min_recip_overlap"),
-    svlog_max_break_distance  = as_num("SV_SVlog_max_break_distance"),
-    svlog_max_abs_dlen        = as_num("SV_SVlog_max_abs_dlen"),
-    svlog_gnomad_af           = as_num("SV_SVlog_gnomAD_AF"),
-    svlog_1000g_max_carriers  = as_num("SV_SVlog_1000G_max_carriers"),
+    # ------------------------------------------------------------------
+    # SV type/size + labels
+    # ------------------------------------------------------------------
+    sv_features              = as_vec("SV_SV type"),
+    min_svlen                = as_num("SV_Min SV Length"),
+    max_svlen                = as_num("SV_Max SV Length"),
+    
+    clinvar_filter           = as_vec("SV_Pathogenicity"),
+    classification_filter    = as_vec("SV_Classification"),
+    
+    # ------------------------------------------------------------------
+    # Tier prioritisation
+    # ------------------------------------------------------------------
+    keeping_tiers            = as_vec("SV_Keeping"),
+    filtering_out_tiers      = as_vec("SV_Filtering out"),
+    
+    # ------------------------------------------------------------------
+    # Genomic context
+    # ------------------------------------------------------------------
+    intronic_splice_max_dist      = as_num("SV_intronic_splice_max_dist"),
+    intronic_min_len_intron_ratio = as_num("SV_intronic_min_len_intron_ratio"),
+    tad_max_dist                  = as_num("SV_tad_max_dist"),
+    enhancer_max_dist             = as_num("SV_enhancer_max_dist"),
+    intra_tad_only                = as_bool("SV_intra_tad_only",  FALSE),
+    inter_tad_only                = as_bool("SV_inter_tad_only", FALSE),
+    
+    # ------------------------------------------------------------------
+    # SVlog matching + thresholds
+    # ------------------------------------------------------------------
+    svlog_matching_mode      = as_scalar_str("SV_SVlog_matching_mode"),
+    svlog_min_recip_overlap  = as_num("SV_SVlog_min_recip_overlap"),
+    svlog_max_break_distance = as_num("SV_SVlog_max_break_distance"),
+    svlog_max_abs_dlen       = as_num("SV_SVlog_max_abs_dlen"),
+    svlog_gnomad_af          = as_num("SV_SVlog_gnomAD_AF"),
+    svlog_1000g_max_carriers = as_num("SV_SVlog_1000G_max_carriers"),
     svlog_internal_max_carriers = as_num("SV_SVlog_internal_max_carriers"),
     svlog_internal_max_families = as_num("SV_SVlog_internal_max_families"),
     
-    # SVlog matching mode (string)
-    svlog_matching_mode       = as_scalar_str("SV_SVlog_matching_mode"),
-    
-    # Booleans
-    treat_negative             = as_bool("Treat_Negative", FALSE),
-    affected_only              = as_bool("SV_Affected only", FALSE),
-    inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE)
+    # ------------------------------------------------------------------
+    # Flags
+    # ------------------------------------------------------------------
+    treat_negative            = as_bool("Treat_Negative", FALSE),
+    affected_only             = as_bool("SV_Affected only", FALSE),
+    inheritance_panelapp_gene = as_bool("Inheritance_PanelApp_Gene", FALSE)
   )
-
+  
   # Debug print (optional)
   # print(snv_filters)
   # print(sv_filters)
