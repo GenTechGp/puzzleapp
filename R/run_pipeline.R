@@ -303,7 +303,7 @@ run_pipeline <- function(
     # Tier prioritisation
     # ------------------------------------------------------------------
     keeping_tiers            = as_vec("SV_Keeping"),
-    filtering_out_tiers      = as_vec("SV_Filtering out"),
+    filtering_out_tiers      = as_vec("SV_Filtering_out"),
     
     # ------------------------------------------------------------------
     # Genomic context
@@ -318,6 +318,9 @@ run_pipeline <- function(
     # ------------------------------------------------------------------
     # SVlog matching + thresholds
     # ------------------------------------------------------------------
+    svlog_annotation_filter  = as_vec("SV_SVlog_Annotation"),
+    svlog_advanced_keeping  = as_vec("SV_SVlog_Advanced_Keeping"),
+    svlog_advanced_filtering_out  = as_vec("SV_SVlog_Advanced_Filtering_out"),
     svlog_matching_mode      = as_scalar_str("SV_SVlog_matching_mode"),
     svlog_min_recip_overlap  = as_num("SV_SVlog_min_recip_overlap"),
     svlog_max_break_distance = as_num("SV_SVlog_max_break_distance"),

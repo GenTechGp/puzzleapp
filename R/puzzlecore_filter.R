@@ -483,6 +483,24 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
     
     # --------------------------------------------------------------------------
+    # SVlog Consequence
+    # --------------------------------------------------------------------------
+    
+    if (!is.null(filters$svlog_annotation_filter) &&
+        length(filters$svlog_annotation_filter) > 0) {
+      
+      pat <- paste(filters$svlog_annotation_filter, collapse = "|")
+      
+      expr <- sprintf(
+        "(is.na(SVLOG_CONSEQUENCE) | grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))",
+        pat
+      )
+      
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying SVlog annotation filter")
+    }
+    
+    # --------------------------------------------------------------------------
     # Tier prioritisation: Keeping / Filtering out
     # --------------------------------------------------------------------------
     K <- filters$keeping_tiers
@@ -529,6 +547,39 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         "[filtServer][filter_dataset] Applying tier filter (Keeping=%s, Filtering out=%s)",
         paste(K, collapse = ","),
         paste(F, collapse = ",")
+      ))
+    }
+    
+    # --------------------------------------------------------------------------
+    # Advanced: Keeping / Filtering out predicate selection
+    # --------------------------------------------------------------------------
+    
+    K <- filters$svlog_advanced_keeping
+    F <- filters$svlog_advanced_filtering_out
+    
+    if (!is.null(K)) K <- K[nzchar(K)] else K <- character(0)
+    if (!is.null(F)) F <- F[nzchar(F)] else F <- character(0)
+    
+    if (length(K) > 0 || length(F) > 0) {
+      
+      mk_pat <- function(x) paste(sprintf("(^|,)%s(,|$)", x), collapse = "|")
+      
+      # KEEPING_EVIDENCE has at least one selected Keeping predicate
+      keep_part <- if (length(K) > 0) {
+        sprintf("(!is.na(KEEPING_EVIDENCE) & grepl('%s', KEEPING_EVIDENCE))", mk_pat(K))
+      } else "TRUE"
+      
+      # FILTERING_OUT_EVIDENCE has none of the selected Filtering out predicates
+      out_part <- if (length(F) > 0) {
+        sprintf("(is.na(FILTERING_OUT_EVIDENCE) | !grepl('%s', FILTERING_OUT_EVIDENCE))", mk_pat(F))
+      } else "TRUE"
+      
+      expr <- sprintf("(%s & %s)", keep_part, out_part)
+      
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying SVlog advanced evidence filter (Keeping=%s, Filtering out=%s)",
+        paste(K, collapse = ","), paste(F, collapse = ",")
       ))
     }
     
