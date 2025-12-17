@@ -9,6 +9,18 @@
 dataUI <- function(id) {
   ns <- NS(id)
   tagList(
+    tags$style(HTML("
+      .dtsb-searchBuilder {
+        display: inline-flex !important;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dtsb-add {
+        margin-left: 6px;
+        white-space: nowrap;
+      }
+    ")),
     tags$style(HTML(sprintf("
       /* scope rules to the DT container so we don't affect other selectize widgets */
       #%s table.dataTable thead .selectize-control .selectize-dropdown,
@@ -488,8 +500,14 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           extensions = c("ColReorder", "Buttons", "SearchBuilder"),
           editable = list(target = "cell", numeric = "none"),
           options = list(
-            dom = "BlfrtipQ",
+            dom = "QBlfrtip",
+            language = list(
+              searchBuilder = list(
+                title = ""   # <- removes "Custom Search Builder"
+              )
+            ),
             searchBuilder = TRUE,
+            # search = list(regex = TRUE, caseInsensitive = TRUE),
             buttons = list(
               list(
                 extend = "colvis",
