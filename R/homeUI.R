@@ -34,8 +34,10 @@ home_ui <- function(id) {
     shiny::br(),
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
-      shiny::column(3, shiny::actionButton(ns("load_yml"), "Load yml", class = "btn-primary")),
-      shiny::column(3, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
+      shiny::column(1, shiny::actionButton(ns("load_yml"), "Load yml", class = "btn-primary")),
+      shiny::column(1, shiny::actionButton(ns("save_yml"), "Save to yml", class = "btn-primary")),
+      shiny::column(2),
+      shiny::column(2, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
     ),
 
     shiny::strong("Number of Individuals (set this value first):"),

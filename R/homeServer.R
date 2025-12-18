@@ -330,5 +330,95 @@ home_server <- function(id, shared_store, shared_rx) {
       showNotification("Saved as a browser cookie!", type = "message")
     })
 
+    observeEvent(input$save_yml, {
+      # Show save dialog
+      shiny::showModal(shiny::modalDialog(
+        title = "Save Configuration YAML",
+        shiny::textInput(ns("yml_save_path"), "YAML file path:", placeholder = "e.g., config.yml", width = "100%"),
+        footer = tagList(
+          shiny::modalButton("Cancel"),
+          shiny::actionButton(ns("confirm_save_yml"), "Save", class = "btn-primary")
+        ),
+        easyClose = TRUE
+      ))
+    })
+    observeEvent(input$confirm_save_yml, {
+      removeModal()
+      n <- input$num_individuals
+      samples <- lapply(seq_len(n), function(i) {
+        list(
+          sample_id = input[[paste0("sample_id_", i)]],
+          kinship   = input[[paste0("kinship_", i)]],
+          status    = input[[paste0("status_", i)]],
+          sex       = input[[paste0("sex_", i)]],
+          code      = input[[paste0("code_", i)]],
+          bam       = input[[paste0("bam_", i)]],
+          coverage  = input[[paste0("coverage_", i)]]
+        )
+      })
+      config <- list(
+        samples = samples,
+        paths = list(
+          snvs_vcf = input$snvs_vcf,
+          snvs_tsv = input$snvs_tsv,
+          svs_vcf  = input$svs_vcf,
+          svs_tsv  = input$svs_tsv
+        ),
+        dependencies = list(
+          panel_app = input$panel_app,
+          phenotype_data = input$phenotype_data
+        )
+      )
+      yml_path <- input$yml_save_path
+      if (is.null(yml_path) || !nzchar(yml_path)) {
+        shiny::showNotification(
+          "Please provide a valid file path to save the YAML.",
+          type = "error"
+        )
+        return()
+      }
+      yml_lines <- character()
+      yaml_quote <- function(x) {
+        x <- as.character(x)
+        x <- gsub('"', '\\"', x, fixed = TRUE)
+        paste0('"', x, '"')
+      }
+      ## samples
+      yml_lines <- c(yml_lines, "samples:")
+      for (s in config$samples) {
+        yml_lines <- c(
+          yml_lines,
+          paste0("  - sample_id: ", yaml_quote(s$sample_id)),
+          paste0("    kinship: ",   yaml_quote(s$kinship)),
+          paste0("    status: ",    yaml_quote(s$status)),
+          paste0("    sex: ",       yaml_quote(s$sex)),
+          paste0("    code: ",      s$code),
+          paste0("    bam: ",       yaml_quote(s$bam)),
+          paste0("    coverage: ",  yaml_quote(s$coverage))
+        )
+      }
+      ## paths
+      yml_lines <- c(
+        yml_lines,
+        "paths:",
+        paste0("  snvs_vcf: ", yaml_quote(config$paths$snvs_vcf)),
+        paste0("  snvs_tsv: ", yaml_quote(config$paths$snvs_tsv)),
+        paste0("  svs_vcf: ",  yaml_quote(config$paths$svs_vcf)),
+        paste0("  svs_tsv: ",  yaml_quote(config$paths$svs_tsv))
+      )
+      ## dependencies
+      yml_lines <- c(
+        yml_lines,
+        "dependencies:",
+        paste0("  panel_app: ",       yaml_quote(config$dependencies$panel_app)),
+        paste0("  phenotype_data: ",  yaml_quote(config$dependencies$phenotype_data))
+      )
+      writeLines(yml_lines, yml_path)
+      shiny::showNotification(
+        paste("Configuration saved to", yml_path),
+        type = "message"
+      )
+    })
+
   }) # end moduleServer
 } # end home_server
