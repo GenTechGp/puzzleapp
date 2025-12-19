@@ -62,7 +62,7 @@ home_ui <- function(id) {
       shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%"),
       shiny::checkboxInput(ns("sticky_work_dir"), "Enable shared-safe mode", value = TRUE)
       ),
-      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","mm10","rn6"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
+      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","chm13v1.1","mm10","rn6","custom (as configured in app.conf - experimental)"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
     ),
 
     shiny::br(),

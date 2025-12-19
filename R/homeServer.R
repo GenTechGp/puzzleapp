@@ -167,10 +167,25 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$panel_app_genes <- collected$panel_app_data
       shared_store$vep_consequences <- vep_consequences
       shared_store$phenotype_data <- collected$phenotype_data
+      custom_genome <- NULL
+      igv_genome_name <- input$igv_genome
+      use_custom_genome <- FALSE
+      if (input$igv_genome == "custom (as configured in app.conf)") {
+        custom_genome <- get_igv_custom_genome()
+        if (is.null(custom_genome)) {
+          shiny::showNotification("Custom genome is not properly configured in app.conf.", type = "error")
+          shiny::updateActionButton(session, "load_data", disabled = FALSE)
+          return()
+        }
+        igv_genome_name <- custom_genome$name
+        use_custom_genome <- TRUE
+      }
       shared_store$igv_data <- list(
         snvs_vcf = collected$snvs_vcf,
         svs_vcf = collected$svs_vcf,
-        igv_genome = input$igv_genome
+        igv_genome = igv_genome_name,
+        custom_genome = custom_genome,
+        use_custom_genome = use_custom_genome
       )
 
       shared_store$data_for_data[["[panel_app]_Boundary"]] <- collected$panel_app_default_dt

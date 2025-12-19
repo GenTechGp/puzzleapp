@@ -811,3 +811,45 @@ create_safe_dir <- function(dir_path, sticky = TRUE) {
   }
   return(dir_path)
 }
+
+get_igv_custom_genome <- function() {
+  conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
+  if (!nzchar(conf_file) || !file.exists(conf_file)) {
+    stop("Configuration file not found: ", conf_file)
+  }
+  lines <- readLines(conf_file, warn = FALSE)
+  # Strip trailing comments and whitespace
+  lines <- sub("\\s*#.*$", "", lines)
+  lines <- trimws(lines)
+  lines <- lines[nzchar(lines)]
+
+  extract_quoted <- function(key) {
+    # Matches: optional leading ws, key, =, quoted value, optional trailing ws
+    pattern <- sprintf("^%s\\s*=\\s*\"([^\"]+)\"\\s*$", key)
+    hit <- grep(pattern, lines, value = TRUE)
+    if (!length(hit)) return(NA_character_)
+    sub(pattern, "\\1", hit[1])
+  }
+
+  id    <- extract_quoted("igv_custom_genome_id")
+  name <- extract_quoted("igv_custom_genome_name")
+  fasta <- extract_quoted("igv_custom_genome_fasta")
+  index <- extract_quoted("igv_custom_genome_index")
+
+  missing <- c(id = id, fasta = fasta, index = index)
+  if (anyNA(missing) || any(!nzchar(missing))) {
+    stop("Missing required IGV custom genome settings in app.conf: ",
+         paste(names(missing)[is.na(missing) | !nzchar(missing)], collapse = ", "))
+  }
+
+  # Optional: warn if paths don’t exist (keep running to allow containers/volumes to mount later)
+  if (!file.exists(fasta)) warning("FASTA not found at: ", fasta)
+  if (!file.exists(index)) warning("FAI index not found at: ", index)
+
+  list(
+    id    = id,
+    name  = name,
+    fasta = fasta,
+    index = index
+  )
+}
