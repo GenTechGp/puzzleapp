@@ -44,7 +44,8 @@ get_snv_filters <- function(input, phenos) {
     genotype_quality_value = input$genotype_quality,
     allele_balance_value = input$allele_balance,
     hpo_terms_list = phenos,
-    affected_only = input$affected_switch
+    affected_only = input$affected_switch,
+    use_af = input$use_af
   )
   return(snv_filters)
 }
@@ -120,7 +121,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "gnomADv4 AF" = input$af,
     "Affected only" = input$affected_switch,
     "Allele balance" = input$allele_balance,
-    "Genotype quality" = input$genotype_quality
+    "Genotype quality" = input$genotype_quality,
+    "Use_AF" = input$use_af
   )
 
   # SV filters (excluding shared)
@@ -215,6 +217,9 @@ update_filters_params <- function(search_params, session) {
     "gnomADv4 AF" = list(
       snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
       sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
+    ),
+    "Use_AF" = list(
+      snv = list(func = updateCheckboxInput, id = "use_af", value = TRUE, as_logical = TRUE)
     ),
     "SV type" = list(
       sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)

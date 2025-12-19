@@ -34,8 +34,10 @@ home_ui <- function(id) {
     shiny::br(),
     shiny::fluidRow(
       shiny::column(6, style = "padding: 1;", shiny::textInput(ns("yml_path"), label = NULL, placeholder = ".yml config file path (optional)", width = "100%")),
-      shiny::column(3, shiny::actionButton(ns("load_yml"), "Load from file", class = "btn-primary")),
-      shiny::column(3, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
+      shiny::column(1, shiny::actionButton(ns("load_yml"), "Load yml", class = "btn-primary")),
+      shiny::column(1, shiny::actionButton(ns("save_yml"), "Save to yml", class = "btn-primary")),
+      shiny::column(2),
+      shiny::column(2, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
     ),
 
     shiny::strong("Number of Individuals (set this value first):"),
@@ -60,7 +62,7 @@ home_ui <- function(id) {
       shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%"),
       shiny::checkboxInput(ns("sticky_work_dir"), "Enable shared-safe mode", value = TRUE)
       ),
-      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","mm10","rn6"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
+      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","chm13v1.1","mm10","rn6","custom (as configured in app.conf - experimental)"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
     ),
 
     shiny::br(),

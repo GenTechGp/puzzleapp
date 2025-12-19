@@ -58,8 +58,10 @@ run_app()
 3.  (Optional) File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
 ```
-    library(puzzleapp, lib="/g/data/if89/testdir/puzzleapp/app/20112025/Rlib")
-    run_app(port=8888) # change port if needed
+dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
+d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
+cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
+.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8989) # change port if needed
 ```
 
 ## Working directory (shared-safe mode)
@@ -96,7 +98,6 @@ library(puzzleapp)
 run_pipeline(
   config_yaml = "path/to/config.yml",
   filter_table = "path/to/filters.tsv",
-  mode = "both",                 # "snv", "sv", or "both"
   output_dir = "pipeline_output",
   nthreads = 4L,                 # threads for fread/processing
   verbose = TRUE                 # progress messages
@@ -107,7 +108,6 @@ run_pipeline(
 
 - config_yaml: Path to the pipeline YAML (e.g., tests/configs/samples.yml).
 - filter_table: Path to the two‑column filters file (e.g., tests/filters/*).
-- mode: One of "snv", "sv", or "both" (default: "both").
 - output_dir: Directory to write outputs (default: "pipeline_output").
 - nthreads: Number of threads for reading/processing (default: 4).
 - verbose: Whether to print progress messages (default: TRUE).

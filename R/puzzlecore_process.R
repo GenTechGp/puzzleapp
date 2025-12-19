@@ -33,6 +33,9 @@ add_extra_columns <- function(dt) {
 #' @export
 puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
     data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
+    # read only 2000 rows for testing
+    # data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"), nrows = 2000)
+
     data <- add_extra_columns(data)
 
     # CONSEQUENCE column has & symbol. replace with ;
@@ -40,8 +43,12 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads) {
       data[, CONSEQUENCE := gsub("&", ";", CONSEQUENCE)]
     }
 
-    # CLINVAR column empty rows replace with "Not_available"
+    # Fix CLINVAR empty values
     if ("CLINVAR" %in% names(data)) {
+      # Step 1: convert to character first (safe replacement)
+      data[, CLINVAR := as.character(CLINVAR)]
+      
+      # Step 2: replace NA or empty
       data[is.na(CLINVAR) | CLINVAR == "", CLINVAR := "Not_available"]
     }
 

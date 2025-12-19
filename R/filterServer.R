@@ -187,11 +187,9 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
       )
-      # filtered_data <- apply_filter_legacy_mode2(snvs_data=snvs_data, svs_data=svs_data,snv_filters=snv_filters, sv_filters=sv_filters,pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
-      # shared_store$data_for_data[["SNV"]] <- filtered_data$snv_filtered_data
-      # shared_store$data_for_data[["SV"]] <- filtered_data$sv_filtered_data
-      shared_store$data_for_data[["SNV"]] <- puzzlecore_variant_filter(data=snvs_data, filters=snv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
-      shared_store$data_for_data[["SV"]] <- puzzlecore_variant_filter(data=svs_data, filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data, is_snv=FALSE)
+      filtered_data <- puzzlecore_variant_filter(snv_data=snvs_data, sv_data=svs_data, snv_filters=snv_filters, sv_filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      shared_store$data_for_data[["SNV"]] <- filtered_data$snv
+      shared_store$data_for_data[["SV"]] <- filtered_data$sv
 
       # add a check if columns order is same as before error out
       col_order <- colnames(shared_store$original_data[["SNV"]])

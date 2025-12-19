@@ -26,6 +26,30 @@ ui <- fluidPage(
       Shiny.setInputValue('home-cookie_prefs', cookieVal, {priority: 'event'});
     });
   ")),
+    tags$head(tags$style(HTML("
+    /* Group 1: Data tabs */
+    .nav-tabs > li > a[data-value='Filter'],
+    .nav-tabs > li > a[data-value='SNV/Indel'],
+    .nav-tabs > li > a[data-value='SV'] {
+        background-color: #e8f4ff;
+        border-bottom: 2px solid #b3dafc;
+    }
+    /* Group 2: Interpretation tabs */
+    .nav-tabs > li > a[data-value='PanelApp'],
+    .nav-tabs > li > a[data-value='Phenotype'] {
+        background-color: #f9f5e8;
+        border-bottom: 2px solid #ead8a6;
+    }
+    /* Hover style */
+    .nav-tabs > li > a:hover {
+      filter: brightness(0.95);
+    }
+    /* Active tab highlight */
+    .nav-tabs > li.active > a {
+        border-bottom: 2px solid #007bff !important;
+        font-weight: bold;
+    }
+  "))),
   shinyjs::useShinyjs(),
   tabsetPanel(
     id = "main_tabs",
@@ -36,13 +60,12 @@ ui <- fluidPage(
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Phenotype", dataUI("phenotype")),
-    tabPanel("Logs", log_viewer_ui("log")),
     tabPanel(
       "Help",
       tabsetPanel(
         id = "help_tabs",
-        tabPanel("VEP Consequences", dataUI("vep_consequences"))
-        # tabPanel("Another Info", dataUI("another_info"))
+        tabPanel("VEP Consequences", dataUI("vep_consequences")),
+        tabPanel("Logs", log_viewer_ui("log"))
       )
     )
   )

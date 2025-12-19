@@ -7,7 +7,6 @@
 run_pipeline(
   config_yaml,
   filter_table,
-  mode = "both",
   output_dir = "pipeline_output",
   nthreads = 4L,
   verbose = TRUE
@@ -17,8 +16,6 @@ run_pipeline(
 \item{config_yaml}{Path to pipeline YAML (see pipeline_samples.yml schema)}
 
 \item{filter_table}{Path to the two-column filters file (Key\if{html}{\out{<TAB>}}Value)}
-
-\item{mode}{One of "snv", "sv", "both" (default: "both")}
 
 \item{output_dir}{Directory to write outputs (default: "pipeline_output")}
 

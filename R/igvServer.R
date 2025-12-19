@@ -14,6 +14,8 @@ igv_server <- function(id, shared_store, shared_rx) {
     default_flanking <- 200L
     default_max_window <- 10000L
     assembly_val <- reactiveVal("hg38")
+    custom_genome <- reactiveVal(NULL)
+    use_custom_genome <- reactiveVal(FALSE)
 
     region <- reactiveVal(NULL)
     `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -70,12 +72,27 @@ igv_server <- function(id, shared_store, shared_rx) {
         return()
       }
       showNotification("Loading IGV...", duration = NULL, id = ns("notify_igv"), type = "message")
-      genomeOptions <- igvShiny::parseAndValidateGenomeSpec(
-        genomeName   = assembly,
-        initialLocus = locus,
-        stockGenome  = TRUE,
-        dataMode     = "localFiles"
-      )
+      use_custom_genome_flag <- use_custom_genome()
+      genomeOptions <- NULL
+      
+      if (use_custom_genome_flag) {
+        cg <- custom_genome()
+        genomeOptions <- igvShiny::parseAndValidateGenomeSpec(
+          genomeName   = assembly,
+          initialLocus = locus,
+          stockGenome  = FALSE,
+          dataMode = "localFiles",
+          fasta = cg$fasta,
+          fastaIndex = cg$index
+        )
+      } else{
+        genomeOptions <- igvShiny::parseAndValidateGenomeSpec(
+          genomeName   = assembly,
+          initialLocus = locus,
+          stockGenome  = TRUE,
+          dataMode     = "localFiles"
+        )
+      }
       output$igvShiny_0 <- igvShiny::renderIgvShiny({
         igvShiny::igvShiny(genomeOptions, displayMode = "SQUISHED")
       })
@@ -268,8 +285,24 @@ igv_server <- function(id, shared_store, shared_rx) {
       log_info(sprintf("[igvServer] Data version updated: %d", shared_rx$data_version()))
       default_assembly <- shared_store$igv_data$igv_genome %||% "hg38"
       assembly_val(default_assembly)
+      custom_genome(shared_store$igv_data$custom_genome %||% NULL)
+      use_custom_genome(shared_store$igv_data$use_custom_genome %||% FALSE)
       log_info(sprintf("[igvServer] IGV genome set to: %s", default_assembly))
     }, ignoreInit = TRUE)
 
   })
 }
+
+# igvShiny::get_css_genomes()
+# Supported genomes
+#  [1] "hs1"             "chm13v1.1"       "hg38"            "hg38_1kg"       
+#  [5] "hg19"            "hg18"            "mm39"            "mm10"           
+#  [9] "mm9"             "rn7"             "rn6"             "gorGor6"        
+# [13] "gorGor4"         "panTro6"         "panTro5"         "panTro4"        
+# [17] "macFas5"         "GCA_011100615.1" "panPan2"         "canFam6"        
+# [21] "canFam5"         "canFam4"         "canFam3"         "bosTau9"        
+# [25] "bosTau8"         "susScr11"        "galGal6"         "GCF_016699485.2"
+# [29] "danRer11"        "danRer10"        "ce11"            "dm6"            
+# [33] "dm3"             "dmel_r5.9"       "sacCer3"         "ASM294v2"       
+# [37] "ASM985889v3"     "tair10"          "GCA_003086295.2" "GCF_001433935.1"
+# [41] "NC_016856.1"     "GCA_000182895.1"

@@ -28,7 +28,7 @@ snvPathoUI <- function(ns) {
   snv_pathogenicity_clinvar_select_opts <- c("None", "Pathogenic/Likely pathogenic", "Not benign")
   snv_pathogenicity_clinvar_opts <- c(
     "Pathogenic", "Likely pathogenic", "VUS", "Conflicting",
-    "Benign", "Likely benign", "Not available"
+    "Benign", "Likely benign", "Not available", "Other"
   )
   tagList(
     h4("Pathogenicity"),
@@ -70,7 +70,10 @@ FreqUI <- function(ns, label) {
   prefix <- ifelse(label == "sv", "sv_", "")
   tagList(
     h4("Frequency"),
-    selectInput(ns(paste0(prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1)
+    selectInput(ns(paste0(prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    if (label == "snv"){
+      checkboxInput(ns(paste0(prefix, "use_af")), "Use for clinvar and spliceAI override filters", value = FALSE)
+    }
   )
 }
 

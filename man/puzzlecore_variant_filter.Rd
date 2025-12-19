@@ -5,20 +5,25 @@
 \title{Variant filtering function for SNVs and SVs}
 \usage{
 puzzlecore_variant_filter(
-  data,
-  filters,
+  snv_data,
+  sv_data,
+  snv_filters,
+  sv_filters,
   pedigree,
   allele_tab,
   panel_app_genes,
   vep_consequences,
-  phenotype_data,
-  is_snv = TRUE
+  phenotype_data
 )
 }
 \arguments{
-\item{data}{Data table of variants (SNVs or SVs)}
+\item{snv_data}{Data table of SNV variants}
 
-\item{filters}{List of filter parameters}
+\item{sv_data}{Data table of SV variants}
+
+\item{snv_filters}{List of SNV filter parameters}
+
+\item{sv_filters}{List of SV filter parameters}
 
 \item{pedigree}{Data table representing the pedigree information}
 
@@ -29,8 +34,6 @@ puzzlecore_variant_filter(
 \item{vep_consequences}{Data table of VEP consequences}
 
 \item{phenotype_data}{Data table of phenotype information}
-
-\item{is_snv}{Logical indicating if the data is SNVs (TRUE) or SVs (FALSE)}
 }
 \value{
 Filtered data table of variants after applying filters and compound heterozygous filtering

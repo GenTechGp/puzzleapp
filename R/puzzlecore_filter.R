@@ -299,6 +299,9 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     if (!is.null(filters$revel_value) && filters$revel_value > 0) {
       filter_expression <- add_filter_condition(filter_expression, sprintf("(is.na(REVEL) | REVEL >= %f)", filters$revel_value))
     }
+
+    override_threshold <- if (isTRUE(filters$use_af)) filters$af_value else 0.05
+
     # ClinVar filter and override
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
       # Normalize input
@@ -311,30 +314,43 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         "Conflicting" = "conflicting"
       )
 
-      # Containers for pattern parts
-      word_boundary_terms <- c()
-      substring_terms <- c()
-      for (term in filters$clinvar_filter) {
-        if (term %in% names(special_map)) {
-          # special case → substring match (no word boundaries)
-          substring_terms <- c(substring_terms, special_map[[term]])
-        } else {
-          # normal case → strict word-boundary match
-          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+      if ("Other" %in% filters$clinvar_filter) {
+        # Exclude all explicit categories except those explicitly selected alongside "Other"
+        explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
+        selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
+        exclude_explicit <- setdiff(explicit_terms, selected_explicit)
+
+        if (length(exclude_explicit) > 0) {
+          word_boundary_terms <- c()
+          substring_terms <- c()
+          for (term in exclude_explicit) {
+            if (term %in% names(special_map)) {
+              substring_terms <- c(substring_terms, special_map[[term]])
+            } else {
+              word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+            }
+          }
+          clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+          negation_expr <- sprintf("!grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
         }
-      }
-      # Combine all patterns into one regex
-      clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-
-
-      # Add condition for "Not available" (i.e., NA values in CLINVAR)
-      if ("Not available" %in% filters$clinvar_filter) {
-        clinvar_condition <- sprintf("(%s | is.na(CLINVAR))", paste0("grepl('", clinvar_pattern, "', CLINVAR, ignore.case = TRUE)"))
       } else {
+        word_boundary_terms <- c()
+        substring_terms <- c()
+        for (term in filters$clinvar_filter) {
+          if (term %in% names(special_map)) {
+            # special case → substring match (no word boundaries)
+            substring_terms <- c(substring_terms, special_map[[term]])
+          } else {
+            # normal case → strict word-boundary match
+            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+          }
+        }
+        # Combine all patterns into one regex
+        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
         clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
+        filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
       }
-      #clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-      filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
 
       # ClinVar override for specific terms
       override_patterns <- c()
@@ -344,7 +360,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
-        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < 0.05))", override_pattern)
+        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, override_threshold)
       }
     }
 
@@ -352,11 +368,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     if (!is.null(filters$spliceai_filter) && filters$spliceai_filter > 0) {
       log_info("[filtServer][filter_dataset] Applying SpliceAI override filter")
       spliceai_override_condition <- sprintf(
-        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f)",
+        "(Donor_Loss > %f | Donor_Gain > %f | Acceptor_Loss > %f | Acceptor_Gain > %f) & (is.na(AF) | AF < %f)",
         filters$spliceai_filter,
         filters$spliceai_filter,
         filters$spliceai_filter,
-        filters$spliceai_filter
+        filters$spliceai_filter,
+        override_threshold
       )
     }
 
@@ -752,10 +769,16 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
     comp_hets <- merge(comp_hets_1, comp_hets_2, by = "GENE_SYMBOL", all = TRUE)[VAR_COUNT_1 > 0 & VAR_COUNT_2 > 0]
     all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% comp_hets$GENE_SYMBOL]
   } else {
-    comp_hets <- all_filtered_data[
-      alt_allele_count_1 == 1 &  # Proband is heterozygous
-        ((GT_2 == "1|0" & GT_3 == "0|1") | (GT_2 == "0|1" & GT_3 == "1|0")),  # Opposite inheritance from parents
-      .(VAR_COUNT = .N), by = GENE_SYMBOL]
+    mom_code <- pedigree$code[pedigree$kinship == "mother"]
+    dad_code <- pedigree$code[pedigree$kinship == "father"]
+    mom_gt_col <- paste0("GT_", mom_code)
+    dad_gt_col <- paste0("GT_", dad_code)
+    mom <- all_filtered_data[[mom_gt_col]]
+    dad <- all_filtered_data[[dad_gt_col]]
+    het <- all_filtered_data[["alt_allele_count_1"]] == 1 # Proband is heterozygous
+    cond1 <- het & mom == "1|0" & dad == "0|1" # Inherited from different parents
+    cond2 <- het & mom == "0|1" & dad == "1|0" # Inherited from different parents
+    comp_hets <- all_filtered_data[cond1 | cond2, .(VAR_COUNT = .N), by = GENE_SYMBOL]
     # Keep genes where at least 2 variants exist and are inherited from different parents
     valid_genes <- comp_hets[VAR_COUNT > 1, GENE_SYMBOL]
     all_filtered_data <- all_filtered_data[GENE_SYMBOL %in% valid_genes]
@@ -763,31 +786,7 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
   return(all_filtered_data)
 }
 
-# export this function in roxygen
-#' Variant filtering function for SNVs and SVs
-#' @param data Data table of variants (SNVs or SVs)
-#' @param filters List of filter parameters
-#' @param pedigree Data table representing the pedigree information
-#' @param allele_tab Data table of allele counts
-#' @param panel_app_genes Data table of PanelApp genes
-#' @param vep_consequences Data table of VEP consequences
-#' @param phenotype_data Data table of phenotype information
-#' @param is_snv Logical indicating if the data is SNVs (TRUE) or SVs (FALSE)
-#' @return Filtered data table of variants after applying filters and compound heterozygous filtering
-#' @export
-puzzlecore_variant_filter <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE, svlog_db = NULL) {
-    variant_type <- if (is_snv) "SNV" else "SV"
-    log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", variant_type))
-    filter_time <- system.time({
-      filtered_data <- filter_dataset(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv,svlog_db)
-    })
-    log_info(sprintf("nrow(filtered_data): %d", nrow(filtered_data)))
-    log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
-    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, filters)
-    log_info(sprintf("nrow(filtered_data_comphet): %d", nrow(filtered_data_comphet)))
-    return(filtered_data_comphet)
-}
-
+# Function to filter and summarise SVlog database entries per SV
 filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   if (is.null(svlog_db) || !nrow(svlog_db)) {
     return(data.table::data.table())
@@ -1019,4 +1018,50 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   )
   
   wide[]
+}
+
+# export this function in roxygen
+#' Variant filtering function for SNVs and SVs
+#' @param snv_data Data table of SNV variants
+#' @param sv_data Data table of SV variants
+#' @param snv_filters List of SNV filter parameters
+#' @param sv_filters List of SV filter parameters
+#' @param pedigree Data table representing the pedigree information
+#' @param allele_tab Data table of allele counts
+#' @param panel_app_genes Data table of PanelApp genes
+#' @param vep_consequences Data table of VEP consequences
+#' @param phenotype_data Data table of phenotype information
+#' @return Filtered data table of variants after applying filters and compound heterozygous filtering
+#' @export
+puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
+  log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SNV"))
+  filter_time <- system.time({
+    snv_filtered_data <- filter_dataset(snv_data, snv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, TRUE)
+  })
+  log_info(sprintf("nrow(filtered_data): %d", nrow(snv_filtered_data)))
+  log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
+
+  log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SV"))
+  filter_time <- system.time({
+    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE)
+  })
+  log_info(sprintf("nrow(filtered_data): %d", nrow(sv_filtered_data)))
+  log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
+  
+  # Only combine and apply compound het if requested
+  if (!is.null(snv_filters$inheritance_filter) && snv_filters$inheritance_filter == "Compound Heterozygous") {
+    # Combine, allowing empty inputs
+    filtered_data <- data.table::rbindlist(list(snv_filtered_data, sv_filtered_data), use.names = TRUE, fill = TRUE)
+    log_info(sprintf("nrow(combined filtered_data): %d", nrow(filtered_data)))
+
+    filtered_data_comphet <- apply_compound_het(filtered_data, pedigree, snv_filters)
+    log_info(sprintf("nrow(filtered_data_comphet): %d", nrow(filtered_data_comphet)))
+
+    # Separate back purely by CATEGORY (no ID or gene logic)
+    snv_out <- filtered_data_comphet[CATEGORY == "SNV & Indel"]
+    sv_out  <- filtered_data_comphet[CATEGORY == "SV"]
+    return(list(snv = snv_out, sv = sv_out))
+  }
+  # Passthrough when not Compound Heterozygous (no combine)
+  return(list(snv = snv_filtered_data, sv = sv_filtered_data))
 }
