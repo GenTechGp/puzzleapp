@@ -16,8 +16,8 @@ NULL
 #   Type rules:
 #     * Character:  dummy1_<orig-or-NA>, dummy2_<orig-or-NA>
 #     * Logical:    TRUE, FALSE   (order fixed)
-#     * Numeric (double): 0, 100
-#     * Integer:    -100L, 100L
+#     * Numeric (double): 0, 100 (unless overridden by data_ranges)
+#     * Integer:    -100L, 100L (unless overridden by data_ranges)
 #     * integer64:  -100, 100 (as integer64)  (treated like integer)
 #     * Date:       origin - 100 days, origin + 100 days
 #                   (1969-09-23, 1970-04-11)
@@ -34,19 +34,28 @@ NULL
 # - Padding logic unchanged.
 #
 # Parameters:
-#   x, round_base, slice_pct, include_numeric, include_factor, add_row_id, verbose, logger
+#   x, round_base, slice_pct, include_numeric, include_factor, data_ranges,
+#   add_row_id, verbose, logger
+#
+# data_ranges (optional):
+#   A data.frame/data.table with columns: name (character), min, max.
+#   When provided, for INTEGER and DOUBLE columns whose names match `name`,
+#   the TWO DUMMY ROW values will be set to (min, max) for that column.
+#   The numeric min/max rows (if include_numeric=TRUE) will also use these values.
+#   Non-numeric (int64, Date, POSIXct, factor, logical, character) columns are ignored.
 #
 # Returns:
 #   data.table with:
 #     1. dummy1 row
 #     2. dummy2 row
-#     3. numeric min/max rows (optional)
+#     3. numeric min/max rows (optional; overridden by data_ranges for int/double)
 #     4. factor level rows (optional)
 #     5. padding rows
 #   .row_id appended last (creation order).
 #
 # Logging tags:
 #   [boundary][dummy] detail of dummy assignments
+#   [boundary][ranges] detail of data_ranges overrides used/ignored
 #   Existing tags preserved.
 
 make_boundary_table <- function(x,
@@ -54,8 +63,9 @@ make_boundary_table <- function(x,
                                 slice_pct = 10,
                                 include_numeric = TRUE,
                                 include_factor = TRUE,
+                                data_ranges = NULL,
                                 add_row_id = TRUE,
-                                verbose = TRUE,
+                                verbose = FALSE,
                                 logger = function(...) cat(...)) {
   stopifnot(is.data.frame(x))
   if (!inherits(x, "data.table")) x <- data.table::as.data.table(x)
@@ -96,15 +106,55 @@ make_boundary_table <- function(x,
   is_char <- vapply(x, is.character,    logical(1))
   is_logi <- vapply(x, is.logical,      logical(1))
 
-  num_cols  <- cols[is_num]
-  fac_cols  <- cols[is_fac]
-  char_cols <- cols[is_char]
+  num_cols   <- cols[is_num]
+  fac_cols   <- cols[is_fac]
+  char_cols  <- cols[is_char]
   other_cols <- setdiff(cols, c(num_cols, fac_cols, char_cols))
 
   logf(sprintf("[boundary] Columns: numeric-like=%s | factor=%s | other=%s",
                paste(num_cols, collapse = ", "),
                paste(fac_cols, collapse = ", "),
                paste(other_cols, collapse = ", ")))
+
+  # ---- Prepare data_ranges overrides (ints and doubles only) -----
+  ranges_dt <- NULL
+  numeric_overridable <- vapply(x, function(v) is.numeric(v) && !is_integer64(v), logical(1))
+  numeric_overridable_names <- names(x)[numeric_overridable]
+
+  if (!is.null(data_ranges)) {
+    provided <- if (!inherits(data_ranges, "data.table")) {
+      data.table::as.data.table(data_ranges)
+    } else {
+      data.table::copy(data_ranges)
+    }
+
+    required_cols <- c("name", "min", "max")
+    if (!all(required_cols %in% names(provided))) {
+      logf(sprintf("[boundary][ranges] Ignoring data_ranges: missing columns, found=%s need=%s",
+                   paste(names(provided), collapse = ","), paste(required_cols, collapse = ",")))
+    } else {
+      provided[, name := as.character(name)]
+      provided <- provided[!is.na(name)]
+      provided_names <- provided$name
+      not_in_x <- setdiff(provided_names, cols)
+      non_numeric <- intersect(intersect(provided_names, cols), setdiff(cols, numeric_overridable_names))
+      if (length(not_in_x)) {
+        logf(sprintf("[boundary][ranges] Names not in `x` ignored: %s", paste(not_in_x, collapse = ", ")))
+      }
+      if (length(non_numeric)) {
+        logf(sprintf("[boundary][ranges] Non (int/double) columns ignored: %s", paste(non_numeric, collapse = ", ")))
+      }
+      ranges_dt <- provided[name %in% numeric_overridable_names]
+      if (nrow(ranges_dt)) {
+        ranges_dt <- ranges_dt[!duplicated(name)]
+        data.table::setkey(ranges_dt, name)
+        logf(sprintf("[boundary][ranges] Will override min/max for: %s", paste(ranges_dt$name, collapse = ", ")))
+      } else {
+        logf("[boundary][ranges] data_ranges provided but none applicable (int/double columns).")
+        ranges_dt <- NULL
+      }
+    }
+  }
 
   # ---- Diagnostics (unchanged baseline) --------------------------
   for (col in cols) {
@@ -120,7 +170,7 @@ make_boundary_table <- function(x,
           v_max_ceil  <- as.Date(ceil_to_base(as.numeric(v_max_raw),  round_base), origin = "1970-01-01")
         } else if (is_posix(v)) {
           v_min_floor <- as.POSIXct(floor_to_base(as.numeric(v_min_raw), round_base), origin = "1970-01-01", tz = attr(v, "tzone"))
-            v_max_ceil <- as.POSIXct(ceil_to_base(as.numeric(v_max_raw),  round_base), origin = "1970-01-01", tz = attr(v, "tzone"))
+          v_max_ceil  <- as.POSIXct(ceil_to_base(as.numeric(v_max_raw),  round_base), origin = "1970-01-01", tz = attr(v, "tzone"))
         } else {
           v_min_floor <- suppressWarnings(floor_to_base(v_min_raw, round_base))
           v_max_ceil  <- suppressWarnings(ceil_to_base(v_max_raw,  round_base))
@@ -177,11 +227,9 @@ make_boundary_table <- function(x,
     if (is_fac[col]) {
       v_non_na_levels <- unique(as.character(v[!is.na(v)]))
       n_used <- length(v_non_na_levels)
-      # If 2+ distinct non-NA levels: pick first two
       if (n_used >= 2) {
         l1 <- v_non_na_levels[1]
         l2 <- v_non_na_levels[2]
-        # Ensure both are in levels (they are by definition)
         dummy1[[col]] <- factor(l1, levels = levels(v))
         dummy2[[col]] <- factor(l2, levels = levels(v))
         logf(sprintf("[boundary][dummy] %s factor >=2 levels -> (%s, %s)", col, l1, l2))
@@ -191,7 +239,6 @@ make_boundary_table <- function(x,
         levs <- levels(v)
         if (!(syn2 %in% levs)) {
           levs <- c(levs, syn2)
-          # Update column levels in original data & template
           x[[col]] <- factor(as.character(x[[col]]), levels = levs)
           template[[col]] <- factor(as.character(template[[col]]), levels = levs)
         }
@@ -217,21 +264,41 @@ make_boundary_table <- function(x,
 
     # Numeric-like (numeric/integer/integer64/Date/POSIXct)
     if (is_num[col]) {
-      # integer64?
+      # integer64: never overridden by data_ranges (ints/doubles only)
       if (is_integer64(v)) {
         if (requireNamespace("bit64", quietly = TRUE)) {
           dummy1[[col]] <- bit64::as.integer64(-100)
           dummy2[[col]] <- bit64::as.integer64(100)
         } else {
-          # Fallback numeric (will lose integer64 class)
-            dummy1[[col]] <- -100
-            dummy2[[col]] <- 100
+          dummy1[[col]] <- -100
+          dummy2[[col]] <- 100
         }
         logf(sprintf("[boundary][dummy] %s integer64 -> (-100, 100)", col))
       } else if (is.integer(v)) {
-        dummy1[[col]] <- as.integer(-100)
-        dummy2[[col]] <- as.integer(100)
-        logf(sprintf("[boundary][dummy] %s integer -> (-100, 100)", col))
+        # Use data_ranges if provided
+        used_override <- FALSE
+        if (!is.null(ranges_dt) && (col %in% ranges_dt$name)) {
+          rng <- ranges_dt[col]
+          if (nrow(rng) == 1) {
+            rmin <- rng$min
+            rmax <- rng$max
+            if (!is.na(rmin) && !is.na(rmax)) {
+              if (is.numeric(rmin) && is.numeric(rmax) && rmin > rmax) {
+                tmp <- rmin; rmin <- rmax; rmax <- tmp
+              }
+              dummy1[[col]] <- as.integer(rmin)
+              dummy2[[col]] <- as.integer(rmax)
+              used_override <- TRUE
+              logf(sprintf("[boundary][dummy][ranges] %s integer -> (%s, %s)",
+                           col, as.character(dummy1[[col]]), as.character(dummy2[[col]])))
+            }
+          }
+        }
+        if (!used_override) {
+          dummy1[[col]] <- as.integer(-100)
+          dummy2[[col]] <- as.integer(100)
+          logf(sprintf("[boundary][dummy] %s integer -> (-100, 100)", col))
+        }
       } else if (is_date(v)) {
         dummy1[[col]] <- date_dummy1
         dummy2[[col]] <- date_dummy2
@@ -244,9 +311,29 @@ make_boundary_table <- function(x,
         logf(sprintf("[boundary][dummy] %s POSIXct -> (%s, %s)", col,
                      as.character(dummy1[[col]]), as.character(dummy2[[col]])))
       } else if (is.numeric(v)) { # double
-        dummy1[[col]] <- 0
-        dummy2[[col]] <- 100
-        logf(sprintf("[boundary][dummy] %s numeric -> (0, 100)", col))
+        used_override <- FALSE
+        if (!is.null(ranges_dt) && (col %in% ranges_dt$name)) {
+          rng <- ranges_dt[col]
+          if (nrow(rng) == 1) {
+            rmin <- rng$min
+            rmax <- rng$max
+            if (!is.na(rmin) && !is.na(rmax)) {
+              if (is.numeric(rmin) && is.numeric(rmax) && rmin > rmax) {
+                tmp <- rmin; rmin <- rmax; rmax <- tmp
+              }
+              dummy1[[col]] <- as.numeric(rmin)
+              dummy2[[col]] <- as.numeric(rmax)
+              used_override <- TRUE
+              logf(sprintf("[boundary][dummy][ranges] %s numeric -> (%s, %s)",
+                           col, as.character(dummy1[[col]]), as.character(dummy2[[col]])))
+            }
+          }
+        }
+        if (!used_override) {
+          dummy1[[col]] <- 0
+          dummy2[[col]] <- 100
+          logf(sprintf("[boundary][dummy] %s numeric -> (0, 100)", col))
+        }
       }
       next
     }
@@ -264,6 +351,38 @@ make_boundary_table <- function(x,
 
     for (col in num_cols) {
       v <- x[[col]]
+
+      # If data_ranges provided for this int/double column, use it
+      used_override <- FALSE
+      if (!is.null(ranges_dt) && (col %in% ranges_dt$name) && is.numeric(v) && !is_integer64(v) && !is_date(v) && !is_posix(v)) {
+        rng <- ranges_dt[col]
+        if (nrow(rng) == 1) {
+          rmin <- rng$min
+          rmax <- rng$max
+          if (!is.na(rmin) && !is.na(rmax)) {
+            if (is.numeric(rmin) && is.numeric(rmax) && rmin > rmax) {
+              logf(sprintf("[boundary][ranges] %s has min > max in data_ranges; swapping (%s, %s) -> (%s, %s)",
+                           col, as.character(rmin), as.character(rmax), as.character(rmax), as.character(rmin)))
+              tmp <- rmin; rmin <- rmax; rmax <- tmp
+            }
+            if (is.integer(v)) {
+              vmin_r <- as.integer(rmin); vmax_r <- as.integer(rmax)
+            } else {
+              vmin_r <- as.numeric(rmin); vmax_r <- as.numeric(rmax)
+            }
+            data.table::set(row_min, j = col, value = vmin_r)
+            data.table::set(row_max, j = col, value = vmax_r)
+            logf(sprintf("[boundary][ranges] %s override -> min=%s max=%s",
+                         col, as.character(vmin_r), as.character(vmax_r)))
+            used_override <- TRUE
+          } else {
+            logf(sprintf("[boundary][ranges] %s override skipped due to NA min/max", col))
+          }
+        }
+      }
+      if (used_override) next
+
+      # Fall back to observed min/max with floor/ceil
       v_no_na <- v[!is.na(v)]
       if (!length(v_no_na)) next
 
@@ -337,7 +456,7 @@ make_boundary_table <- function(x,
 
   logf(sprintf("[boundary] final_rows=%d | cols=%d", nrow(out), ncol(out)))
   out
-}
+} 
 
 nthreads <- 8  # Number of threads for data.table operations
 
@@ -407,6 +526,29 @@ load_local_db <- function(key, file_name) {
   return(db_path)
 }
 
+expand_ranges_by_code <- function(data_ranges_dt, samples, names_to_expand) {
+  stopifnot(is.data.table(data_ranges_dt))
+  # extract unique, non-NA codes
+  codes <- unique(vapply(samples, function(s) s$code, numeric(1)))
+  codes <- codes[!is.na(codes)]
+  if (length(codes) == 0)
+    return(copy(data_ranges_dt))
+  # rows that need expanding
+  to_expand <- data_ranges_dt[name %in% names_to_expand]
+  if (nrow(to_expand) == 0)
+    return(copy(data_ranges_dt))
+  # expand by code values (not sequence index)
+  expanded <- to_expand[
+    , .(code = codes), by = .(name, min, max)
+  ][
+    , name := paste0(name, "_", code)
+  ][
+    , code := NULL
+  ]
+  # combine back
+  rbind(data_ranges_dt[!name %in% names_to_expand], expanded, use.names = TRUE)
+}
+
 collect_inputs <- function(input) {
   messages <- list()
   # Collect sample info
@@ -440,14 +582,15 @@ collect_inputs <- function(input) {
     return(list(messages = messages))
   })
 
-
   # SNVs
   snvs_data <- NULL
   snv_default_dt <- NULL
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- puzzlecore_read_variant_tsv(input$snvs_tsv, nthreads = nthreads)
-      snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
+      data_ranges_dt <- fread(system.file("extdata", "db", "data_ranges", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
+      data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF"))
+      snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
       snvs_data <- add_row_id(snvs_data)
     } else {
       # shiny::showNotification("SNVs & Indels TSV file not found.", type = "error")
