@@ -589,7 +589,7 @@ collect_inputs <- function(input) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- puzzlecore_read_variant_tsv(input$snvs_tsv, nthreads = nthreads)
       data_ranges_dt <- fread(system.file("extdata", "db", "data_ranges", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
-      data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF"))
+      data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF", "alt_allele_count"))
       snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
       snvs_data <- add_row_id(snvs_data)
     } else {
