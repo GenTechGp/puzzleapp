@@ -65,7 +65,8 @@ ui <- fluidPage(
       tabsetPanel(
         id = "help_tabs",
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
-        tabPanel("Logs", log_viewer_ui("log"))
+        tabPanel("Logs", log_viewer_ui("log")),
+        tabPanel("Raw Filter", rawFilterUI("raw_filter"))
       )
     )
   )
@@ -88,6 +89,7 @@ server <- function(input, output, session) {
   shared_store$vep_map <- NULL
   shared_store$phenotype_data <- NULL
   shared_store$vep_consequences <- NULL
+  shared_store$svlog_db <- NULL
   shared_store$igv_data <- NULL
   shared_store$gene_symbol_data <- NULL
   shared_store$hpo_id_data <- NULL
@@ -113,6 +115,7 @@ server <- function(input, output, session) {
 
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
+  rawFilterServer("raw_filter", shared_store, shared_rx)
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")

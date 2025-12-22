@@ -24,5 +24,14 @@ utils::globalVariables(c(
   "PolyPhen", "REVEL", "am_class", "am_pathogenicity", "CADD_PHRED",
   "CADD_RAW", "CLINVAR", "Genotype", "VariantIndex", "GT",
   "AlleleCount", "SVTYPE", "SVLEN", "gnomAD_sv_AF", "gnomAD_sv",
-  "gnomAD_sv_N_HOMALT", "IDLIST", "IDLIST_VEC", "CONSEQUENCE", "VAR_TYPE", "CATEGORY"
+  "gnomAD_sv_N_HOMALT", "IDLIST", "IDLIST_VEC", "CONSEQUENCE", "VAR_TYPE", "CATEGORY",
+
+
+  "has_suffix", "default_type", "HET", "HOM", "svlog_id", "SRC", "gnomAD_pass",
+  "gnomAD_AF_max", "ont1000g_pass", "ont1000g_max_carriers", "NUM_FAMS",
+  "internal_pass", "CLNSIG", "clinvar_pass", "clinvar_labels", "pass_svlog",
+  "internal_max_carriers", "internal_max_families", "RM_CLASSIFICATION",
+  "RM_RECIPROCAL", "RM_TOTAL_SV_COVERAGE", "TRF_CLASSIFICATION", "TRF_SV_COVERAGE",
+  "TRF_PERIOD_SIZE", "TRF_COPY_NUMBER", "TRF_TOTAL_SV_COVERAGE", "CONSENSUS_REPEAT", "FINAL_CLASSIFICATION",
+  "..keep_final", "name", "STRING", "carriers"
 ))

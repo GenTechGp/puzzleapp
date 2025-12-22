@@ -549,7 +549,7 @@ expand_ranges_by_code <- function(data_ranges_dt, samples, names_to_expand) {
   rbind(data_ranges_dt[!name %in% names_to_expand], expanded, use.names = TRUE)
 }
 
-collect_inputs <- function(input) {
+collect_inputs <- function(input, add_svlog_columns = FALSE) {
   messages <- list()
   # Collect sample info
   n <- input$num_individuals
@@ -588,7 +588,7 @@ collect_inputs <- function(input) {
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- puzzlecore_read_variant_tsv(input$snvs_tsv, nthreads = nthreads)
-      data_ranges_dt <- fread(system.file("extdata", "db", "data_ranges", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
+      data_ranges_dt <- fread(system.file("extdata", "db", "table_schema", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
       data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF", "alt_allele_count"))
       snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
       snvs_data <- add_row_id(snvs_data)
@@ -604,7 +604,7 @@ collect_inputs <- function(input) {
   sv_default_dt <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
-      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads)
+      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads, snv = FALSE, add_svlog_columns = add_svlog_columns)
       sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
       svs_data <- add_row_id(svs_data)
     } else {

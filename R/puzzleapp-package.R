@@ -27,7 +27,7 @@
 #' @importFrom data.table
 #'   data.table as.data.table copy is.data.table haskey key
 #'   setkey set setDT setcolorder rbindlist fread fwrite tstrsplit
-#'   fifelse :=
+#'   fifelse := setnames
 #'
 #' @importFrom stringr str_extract str_remove
 #'
@@ -42,7 +42,7 @@
 #'
 #' @importFrom lobstr obj_addr
 #'
-#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table
+#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table read.table
 #'
 #' @importFrom stats setNames
 #' 

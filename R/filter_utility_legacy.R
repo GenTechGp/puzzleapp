@@ -378,7 +378,7 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
 
 save_filters <- function(input, phenos, file_path, samples, sticky) {
   filter_save_name <- input$filters_save_name
-  filters_dt <- capture_filters(input, phenos, samples)
+  filters_dt <- capture_filters(input, phenos, samples, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
 
   file_path <- create_safe_dir(file_path, sticky = sticky)
 

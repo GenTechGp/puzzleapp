@@ -39,6 +39,8 @@ snvs_tsv: /abs/path/to/output_snv.tsv               # required if snvs_vcf given
 snvs_vcf_cohort: /abs/path/to/cohort.snvs.vcf.gz    # optional (enables N_Cohort)
 svs_vcf:  /abs/path/to/input.svs.vcf.gz             # optional (for SV)
 svs_tsv:  /abs/path/to/output_sv.tsv                # required if svs_vcf given
+svlog_static: /abs/path/to/svlog_static.tsv         # optional (SVlog static)
+svlog_db:     /abs/path/to/svlog_db.tsv             # optional (SVlog database)
 samples:
 \itemize{
 \item sample_id: SAMPLE1

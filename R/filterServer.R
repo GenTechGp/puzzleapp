@@ -187,7 +187,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
       )
-      filtered_data <- puzzlecore_variant_filter(snv_data=snvs_data, sv_data=svs_data, snv_filters=snv_filters, sv_filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      svlog_db <- shared_store$svlog_db
+      filtered_data <- puzzlecore_variant_filter(snv_data=snvs_data, sv_data=svs_data, snv_filters=snv_filters, sv_filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data, svlog_db=svlog_db)
       shared_store$data_for_data[["SNV"]] <- filtered_data$snv
       shared_store$data_for_data[["SV"]] <- filtered_data$sv
 
@@ -391,6 +392,10 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
 
     observeEvent(input$btn_delete_pre_saved_filters, {
       req(input$delete_pre_saved_filters)
+      if (!is.null(input$pre_saved_filters) && input$pre_saved_filters == input$delete_pre_saved_filters) {
+        showNotification("Can't delete a filter that is currently selected. Error.", type = "error")
+        return()
+      }
       file_path <- shared_store$work_dir
       if (is.null(file_path) || file_path == "") {
         showNotification("Work directory not set. Cannot delete filters.", type = "error")
@@ -411,7 +416,23 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       update_filters_params(filter_params, session)
       if (length(filter_params[["HPO_Terms"]]) > 0) {
         phenos(c(filter_params[["HPO_Terms"]]))
-      }  
+      }
+
+      # This code part is not tested properly yet
+      if (!is.null(filter_params$Inheritance)) {
+        # Wait 500 ms (enough time for UI to render) if loaded$filters$Inheritance is "Custom" then update custom alleles
+        if (filter_params$Inheritance == "Custom") {
+          log_info("[filtServer] Loaded session has Custom inheritance, will update custom alleles after delay")
+          shinyjs::delay(500, {
+            if (allele_table_ready()){
+              update_custom_alleles(filter_params, session)
+            } else {
+              log_error("Allele table not ready after 500ms, cannot update custom alleles")
+            }
+          })
+        }
+      }
+
     }, ignoreInit = TRUE)
 
     observeEvent(input$btn_reset, {

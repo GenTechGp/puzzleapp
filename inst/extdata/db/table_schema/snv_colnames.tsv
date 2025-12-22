@@ -1,0 +1,42 @@
+name	has_suffix	default_type
+ID	0	NA_character_
+CATEGORY	0	NA_character_
+VAR_TYPE	0	NA_character_
+CHROM	0	NA_character_
+POS	0	0L
+VAR_LENGTH	0	0L
+REF	0	NA_character_
+ALT	0	NA_character_
+QUAL	0	numeric (float)
+FILTER	0	NA_character_
+GENE_ID	0	NA_character_
+GENE_SYMBOL	0	NA_character_
+TRANSCRIPT	0	NA_character_
+HGVSg	0	NA_character_
+HGVSc	0	NA_character_
+HGVSp	0	NA_character_
+CONSEQUENCE	0	NA_character_
+CLINVAR	0	NA_character_
+CLINVAR_ID	0	NA_character_
+gnomAD_ID	0	NA_character_
+AF	0	numeric (float)
+N_HOM_ALT	0	0L
+N_Cohort	0	0L
+SIFT	0	NA_character_
+PolyPhen	0	NA_character_
+REVEL	0	numeric (float)
+am_class	0	NA_character_
+am_pathogenicity	0	NA_character_
+CADD_PHRED	0	numeric (float)
+CADD_RAW	0	numeric (float)
+SpliceAI_pred	0	NA_character_
+Donor_Loss	0	numeric (float)
+Donor_Gain	0	numeric (float)
+Acceptor_Loss	0	numeric (float)
+Acceptor_Gain	0	numeric (float)
+AD	1	0L
+DP	1	0L
+VAF	1	numeric (float)
+GT	1	NA_character_
+GQ	1	0L
+alt_allele_count	1	0L

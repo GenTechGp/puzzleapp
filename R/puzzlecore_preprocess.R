@@ -284,6 +284,8 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
 #' @param svs_vcf Path to gzipped SV VCF (.vcf.gz)
 #' @param pedigree_data data.table with columns sample_id, kinship
 #' @param svs_vcf_cohort Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)
+#' @param svlog_static Optional SVlog static TSV file for annotation (default NULL)
+#' @param svlog_db Optional SVlog database TSV file for annotation (default NULL)
 #' @return data.table
 #' @export
 process_sv_data <- function(svs_vcf, pedigree_data, 

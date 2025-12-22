@@ -102,6 +102,10 @@ parse_gene_list <- function(x) {
 
 # Helper function: Apply PanelApp and custom gene filters
 panelapp_filter <- function(filters, panel_app_genes) {
+  # cat("nrow panel_app_genes:", nrow(panel_app_genes), "\n")
+  # cat("filters$panelapp_filter:", paste(filters$panelapp_filter, collapse = ","), "\n")
+  # cat("filters$custom_genes:", paste(filters$custom_genes, collapse = ","), "\n")
+  # cat("filters$substract_panelapp_gene_lists_filter:", paste(filters$substract_panelapp_gene_lists_filter, collapse = ","), "\n")
   # custom_genes is already parsed (character vector). May be NULL/empty.
   custom_vec <- filters$custom_genes
   if (is.null(custom_vec)) custom_vec <- character(0)
@@ -456,9 +460,16 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # 3) Max distance to nearest TAD boundary (bp)
     #    Use min(upstream, downstream); if both NA, pass.
     if (!is.null(filters$tad_max_dist)) {
+      # expr <- sprintf(
+      #   "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | " %+%
+      #     " pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)",
+      #   as.integer(filters$tad_max_dist)
+      # )
       expr <- sprintf(
-        "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | " %+%
-          " pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)",
+        paste0(
+          "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | ",
+          "pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)"
+        ),
         as.integer(filters$tad_max_dist)
       )
       filter_expression <- add_filter_condition(filter_expression, expr)
@@ -468,9 +479,16 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # 4) Max distance to nearest enhancer (bp)
     #    Use min(upstream, downstream); if both NA, pass.
     if (!is.null(filters$enhancer_max_dist)) {
+      # expr <- sprintf(
+      #   "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | " %+%
+      #     " pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)",
+      #   as.integer(filters$enhancer_max_dist)
+      # )
       expr <- sprintf(
-        "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | " %+%
-          " pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)",
+        paste0(
+          "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | ",
+          "pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)"
+        ),
         as.integer(filters$enhancer_max_dist)
       )
       filter_expression <- add_filter_condition(filter_expression, expr)
@@ -627,13 +645,17 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         svlog_db  = svlog_db,
         sv_filters = filters
       )
-      
       # inner join: only IDs with passing SVlog evidence survive here
-      data <- merge(
-        data,
-        svlog_summary,
-        by = "ID"
-      )
+      # data <- merge(
+      #   data,
+      #   svlog_summary,
+      #   by = "ID"
+      # )
+      data.table::setDT(svlog_summary)
+      data <- data[svlog_summary[, .(ID)], on = "ID", nomatch = 0L]
+      cols <- setdiff(intersect(names(data), names(svlog_summary)), "ID")
+      data[svlog_summary, on = "ID", (cols) := mget(paste0("i.", cols))]
+
       log_info(sprintf("[filtServer][filter_dataset] SVlog filter: %d variants with passing SVlog database evidence", nrow(data)))
       # rescue variants that had no SVlog record at all
       if (length(ids_no_svlog) > 0) {
@@ -1031,9 +1053,10 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
 #' @param panel_app_genes Data table of PanelApp genes
 #' @param vep_consequences Data table of VEP consequences
 #' @param phenotype_data Data table of phenotype information
+#' @param svlog_db Data table of SVlog database entries (optional)
 #' @return Filtered data table of variants after applying filters and compound heterozygous filtering
 #' @export
-puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
+puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, svlog_db = NULL) {
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SNV"))
   filter_time <- system.time({
     snv_filtered_data <- filter_dataset(snv_data, snv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, TRUE)
@@ -1043,7 +1066,7 @@ puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters
 
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SV"))
   filter_time <- system.time({
-    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE)
+    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE, svlog_db)
   })
   log_info(sprintf("nrow(filtered_data): %d", nrow(sv_filtered_data)))
   log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
