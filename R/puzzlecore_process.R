@@ -393,6 +393,41 @@ puzzlecore_parse_filter_table <- function(path) {
     out
   }
 
+  as_num_any <- function(keys) {
+    for (k in keys) {
+      v <- as_num(k)
+      if (!is.null(v)) return(v)
+    }
+    NULL
+  }
+
+  as_vec_any <- function(keys) {
+    for (k in keys) {
+      v <- as_vec(k)
+      if (length(v) > 0) return(v)
+    }
+    character(0)
+  }
+
+  as_scalar_str_any <- function(keys) {
+    for (k in keys) {
+      v <- as_scalar_str(k)
+      if (nzchar(v)) return(v)
+    }
+    ""
+  }
+
+  as_bool_any <- function(keys, default = FALSE) {
+    for (k in keys) {
+      v <- get_first(k)
+      if (!is.null(v) && nzchar(v)) {
+        return(tolower(v) %in% c("true", "1", "yes", "y"))
+      }
+    }
+    default
+  }
+
+
   snv_filters <- list(
     # Vectors -> character(0) when blank
     clinvar_filter                         = as_vec("SNV_Pathogenicity"),
@@ -405,11 +440,11 @@ puzzlecore_parse_filter_table <- function(path) {
 
     # todo: support both legacy (non_underscore) and new (with_underscore) keys and document the filter table format
     # Numerics -> NULL when blank
-    af_value               = as_num("SNV_gnomADv4 AF"),
+    af_value               = as_num_any(c("SNV_gnomADv4 AF", "SNV_gnomADv4_AF")),
     revel_value            = as_num("SNV_REVEL"),
-    spliceai_filter        = as_num("SNV_SpliceAI score"),
-    genotype_quality_value = as_num("SNV_Genotype quality"),
-    allele_balance_value   = as_num("SNV_Allele balance"),
+    spliceai_filter        = as_num_any(c("SNV_SpliceAI score", "SNV_SpliceAI_score")),
+    genotype_quality_value = as_num_any(c("SNV_Genotype quality", "SNV_Genotype_quality")),
+    allele_balance_value   = as_num_any(c("SNV_Allele balance", "SNV_Allele_balance")),
 
     # Scalars (strings) guarded by nzchar() downstream
     sift_filter           = as_scalar_str("SNV_SIFT"),
@@ -419,7 +454,7 @@ puzzlecore_parse_filter_table <- function(path) {
 
     # Booleans
     treat_negative              = as_bool("Treat_Negative", FALSE),
-    affected_only              = as_bool("SNV_Affected only", FALSE),
+    affected_only              = as_bool_any(c("SNV_Affected only", "SNV_Affected_only"), FALSE),
     inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE)
   )
 
@@ -428,7 +463,7 @@ puzzlecore_parse_filter_table <- function(path) {
     # Common / shared filters
     # ------------------------------------------------------------------
     inheritance_filter       = as_scalar_str("Inheritance"),
-    custom_allele_counts    = as_vec("Custom_Allele_Counts"),
+    custom_allele_counts     = as_vec("Custom_Allele_Counts"),
     panelapp_filter          = as_vec("PanelApp_Genes"),
     custom_genes             = as_vec("Custom_Genes"),
     substract_panelapp_gene_lists_filter = as_vec("Substract_PanelApp_Gene_Lists"),
@@ -437,16 +472,17 @@ puzzlecore_parse_filter_table <- function(path) {
     
     annotation_filter        = as_vec("SV_Annotation"),
     
-    genotype_quality_value   = as_num("SV_Genotype quality"),
-    allele_balance_value     = as_num("SV_Allele balance"),
+    genotype_quality_value   = as_num_any(c("SV_Genotype quality", "SV_Genotype_quality")),
+    allele_balance_value     = as_num_any(c("SV_Allele balance", "SV_Allele_balance")),
     af_value                 = as_num("SV_SVlog_gnomAD_AF"),
     
     # ------------------------------------------------------------------
     # SV type/size + labels
     # ------------------------------------------------------------------
-    sv_features              = as_vec("SV_SV type"),
-    min_svlen                = as_num("SV_Min SV Length"),
-    max_svlen                = as_num("SV_Max SV Length"),
+    sv_features              = as_vec_any(c("SV_SV type", "SV_SV_type")),
+    min_svlen                = as_num_any(c("SV_Min SV Length", "SV_Min_SV_Length")),
+    max_svlen                = as_num_any(c("SV_Max SV Length", "SV_Max_SV_Length")),
+
     
     clinvar_filter           = as_vec("SV_Pathogenicity"),
     classification_filter    = as_vec("SV_Classification"),
@@ -486,7 +522,7 @@ puzzlecore_parse_filter_table <- function(path) {
     # Flags
     # ------------------------------------------------------------------
     treat_negative            = as_bool("Treat_Negative", FALSE),
-    affected_only             = as_bool("SV_Affected only", FALSE),
+    affected_only             = as_bool_any(c("SV_Affected only", "SV_Affected_only"), FALSE),
     inheritance_panelapp_gene = as_bool("Inheritance_PanelApp_Gene", FALSE)
   )
   
