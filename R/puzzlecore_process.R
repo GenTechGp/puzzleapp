@@ -369,7 +369,7 @@ puzzlecore_parse_filter_table <- function(path) {
   as_vec <- function(k) {
     v <- get_first(k)
     if (is.null(v) || !nzchar(v)) return(character(0))
-    y <- unlist(strsplit(v, "[,;]+"))
+    y <- unlist(strsplit(v, "[;]+"))
     y <- trimws(y)
     y[nzchar(y)]
   }
