@@ -127,10 +127,10 @@ home_server <- function(id, shared_store, shared_rx) {
     shiny::observeEvent(input$load_data, {
       # disable load button to prevent multiple clicks
       status_text("Loading data...")
-      shiny::updateActionButton(session, "load_data", disabled = TRUE)
+      shinyjs::disable("load_data")
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
-        shiny::updateActionButton(session, "load_data", disabled = FALSE)
+        shinyjs::enable("load_data")
         status_text("No data loaded yet.")
         return()
       }
@@ -153,7 +153,7 @@ home_server <- function(id, shared_store, shared_rx) {
         for (msg in collected$messages) {
           shiny::showNotification(msg, type = "error")
         }
-        shiny::updateActionButton(session, "load_data", disabled = FALSE)
+        shinyjs::enable("load_data")
         status_text("No data loaded yet.")
         return()
       }
@@ -180,7 +180,7 @@ home_server <- function(id, shared_store, shared_rx) {
         custom_genome <- get_igv_custom_genome()
         if (is.null(custom_genome)) {
           shiny::showNotification("Custom genome is not properly configured in app.conf.", type = "error")
-          shiny::updateActionButton(session, "load_data", disabled = FALSE)
+          shinyjs::enable("load_data")
           status_text("No data loaded yet.")
           return()
         }
@@ -246,6 +246,8 @@ home_server <- function(id, shared_store, shared_rx) {
 
       status_text(paste(msgs, collapse = "\n"))
       cat("Data loaded into shared_store.\n")
+
+      shinyjs::disable("load_yml")
 
     })
 
