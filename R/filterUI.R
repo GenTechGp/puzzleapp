@@ -229,7 +229,7 @@ PopulationUI_0 <- function(ns) {
     selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices),
     sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
     numericInput(ns("sv_max_breakpoint_distance"), "Max breakpoint distance (bp) - INS:", value = 0, min = 0, step = 1),
-    numericInput(ns("sv_max_delta_length"), "Max |Δlen| (bp) - INS:", value = 0, min = 0, step = 1)
+    numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = 0, min = 0, step = 1)
   )
 }
 PopulationUI_1 <- function(ns) {
