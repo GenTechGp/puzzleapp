@@ -63,4 +63,4 @@ TRF_TOTAL_SV_COVERAGE	0	float
 VAF	1	float
 VAR_LENGTH	0	integer
 VAR_TYPE	0	string
-CONSEQUENCE	0	string
+VEP_CONSEQUENCE	0	string

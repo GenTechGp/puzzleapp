@@ -244,7 +244,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
     GENE_SYMBOL = SYMBOL,
     TRANSCRIPT = Feature,
     HGVSg, HGVSc, HGVSp,
-    CONSEQUENCE = Consequence,
+    VEP_CONSEQUENCE = Consequence,
     CLINVAR = CLIN_SIG,
     CLINVAR_ID,
     gnomAD_ID,

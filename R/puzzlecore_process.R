@@ -98,9 +98,13 @@ check_data <- function(label, data, table_schema) {
 puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog_columns = FALSE) {
     # data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"), nrows = 2000)
     data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
+    if (is.null(data)) {
+      data <- data.table::data.table()
+      return(data)
+    }
     # rename columns VEP_CONSEQUENCE to CONSEQUENCE if available
-    if ("VEP_CONSEQUENCE" %in% names(data)) {
-      setnames(data, "VEP_CONSEQUENCE", "CONSEQUENCE")
+    if ("CONSEQUENCE" %in% names(data)) {
+      setnames(data, "CONSEQUENCE", "VEP_CONSEQUENCE")
     }
     if (snv){
       table_schema <- fread(system.file("extdata", "db", "table_schema", "snv_colnames.tsv", package = "puzzleapp"), nThread = nthreads)
@@ -114,8 +118,8 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
     data <- add_extra_columns(data)
 
     # CONSEQUENCE column has & symbol. replace with ;
-    if ("CONSEQUENCE" %in% names(data)) {
-      data[, CONSEQUENCE := gsub("&", ";", CONSEQUENCE)]
+    if ("VEP_CONSEQUENCE" %in% names(data)) {
+      data[, VEP_CONSEQUENCE := gsub("&", ";", VEP_CONSEQUENCE)]
     }
 
     # Fix CLINVAR empty values
@@ -127,7 +131,7 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
       data[is.na(CLINVAR) | CLINVAR == "", CLINVAR := "Not_available"]
     }
 
-    factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR")
+    factor_cols <- c("VAR_TYPE", "CHROM", "VEP_CONSEQUENCE", "CLINVAR")
     # factor_cols <- c("VAR_TYPE", "CHROM", "CONSEQUENCE", "CLINVAR","GENE_ID", "GENE_SYMBOL")
     for (col in factor_cols) {
       if (col %in% names(data)) data[, (col) := as.factor(get(col))]

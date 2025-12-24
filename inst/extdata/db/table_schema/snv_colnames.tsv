@@ -15,7 +15,7 @@ TRANSCRIPT	0	NA_character_
 HGVSg	0	NA_character_
 HGVSc	0	NA_character_
 HGVSp	0	NA_character_
-CONSEQUENCE	0	NA_character_
+VEP_CONSEQUENCE	0	NA_character_
 CLINVAR	0	NA_character_
 CLINVAR_ID	0	NA_character_
 gnomAD_ID	0	NA_character_

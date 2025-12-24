@@ -111,9 +111,29 @@ home_ui <- function(id) {
           }
         }, false);
       })();
-    ", ns("open_new_session"))))
+    ", ns("open_new_session")))),
 
-  )
+    # ---- Add solid line and image at the end of the page ----
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #000; margin-top: 20px;"),
+
+    fluidRow(
+      column(3),
+      column(6,
+        shiny::div(
+          style = "margin-top: 10px; text-align: center;",
+          shiny::tags$img(
+            src = "puzzleapp-assets/logo.png",  # served from inst/www via addResourcePath
+            alt = "PuzzleApp image",
+            style = "max-width: 80%; height: auto; display: inline-block;"
+          )
+        )
+      ),
+      column(3)
+    )
 
 
-}
+
+  ) # end tagList
+
+
+} # end home_ui

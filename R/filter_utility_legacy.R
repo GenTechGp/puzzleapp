@@ -325,7 +325,7 @@ update_custom_alleles <- function(search_params, session) {
         if (!is.null(session$input[[input_id]])) {
           updateRadioButtons(session, inputId = input_id, selected = val)
         } else {
-          log_error(sprintf("[update_filters_params] Skipped %s - not yet rendered\n", input_id))
+          log_error(sprintf("[update_filters_params] Skipped %s - not yet rendered or sample IDs are different\n", input_id))
         }
       }
     }
