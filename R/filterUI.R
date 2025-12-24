@@ -1,20 +1,26 @@
 # ---- UI building functions ----
 # Annotation UI
-AnnotUI <- function(ns, type = "snv") {
+AnnotUI <- function(ns, id_prefix = "snv") {
+  is_snv <- (id_prefix == "snv")
+  if (id_prefix != "snv") {
+    id_prefix <- paste0(id_prefix, "_")
+  } else {
+    id_prefix <- ""
+  }
   annotation_select_opts <- c("None", "High impact", "Moderate to high impact")
-  annotation_conseq_opts <- c(
+  vep_conseq_opts <- c(
     "Stop gained", "Start lost", "Stop lost", "Splice variant",
     "Frameshift variant", "Missense variant", "In-frame variant",
     "Synonymous variant", "5'UTR variant", "3'UTR variant",
     "Intron variant", "Intergenic variant", "Regulatory variant", "Other"
   )
-  id_prefix <- if (type == "sv") "sv_" else ""
   ui_elements <- list(
     h4("Annotation"),
-    selectInput(ns(paste0(id_prefix, "annotation")), "Functional consequence:", choices = annotation_select_opts, selected = "None"),
-    checkboxGroupInput(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, choices = annotation_conseq_opts)
+    # todo change annotation to vep_consequence
+    selectInput(ns(paste0(id_prefix, "annotation")), "VEP Consequence:", choices = annotation_select_opts, selected = "None"),
+    checkboxGroupInput(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, choices = vep_conseq_opts)
   )
-  if (type == "snv") {
+  if (is_snv) {
     ui_elements <- append(
       ui_elements,
       list(numericInput(ns("spliceai_score"), "SpliceAI score:", 0, 0, 1, 0.05))
@@ -24,16 +30,21 @@ AnnotUI <- function(ns, type = "snv") {
 }
 
 # Pathogenicity UI
-snvPathoUI <- function(ns) {
-  snv_pathogenicity_clinvar_select_opts <- c("None", "Pathogenic/Likely pathogenic", "Not benign")
-  snv_pathogenicity_clinvar_opts <- c(
+PathoUI <- function(ns, id_prefix = "snv") {
+  if (id_prefix != "snv") {
+    id_prefix <- paste0(id_prefix, "_")
+  } else {
+    id_prefix <- ""
+  }
+  pathogenicity_clinvar_select_opts <- c("None", "Pathogenic/Likely pathogenic", "Not benign")
+  pathogenicity_clinvar_opts <- c(
     "Pathogenic", "Likely pathogenic", "VUS", "Conflicting",
     "Benign", "Likely benign", "Not available", "Other"
   )
-  tagList(
+    tagList(
     h4("Pathogenicity"),
-    selectInput(ns("pathogenicity"), "Clinvar:", choices = snv_pathogenicity_clinvar_select_opts, selected = "None"),
-    checkboxGroupInput(ns("clinvar_checkboxes"), NULL, choices = snv_pathogenicity_clinvar_opts)
+    selectInput(ns(paste0(id_prefix, "pathogenicity")), "Clinvar:", choices = pathogenicity_clinvar_select_opts, selected = "None"),
+    checkboxGroupInput(ns(paste0(id_prefix, "clinvar_checkboxes")), NULL, choices = pathogenicity_clinvar_opts)
   )
 }
 
@@ -51,42 +62,131 @@ snvInsilicoUI <- function(ns) {
 }
 
 # Quality UI
-QualityUI <- function(ns, label = "snv") {
-  prefix <- ifelse(label == "sv", "sv_", "")
+QualityUI <- function(ns, id_prefix = "snv") {
+  if (id_prefix != "snv") {
+    id_prefix <- paste0(id_prefix, "_")
+  } else {
+    id_prefix <- ""
+  }
   tagList(
     h4("Per-sample Call quality filters"),
-    sliderInput(ns(paste0(prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0, ticks = FALSE),
-    sliderInput(ns(paste0(prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0, ticks = FALSE),
-    checkboxInput(ns(paste0(prefix, "affected_switch")), "Consider 'affected' samples only", value = FALSE)
+    sliderInput(ns(paste0(id_prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0, ticks = FALSE),
+    sliderInput(ns(paste0(id_prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0, ticks = FALSE),
+    checkboxInput(ns(paste0(id_prefix, "affected_switch")), "Consider 'affected' samples only", value = FALSE),
+    numericInput(ns(paste0(id_prefix, "min_support_reads")), "Min. support reads:", value = 0, min = 0, step = 1)
   )
 }
 
 # Frequency UI
-FreqUI <- function(ns, label) {
+FreqUI <- function(ns, id_prefix = "snv") {
+  is_snv <- (id_prefix == "snv")
+  if (id_prefix != "snv") {
+    id_prefix <- paste0(id_prefix, "_")
+  } else {
+    id_prefix <- ""
+  }
   filter_freqs <- c(
     0, seq(0.0001, 0.0005, by = 0.0004),
     0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1
   )
-  prefix <- ifelse(label == "sv", "sv_", "")
   tagList(
     h4("Frequency"),
-    selectInput(ns(paste0(prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
-    if (label == "snv"){
-      checkboxInput(ns(paste0(prefix, "use_af")), "Use for clinvar and spliceAI override filters", value = FALSE)
+    selectInput(ns(paste0(id_prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    if (is_snv) {
+      checkboxInput(ns(paste0(id_prefix, "use_af")), "Use for clinvar and spliceAI override filters", value = FALSE)
     }
   )
 }
 
 # Structural Variant Features UI
-svFeatsUI <- function(ns) {
+svFeatsUI_0 <- function(ns) {
   sv_type_opts <- c("Insertion", "Deletion", "Duplication", "Inversion", "Translocation")
   tagList(
-    h4("SV Features"),
-    checkboxGroupInput(ns("sv_features_checkboxes"), NULL, choices = sv_type_opts),
-    numericInput(ns("min_svlen"), "Min Length:", 0, NA, NA),
-    numericInput(ns("max_svlen"), "Max Length:", 0, NA, NA)
+    checkboxGroupInput(ns("sv_features_checkboxes"), "SV type", choices = sv_type_opts),
+    numericInput(ns("min_svlen"), "Min SV Length:", 0, NA, NA),
+    numericInput(ns("max_svlen"), "Max SVLength:", 0, NA, NA)
   )
 }
+
+svFeatsUI_1 <- function(ns) {
+  # Define choices once
+  choices_parent <- c(
+    "Non-repetitive"    = "nonrep",
+    "Repetitive/Mobile" = "rep_mobile",
+    "Repetitive/Tandem" = "rep_tandem",
+    "Repetitive/Mixed"  = "rep_mixed"
+  )
+  choices_mobile <- c(
+    "LINE"           = "line",
+    "SINE"           = "sine",
+    "SVA"            = "sva",
+    "Retroposon"     = "retroposon",
+    "DNA transposon" = "dna_transposon"
+  )
+  choices_tandem <- c(
+    "STR"  = "str",
+    "VNTR" = "vntr",
+    "TR"   = "tr",
+    "HOMO" = "homo"
+  )
+
+  tagList(
+    # Styling for spacing/indent
+    tags$style(HTML("
+      .sv-classification h4 { margin-bottom: 8px; }
+      .sv-classification .sv-sub { margin-left: 24px; }
+      .sv-classification .shiny-input-checkboxgroup { margin-bottom: 8px; }
+    ")),
+
+    tags$div(
+      class = "sv-classification",
+      tags$h4("Classification"),
+
+      # Parent group
+      checkboxGroupInput(
+        inputId = ns("class_parent"),
+        label   = NULL,
+        choices = choices_parent,
+        inline  = FALSE
+      ),
+
+      # Children of Repetitive/Mobile (also shown for Mixed)
+      conditionalPanel(
+        condition = sprintf(
+          "Array.isArray(input['%s']) && (input['%s'].includes('rep_mobile') || input['%s'].includes('rep_mixed'))",
+          ns("class_parent"), ns("class_parent"), ns("class_parent")
+        ),
+        tags$div(class = "sv-sub",
+          checkboxGroupInput(
+            inputId  = ns("class_mobile"),
+            label    = NULL,
+            choices  = choices_mobile,
+            selected = unname(choices_mobile),  # UI-only: default to all selected
+            inline   = FALSE
+          )
+        )
+      ),
+
+      # Children of Repetitive/Tandem (also shown for Mixed)
+      conditionalPanel(
+        condition = sprintf(
+          "Array.isArray(input['%s']) && (input['%s'].includes('rep_tandem') || input['%s'].includes('rep_mixed'))",
+          ns("class_parent"), ns("class_parent"), ns("class_parent")
+        ),
+        tags$div(class = "sv-sub",
+          checkboxGroupInput(
+            inputId  = ns("class_tandem"),
+            label    = NULL,
+            choices  = choices_tandem,
+            selected = unname(choices_tandem),  # UI-only: default to all selected
+            inline   = FALSE
+          )
+        )
+      )
+    )
+  )
+}
+
 
 InherUI <- function(ns) {
   inher_opts <- c(
@@ -116,21 +216,101 @@ snvOptsUI <- function(ns) {
     column(2, AnnotUI(ns, "snv")),
     column(2, QualityUI(ns, "snv")),
     column(2, FreqUI(ns, "snv")),
-    column(2, snvPathoUI(ns)),
+    column(2, PathoUI(ns, "snv")),
     column(2, snvInsilicoUI(ns)),
     column(1),
   )
 }
 
+PopulationUI_0 <- function(ns) {
+  choices <- c("todo", "todo2")  # Placeholder for actual population choices
+  tagList(
+    h4("Population Evidence"),
+    selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices),
+    sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
+    numericInput(ns("sv_max_breakpoint_distance"), "Max breakpoint distance (bp) - INS:", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_delta_length"), "Max |Δlen| (bp) - INS:", value = 0, min = 0, step = 1)
+  )
+}
+PopulationUI_1 <- function(ns) {
+  choices <- c("todo", "todo2")  # Placeholder for actual population choices
+  filter_freqs <- c(
+    0, seq(0.0001, 0.0005, by = 0.0004),
+    0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1
+  )
+  tagList(
+    selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    strong("ONT 1000 Genomes"),
+    h5("Max carriers (HOME + HET)"),
+    numericInput(ns("sv_max_carriers_1000"), label = NULL, value = 0, min = 0, step = 1),
+    strong("Internal Cohort"),
+    h5("Max carriers (HOME + HET)"),
+    numericInput(ns("sv_max_carriers_internal"), label = NULL, value = 0, min = 0, step = 1),
+    h5("Max families:"),
+    numericInput(ns("sv_max_families"), label = NULL, value = 0, min = 0, step = 1)
+  )
+}
+
+SVlog_conseqUI <- function(ns) {
+  annotation_select_opts <- c("None", "High impact", "Moderate to high impact")
+  svlog_conseq_opts <- c("affects CDS", "affects only promoter", "affects TAD boundary", "affects UTR", "intronic", "intergenic", "splice altering", "other")
+  ui_elements <- list(
+    selectInput(ns("svlog_consequence"), "SVlog Consequence:", choices = annotation_select_opts, selected = "None"),
+    checkboxGroupInput(ns("svlog_conseq_checkboxes"), NULL, choices = svlog_conseq_opts)
+  )
+  tagList(ui_elements)
+}
+
+SVlogUI <- function(ns) {
+  choices <- c("todo", "todo2")  # Placeholder for actual population choices
+  tagList(
+    h4("SVlog"),
+    h5("Prioritised = Keeping - Filtering out"),
+    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices),
+    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices)
+  )
+}
+
+GenomicContextUI <- function(ns) {
+  tagList(
+    h4("Genomic Context"),
+    numericInput(ns("sv_max_distance_to_splice_site"), "Max distance to splice site (bp) - intronic:", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_min_ratio_sv_length_intron_length"), "Min ratio SV length/intron length - intronic:", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_distance_to_nearest_tad_boundary"), "Max distance to nearest TAD boundary (bp):", value = 0, min = 0, step = 1),
+    checkboxInput(ns("sv_intra_tad_boundary"), "Intra TAD boundary", value = FALSE),
+    checkboxInput(ns("sv_inter_tad_boundary"), "Inter TAD boundary", value = FALSE),
+    numericInput(ns("sv_max_distance_to_nearest_enhancer"), "Max distance to nearest enhancer (bp):", value = 0, min = 0, step = 1)
+  )
+}
+
 # SVs UI
 svOptsUI <- function(ns) {
-  fluidRow(
-    column(1),
-    column(2, AnnotUI(ns, "sv")),
-    column(2, QualityUI(ns, "sv")),
-    column(2, FreqUI(ns, "sv")),
-    column(2, svFeatsUI(ns)),
-    column(3),
+  tagList(
+    fluidRow(
+      column(1),
+      column(2, AnnotUI(ns, "sv")),
+      column(2, QualityUI(ns, "sv")),
+      column(2, FreqUI(ns, "sv")),
+      column(2, svFeatsUI_0(ns)),
+      column(3)
+    )
+  )
+}
+
+svOptsUI1 <- function(ns) {
+  tagList(
+    fluidRow(
+      column(2, PopulationUI_0(ns)),
+      column(1, PopulationUI_1(ns)),
+      column(1, PathoUI(ns, "sv1")),
+      column(1, AnnotUI(ns, "sv1")),
+      column(1, SVlog_conseqUI(ns)),
+      column(1, SVlogUI(ns)),
+      column(1, QualityUI(ns, "sv1")),
+      column(1, svFeatsUI_0(ns)),
+      column(1, svFeatsUI_1(ns)),
+      column(2, GenomicContextUI(ns))
+    )
   )
 }
 
@@ -240,6 +420,7 @@ selectFiltersUI <- function(id) {
     br(),
     header_UI(ns),
     br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
     
     # div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_inher", "+", style="padding:0 6px;min-width:30px;"), span("Show Inheritance Options", id="toggle_inher_label")),
     # div(id="inher_container", style="display:none;margin-top:10px;", inherOptsUI(ns)),
@@ -250,20 +431,30 @@ selectFiltersUI <- function(id) {
     div(id="panelapp_container", style="max-height:0; overflow:hidden; transition:max-height 0.3s ease;", panelAppOptsUI(ns)),
     tags$script(HTML("$('#toggle_panelapp').on('click',function(){var c=$('#panelapp_container'); var b=$('#toggle_panelapp'); var l=$('#toggle_panelapp_label'); if(c.css('max-height')=='0px'){c.css('max-height','2000px'); b.text('-'); l.text('Hide PanelApp Options');} else {c.css('max-height','0px'); b.text('+'); l.text('Show PanelApp Options');}});")),
     br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
 
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_phenotype", "+", style="padding:0 6px;min-width:30px;"), span("Show Phenotype Options", id="toggle_phenotype_label")),
     div(id="phenotype_container", style="max-height:0; overflow:hidden; transition:max-height 0.3s ease;", phenotypeOptsUI(ns)),
     tags$script(HTML("$('#toggle_phenotype').on('click',function(){var c=$('#phenotype_container'); var b=$('#toggle_phenotype'); var l=$('#toggle_phenotype_label'); if(c.css('max-height')=='0px'){c.css('max-height','2000px'); b.text('-'); l.text('Hide Phenotype Options');} else {c.css('max-height','0px'); b.text('+'); l.text('Show Phenotype Options');}});")),
     br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
 
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_snv", "+", style="padding:0 6px;min-width:30px;"), span("Show SNVs and Indels Filters", id="toggle_snv_label")),
     div(id="snv_container", style="display:none;margin-top:10px;", snvOptsUI(ns)),
     tags$script(HTML("$('#toggle_snv').on('click',function(){var c=$('#snv_container');var b=$('#toggle_snv');var l=$('#toggle_snv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide SNVs and Indels Filters');}else{b.text('+');l.text('Show SNVs and Indels Filters');}});")),
     br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
 
     div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_sv", "+", style="padding:0 6px;min-width:30px;"), span("Show SVs Filters", id="toggle_sv_label")),
     div(id="sv_container", style="display:none;margin-top:10px;", svOptsUI(ns)),
     tags$script(HTML("$('#toggle_sv').on('click',function(){var c=$('#sv_container');var b=$('#toggle_sv');var l=$('#toggle_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide SVs Filters');}else{b.text('+');l.text('Show SVs Filters');}});")),
     br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
+
+    div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_new_sv", "+", style="padding:0 6px;min-width:30px;"), span("Show new SVs Filters", id="toggle_new_sv_label")),
+    div(id="new_sv_container", style="display:none;margin-top:10px;", svOptsUI1(ns)),
+    tags$script(HTML("$('#toggle_new_sv').on('click',function(){var c=$('#new_sv_container');var b=$('#toggle_new_sv');var l=$('#toggle_new_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide new SVs Filters');}else{b.text('+');l.text('Show new SVs Filters');}});")),
+    br(),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
   )
 }
