@@ -1,4 +1,5 @@
 library(puzzleapp)
+# options(warn = 2)
 
 # App-level init: console logging + purge logs older than 100 days
 # use the $HOME/puzzleapp/logs directory if available, otherwise "logs" in current dir
@@ -64,9 +65,10 @@ ui <- fluidPage(
       "Help",
       tabsetPanel(
         id = "help_tabs",
+        tabPanel("Raw Filter", rawFilterUI("raw_filter")),
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
         tabPanel("Logs", log_viewer_ui("log")),
-        tabPanel("Raw Filter", rawFilterUI("raw_filter"))
+        tabPanel("About", includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
       )
     )
   )

@@ -8,6 +8,9 @@
 #   - Named ... become structured fields: log_info("Saved", file = path, ok = TRUE)
 #   - Unnamed ... are sprintf() args: log_info("Loaded %s rows", n)
 
+# ---- Helper internals for minimal-friction API ----
+`%||null%` <- function(x, y) if (is.null(x) || (is.character(x) && !nzchar(x))) y else x
+
 # ---- Utilities ----
 .ensure_logs_dir_abs <- function(logs_dir) {
   if (!dir.exists(logs_dir)) dir.create(logs_dir, recursive = TRUE, showWarnings = FALSE)
@@ -174,7 +177,7 @@ start_session_logger <- function(session,
   }
 
   # Session lifecycle events (info level) print the session token as well
-  log_info("Session started: %s", session$token, .session = session, path = safe_client("url_pathname") %||% NA_character_, query = safe_client("url_search") %||% NA_character_)
+  log_info("Session started: %s", session$token, .session = session, path = safe_client("url_pathname") %||null% NA_character_, query = safe_client("url_search") %||null% NA_character_)
 
   session$onSessionEnded(function() {
     # Try logging; if process is closing or path gone, don't error
@@ -185,9 +188,6 @@ start_session_logger <- function(session,
 
   invisible(path)
 }
-
-# ---- Helper internals for minimal-friction API ----
-`%||%` <- function(x, y) if (is.null(x) || (is.character(x) && !nzchar(x))) y else x
 
 # Resolve session from explicit argument or reactive domain
 .resolve_session <- function(session = NULL) {
@@ -217,14 +217,14 @@ start_session_logger <- function(session,
       ip <- tryCatch(session$request$HTTP_X_FORWARDED_FOR, error = function(e) NULL)
       if (is.null(ip)) ip <- tryCatch(session$request$REMOTE_ADDR, error = function(e) NULL)
     }
-    fields$ip <- ip %||% NA_character_
+    fields$ip <- ip %||null% NA_character_
   }
   if (include_path) {
     fields$path <- if (is.null(session)) NA_character_
-                   else tryCatch(shiny::isolate(session$clientData$url_pathname), error = function(e) NA_character_) %||% NA_character_
+                   else tryCatch(shiny::isolate(session$clientData$url_pathname), error = function(e) NA_character_) %||null% NA_character_
   }
   if (include_user) {
-    fields$user <- user_id %||% NA_character_
+    fields$user <- user_id %||null% NA_character_
   }
 
   fields
@@ -294,9 +294,10 @@ start_session_logger <- function(session,
 .log_emit <- function(level_fn, msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                       # legacy arg names for backward-compat
                       session = NULL, fields = NULL, user_id = NULL) {
-  rs <- .resolve_session(.session %||% session)
+  # rs <- .resolve_session(.session %||null% session)
+  rs <- .resolve_session(if (!is.null(.session)) .session else session)
   mf <- .coerce_msg_fields(msg, ..., .fields = .fields, fields = fields)
-  args <- c(list(msg = mf$msg), .session_fields(session = rs, user_id = (.user %||% user_id)), .normalize_fields(mf$fields))
+  args <- c(list(msg = mf$msg), .session_fields(session = rs, user_id = (.user %||null% user_id)), .normalize_fields(mf$fields))
   do.call(level_fn, args)
   invisible(NULL)
 }
@@ -317,21 +318,21 @@ start_session_logger <- function(session,
 #' @export
 log_info <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                      session = NULL, fields = NULL, user_id = NULL) {
-  .log_emit(.get_target_logger(.resolve_session(.session %||% session))$info,
+  .log_emit(.get_target_logger(.resolve_session(.session %||null% session))$info,
             msg, ..., .session = .session, .fields = .fields, .user = .user,
             session = session, fields = fields, user_id = user_id)
 }
 
 log_warn <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                      session = NULL, fields = NULL, user_id = NULL) {
-  .log_emit(.get_target_logger(.resolve_session(.session %||% session))$warn,
+  .log_emit(.get_target_logger(.resolve_session(.session %||null% session))$warn,
             msg, ..., .session = .session, .fields = .fields, .user = .user,
             session = session, fields = fields, user_id = user_id)
 }
 
 log_error <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                       session = NULL, fields = NULL, user_id = NULL) {
-  .log_emit(.get_target_logger(.resolve_session(.session %||% session))$error,
+  .log_emit(.get_target_logger(.resolve_session(.session %||null% session))$error,
             msg, ..., .session = .session, .fields = .fields, .user = .user,
             session = session, fields = fields, user_id = user_id)
 }
@@ -351,7 +352,7 @@ log_error <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
 #' @export
 log_debug <- function(msg, ..., .session = NULL, .fields = NULL, .user = NULL,
                       session = NULL, fields = NULL, user_id = NULL) {
-  .log_emit(.get_target_logger(.resolve_session(.session %||% session))$debug,
+  .log_emit(.get_target_logger(.resolve_session(.session %||null% session))$debug,
             msg, ..., .session = .session, .fields = .fields, .user = .user,
             session = session, fields = fields, user_id = user_id)
 }
