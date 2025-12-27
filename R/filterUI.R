@@ -102,6 +102,7 @@ FreqUI <- function(ns, id_prefix = "snv") {
 svFeatsUI_0 <- function(ns) {
   sv_type_opts <- c("Insertion", "Deletion", "Duplication", "Inversion", "Translocation")
   tagList(
+    h4("SV properties"),
     checkboxGroupInput(ns("sv_features_checkboxes"), "SV type", choices = sv_type_opts),
     numericInput(ns("min_svlen"), "Min SV Length:", 0, NA, NA),
     numericInput(ns("max_svlen"), "Max SVLength:", 0, NA, NA)
@@ -114,14 +115,18 @@ svFeatsUI_1 <- function(ns) {
     "Non-repetitive"    = "nonrep",
     "Repetitive/Mobile" = "rep_mobile",
     "Repetitive/Tandem" = "rep_tandem",
-    "Repetitive/Mixed"  = "rep_mixed"
+    "Repetitive/Mixed"  = "rep_mixed",
+    "Repetitive/Mobile/subtype" = "rep_mobile_subtype",
+    "Repetitive/Tandem/subtype" = "rep_tandem_subtype",
+    "Repetitive/Mixed/subtype"  = "rep_mixed_subtype"
   )
   choices_mobile <- c(
     "LINE"           = "line",
     "SINE"           = "sine",
     "SVA"            = "sva",
     "Retroposon"     = "retroposon",
-    "DNA transposon" = "dna_transposon"
+    "DNA transposon" = "dna_transposon",
+    "LTR"            = "ltr"
   )
   choices_tandem <- c(
     "STR"  = "str",
@@ -140,7 +145,7 @@ svFeatsUI_1 <- function(ns) {
 
     tags$div(
       class = "sv-classification",
-      tags$h4("Classification"),
+      tags$h4("SVscanner classification"),
 
       # Parent group
       checkboxGroupInput(
@@ -153,7 +158,7 @@ svFeatsUI_1 <- function(ns) {
       # Children of Repetitive/Mobile (also shown for Mixed)
       conditionalPanel(
         condition = sprintf(
-          "Array.isArray(input['%s']) && (input['%s'].includes('rep_mobile') || input['%s'].includes('rep_mixed'))",
+          "Array.isArray(input['%s']) && (input['%s'].includes('rep_mobile_subtype') || input['%s'].includes('rep_mixed_subtype'))",
           ns("class_parent"), ns("class_parent"), ns("class_parent")
         ),
         tags$div(class = "sv-sub",
@@ -170,7 +175,7 @@ svFeatsUI_1 <- function(ns) {
       # Children of Repetitive/Tandem (also shown for Mixed)
       conditionalPanel(
         condition = sprintf(
-          "Array.isArray(input['%s']) && (input['%s'].includes('rep_tandem') || input['%s'].includes('rep_mixed'))",
+          "Array.isArray(input['%s']) && (input['%s'].includes('rep_tandem_subtype') || input['%s'].includes('rep_mixed_subtype'))",
           ns("class_parent"), ns("class_parent"), ns("class_parent")
         ),
         tags$div(class = "sv-sub",
@@ -224,9 +229,10 @@ snvOptsUI <- function(ns) {
 
 PopulationUI_0 <- function(ns) {
   choices <- c("todo", "todo2")  # Placeholder for actual population choices
+  choices_similarity_criteria <- c("High", "Moderate", "Low", "None")
   tagList(
     h4("Population Evidence"),
-    selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices),
+    selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices_similarity_criteria, selected = "None"),
     sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
     numericInput(ns("sv_max_breakpoint_distance"), "Max breakpoint distance (bp) - INS:", value = 0, min = 0, step = 1),
     numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = 0, min = 0, step = 1)
@@ -255,6 +261,7 @@ SVlog_conseqUI <- function(ns) {
   annotation_select_opts <- c("None", "High impact", "Moderate to high impact")
   svlog_conseq_opts <- c("affects CDS", "affects only promoter", "affects TAD boundary", "affects UTR", "intronic", "intergenic", "splice altering", "other")
   ui_elements <- list(
+    h4("SVlog annotation"),
     selectInput(ns("svlog_consequence"), "SVlog Consequence:", choices = annotation_select_opts, selected = "None"),
     checkboxGroupInput(ns("svlog_conseq_checkboxes"), NULL, choices = svlog_conseq_opts)
   )
@@ -263,11 +270,17 @@ SVlog_conseqUI <- function(ns) {
 
 SVlogUI <- function(ns) {
   choices <- c("todo", "todo2")  # Placeholder for actual population choices
+  choices_keeping_tier <- c("0", "1", "2", "3")
+  choices_filtering_tier <- c("1", "2", "3")
+  choices_keeping <- c("prioritise_lof_any", "prioritise_lof_high", "prioritise_lof_mendeliome", "prioritise_lof_mod", "prioritise_str_novel")
+  choices_filtering <- c("common_1kg", "common_gnomad", "common_internal", "common_intergenic")
   tagList(
-    h4("SVlog"),
+    # h4("SVlog"),
     h5("Prioritised = Keeping - Filtering out"),
-    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices),
-    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices)
+    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices_keeping_tier),
+    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices_filtering_tier),
+    checkboxGroupInput(ns("svlog_keeping_checkboxes"), "Keeping criteria:", choices = choices_keeping),
+    checkboxGroupInput(ns("svlog_filtering_checkboxes"), "Filtering out criteria:", choices = choices_filtering)
   )
 }
 
@@ -300,16 +313,11 @@ svOptsUI <- function(ns) {
 svOptsUI1 <- function(ns) {
   tagList(
     fluidRow(
-      column(2, PopulationUI_0(ns)),
-      column(1, PopulationUI_1(ns)),
-      column(1, PathoUI(ns, "sv1")),
-      column(1, AnnotUI(ns, "sv1")),
-      column(1, SVlog_conseqUI(ns)),
-      column(1, SVlogUI(ns)),
-      column(1, QualityUI(ns, "sv1")),
-      column(1, svFeatsUI_0(ns)),
-      column(1, svFeatsUI_1(ns)),
-      column(2, GenomicContextUI(ns))
+      column(3, PopulationUI_0(ns), PopulationUI_1(ns)),
+      column(2, PathoUI(ns, "sv1"), AnnotUI(ns, "sv1")),
+      column(2, SVlog_conseqUI(ns), SVlogUI(ns)),
+      column(2, svFeatsUI_0(ns), svFeatsUI_1(ns)),
+      column(3, GenomicContextUI(ns), QualityUI(ns, "sv1"))
     )
   )
 }
