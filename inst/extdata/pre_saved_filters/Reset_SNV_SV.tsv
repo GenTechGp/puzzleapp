@@ -11,10 +11,12 @@ SNV_Allele balance	0
 SV_Inheritance	
 SV_Annotation	
 SV_gnomADv4 AF	1
-SV_Affected only	
+SV_Affected_only	
 SV_Filter value	
 SV_Genotype quality	0
-SV_Allele balance	0
+SV_Allele_balance	0
 SV_SV type	
-SV_Min SV Length	0
-SV_Max SV Length	0
+SV_Min_SV_Length	0
+SV_Max_SV_Length	0
+SV_Pathogenicity	
+    

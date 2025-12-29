@@ -105,7 +105,7 @@ svFeatsUI_0 <- function(ns) {
     h4("SV properties"),
     checkboxGroupInput(ns("sv_features_checkboxes"), "SV type", choices = sv_type_opts),
     numericInput(ns("min_svlen"), "Min SV Length:", 0, NA, NA),
-    numericInput(ns("max_svlen"), "Max SVLength:", 0, NA, NA)
+    numericInput(ns("max_svlen"), "Max SV Length:", 0, NA, NA)
   )
 }
 
@@ -297,27 +297,27 @@ GenomicContextUI <- function(ns) {
 }
 
 # SVs UI
+# svOptsUI <- function(ns) {
+#   tagList(
+#     fluidRow(
+#       column(1),
+#       column(2, AnnotUI(ns, "sv")),
+#       column(2, QualityUI(ns, "sv")),
+#       column(2, FreqUI(ns, "sv")),
+#       column(2, svFeatsUI_0(ns)),
+#       column(3)
+#     )
+#   )
+# }
+
 svOptsUI <- function(ns) {
   tagList(
     fluidRow(
-      column(1),
-      column(2, AnnotUI(ns, "sv")),
-      column(2, QualityUI(ns, "sv")),
-      column(2, FreqUI(ns, "sv")),
-      column(2, svFeatsUI_0(ns)),
-      column(3)
-    )
-  )
-}
-
-svOptsUI1 <- function(ns) {
-  tagList(
-    fluidRow(
       column(3, PopulationUI_0(ns), PopulationUI_1(ns)),
-      column(2, PathoUI(ns, "sv1"), AnnotUI(ns, "sv1")),
+      column(2, PathoUI(ns, "sv"), AnnotUI(ns, "sv")),
       column(2, SVlog_conseqUI(ns), SVlogUI(ns)),
       column(2, svFeatsUI_0(ns), svFeatsUI_1(ns)),
-      column(3, GenomicContextUI(ns), QualityUI(ns, "sv1"))
+      column(3, GenomicContextUI(ns), QualityUI(ns, "sv"))
     )
   )
 }
@@ -457,12 +457,6 @@ selectFiltersUI <- function(id) {
     div(id="sv_container", style="display:none;margin-top:10px;", svOptsUI(ns)),
     tags$script(HTML("$('#toggle_sv').on('click',function(){var c=$('#sv_container');var b=$('#toggle_sv');var l=$('#toggle_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide SVs Filters');}else{b.text('+');l.text('Show SVs Filters');}});")),
     br(),
-    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
-
-    div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_new_sv", "+", style="padding:0 6px;min-width:30px;"), span("Show new SVs Filters", id="toggle_new_sv_label")),
-    div(id="new_sv_container", style="display:none;margin-top:10px;", svOptsUI1(ns)),
-    tags$script(HTML("$('#toggle_new_sv').on('click',function(){var c=$('#new_sv_container');var b=$('#toggle_new_sv');var l=$('#toggle_new_sv_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide new SVs Filters');}else{b.text('+');l.text('Show new SVs Filters');}});")),
-    br(),
-    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;"),
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #808080; margin-top: 20px;")
   )
 }

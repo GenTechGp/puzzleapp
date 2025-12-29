@@ -230,15 +230,27 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
     })
 
-    observeEvent(input$pathogenicity, {
-      cat(sprintf("[homeServer] Pathogenicity filter changed: %s\n", input$pathogenicity))
+    observeEvent(input$sv_annotation, {
+      updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
+    })
+
+    updatePathogenicitySelection <- function(selected_option, checkbox_id, session) {
+      cat(sprintf("Pathogenicity selection changed: %s\n", selected_option))
       pathogenicity_map <- list(
         "Pathogenic/Likely pathogenic" = c("Pathogenic", "Likely pathogenic"),
         "Not benign" = c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting")
       )
-      select <- pathogenicity_map[[input$pathogenicity]]
+      select <- pathogenicity_map[[selected_option]]
       if (is.null(select)) select <- character(0)
-      updateCheckboxGroupInput(session, "clinvar_checkboxes", selected = select)
+      updateCheckboxGroupInput(session, checkbox_id, selected = select)
+    }
+
+    observeEvent(input$pathogenicity, {
+      updatePathogenicitySelection(input$pathogenicity, "clinvar_checkboxes", session)
+    })
+
+    observeEvent(input$sv_pathogenicity, {
+      updatePathogenicitySelection(input$sv_pathogenicity, "sv_clinvar_checkboxes", session)
     })
 
     ##################### PanelApp

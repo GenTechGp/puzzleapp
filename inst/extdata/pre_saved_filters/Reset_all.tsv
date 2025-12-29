@@ -10,21 +10,22 @@ HPO_Terms
 SNV_Annotation	
 SNV_Pathogenicity	
 SNV_SpliceAI score	0
-SNV_gnomADv4 AF	1
+SNV_gnomADv4_AF	1
 SNV_Affected only	
 SNV_Filter value	
 SNV_Genotype quality	0
 SNV_Allele balance	0
 SV_Inheritance	
 SV_Annotation	
-SV_gnomADv4 AF	1
+SV_gnomADv4_AF	1
 SV_Affected only	
 SV_Filter value	
-SV_Genotype quality	0
-SV_Allele balance	0
-SV_SV type	
-SV_Min SV Length	0
-SV_Max SV Length	0
+SV_Genotype_quality	0
+SV_Allele_balance	0
+SV_SV_type	
+SV_Min_SV_Length	0
+SV_Max_SV_Length	0
+SV_Pathogenicity	
 
 
 

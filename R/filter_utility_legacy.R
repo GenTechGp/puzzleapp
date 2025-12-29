@@ -197,7 +197,8 @@ update_filters_params <- function(search_params, session) {
       sv  = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE)
     ),
     "Pathogenicity" = list(
-      snv = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE)
+      snv = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE),
+      sv = list(func = updateCheckboxGroupInput, id = "sv_clinvar_checkboxes", selected = TRUE, split = TRUE)
     ),
     "SpliceAI score" = list(
       snv = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE)
@@ -218,19 +219,36 @@ update_filters_params <- function(search_params, session) {
       snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
       sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
     ),
+    "gnomADv4_AF" = list(
+      snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
+      sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
+    ),
     "Use_AF" = list(
       snv = list(func = updateCheckboxInput, id = "use_af", value = TRUE, as_logical = TRUE)
     ),
     "SV type" = list(
       sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)
     ),
+    "SV_type" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)
+    ),
     "Min SV Length" = list(
+      sv  = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE)
+    ),
+    "Min_SV_Length" = list(
       sv  = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE)
     ),
     "Max SV Length" = list(
       sv  = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE)
     ),
+    "Max_SV_Length" = list(
+      sv  = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE)
+    ),
     "Affected only" = list(
+      snv = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
+      sv  = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE)
+    ),
+    "Affected_only" = list(
       snv = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
       sv  = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE)
     ),
@@ -238,7 +256,15 @@ update_filters_params <- function(search_params, session) {
       snv = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE)
     ),
+    "Allele_balance" = list(
+      snv = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE)
+    ),
     "Genotype quality" = list(
+      snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
+    ),
+    "Genotype_quality" = list(
       snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
     ),
