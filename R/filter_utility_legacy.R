@@ -25,6 +25,42 @@ read_search_files <- function(directory, flag_all=TRUE) {
   return(search_data)
 }
 
+list_files <- function(dir) {
+  if(is.null(dir)) return(character(0))
+  log_info(sprintf("[filtServer] Listing files in directory: %s", dir))
+  if (dir.exists(dir)) {
+    list.files(dir, full.names = FALSE)
+  } else {
+    character(0)
+  }
+}
+
+extractCustomAllelCount <- function(pedigree, input) {
+  res <- lapply(pedigree, function(sample) input[[paste0("allele_", sample$sample_id)]])
+  names(res) <- sapply(pedigree, `[[`, "sample_id")
+  res
+}
+
+getAlleleCounts <- function(pedigree, input) {
+  counts <- list()
+  if (length(pedigree) > 0) {
+    if (input$inher == "Custom") {
+      counts <- extractCustomAllelCount(pedigree, input)  # named list
+      cat("Custom allele counts:\n")
+      for (sid in names(counts)) {
+        cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
+      }
+    } else if (input$inher != "") {
+      counts <- puzzlecore_compute_allele_table(pedigree, input$inher)  # named list
+      cat("Allele table counts:\n")
+      for (sid in names(counts)) {
+        cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
+      }
+    }
+  }
+  counts
+}
+
 get_snv_filters <- function(input, phenos) {
   snv_filters <- list(
     clinvar_filter = input$clinvar_checkboxes,
@@ -70,42 +106,6 @@ get_sv_filters <- function(input, phenos) {
     affected_only = input$sv_affected_switch
   )
   return(sv_filters)
-}
-
-list_files <- function(dir) {
-  if(is.null(dir)) return(character(0))
-  log_info(sprintf("[filtServer] Listing files in directory: %s", dir))
-  if (dir.exists(dir)) {
-    list.files(dir, full.names = FALSE)
-  } else {
-    character(0)
-  }
-}
-
-extractCustomAllelCount <- function(pedigree, input) {
-  res <- lapply(pedigree, function(sample) input[[paste0("allele_", sample$sample_id)]])
-  names(res) <- sapply(pedigree, `[[`, "sample_id")
-  res
-}
-
-getAlleleCounts <- function(pedigree, input) {
-  counts <- list()
-  if (length(pedigree) > 0) {
-    if (input$inher == "Custom") {
-      counts <- extractCustomAllelCount(pedigree, input)  # named list
-      cat("Custom allele counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
-      }
-    } else if (input$inher != "") {
-      counts <- puzzlecore_compute_allele_table(pedigree, input$inher)  # named list
-      cat("Allele table counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
-      }
-    }
-  }
-  counts
 }
 
 capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, flag_save_hpo_panelapp=FALSE, flag_save_presaved_filter=FALSE) {
