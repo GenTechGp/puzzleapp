@@ -99,7 +99,7 @@ FreqUI <- function(ns, id_prefix = "snv") {
 }
 
 # Structural Variant Features UI
-svFeatsUI_0 <- function(ns) {
+svFeatsUI <- function(ns) {
   sv_type_opts <- c("Insertion", "Deletion", "Duplication", "Inversion", "Translocation")
   tagList(
     h4("SV properties"),
@@ -109,17 +109,8 @@ svFeatsUI_0 <- function(ns) {
   )
 }
 
-svFeatsUI_1 <- function(ns) {
-  # Define choices once
-  choices_parent <- c(
-    "Non-repetitive"    = "nonrep",
-    "Repetitive/Mobile" = "rep_mobile",
-    "Repetitive/Tandem" = "rep_tandem",
-    "Repetitive/Mixed"  = "rep_mixed",
-    "Repetitive/Mobile/subtype" = "rep_mobile_subtype",
-    "Repetitive/Tandem/subtype" = "rep_tandem_subtype",
-    "Repetitive/Mixed/subtype"  = "rep_mixed_subtype"
-  )
+svscannerUI <- function(ns) {
+  # Child subtype sets (unchecked by default)
   choices_mobile <- c(
     "LINE"           = "line",
     "SINE"           = "sine",
@@ -136,62 +127,185 @@ svFeatsUI_1 <- function(ns) {
   )
 
   tagList(
-    # Styling for spacing/indent
     tags$style(HTML("
       .sv-classification h4 { margin-bottom: 8px; }
-      .sv-classification .sv-sub { margin-left: 24px; }
+      .sv-classification .sv-sub { margin-left: 24px; margin-top: 6px; }
       .sv-classification .shiny-input-checkboxgroup { margin-bottom: 8px; }
+      .sv-classification .checkbox { margin: 4px 0; }
     ")),
 
     tags$div(
       class = "sv-classification",
       tags$h4("SVscanner classification"),
 
-      # Parent group
-      checkboxGroupInput(
-        inputId = ns("class_parent"),
-        label   = NULL,
-        choices = choices_parent,
-        inline  = FALSE
-      ),
+      # Parent items rendered in exact order, with children immediately after each parent.
+      checkboxInput(ns("nonrep"), "Non-repetitive", value = FALSE),
 
-      # Children of Repetitive/Mobile (also shown for Mixed)
-      conditionalPanel(
-        condition = sprintf(
-          "Array.isArray(input['%s']) && (input['%s'].includes('rep_mobile_subtype') || input['%s'].includes('rep_mixed_subtype'))",
-          ns("class_parent"), ns("class_parent"), ns("class_parent")
-        ),
-        tags$div(class = "sv-sub",
-          checkboxGroupInput(
-            inputId  = ns("class_mobile"),
-            label    = NULL,
-            choices  = choices_mobile,
-            selected = unname(choices_mobile),  # UI-only: default to all selected
-            inline   = FALSE
-          )
+      checkboxInput(ns("rep_mobile"), "Repetitive/Mobile", value = FALSE),
+      checkboxInput(ns("rep_mobile_subtype"), "Repetitive/Mobile/subtype", value = FALSE),
+      tags$div(class = "sv-sub",
+        checkboxGroupInput(
+          inputId  = ns("class_mobile_mobile"),
+          label    = NULL,
+          choices  = choices_mobile,
+          selected = character(0),
+          inline   = FALSE
         )
       ),
 
-      # Children of Repetitive/Tandem (also shown for Mixed)
-      conditionalPanel(
-        condition = sprintf(
-          "Array.isArray(input['%s']) && (input['%s'].includes('rep_tandem_subtype') || input['%s'].includes('rep_mixed_subtype'))",
-          ns("class_parent"), ns("class_parent"), ns("class_parent")
-        ),
-        tags$div(class = "sv-sub",
-          checkboxGroupInput(
-            inputId  = ns("class_tandem"),
-            label    = NULL,
-            choices  = choices_tandem,
-            selected = unname(choices_tandem),  # UI-only: default to all selected
-            inline   = FALSE
-          )
+      checkboxInput(ns("rep_tandem"), "Repetitive/Tandem", value = FALSE),
+      checkboxInput(ns("rep_tandem_subtype"), "Repetitive/Tandem/subtype", value = FALSE),
+      tags$div(class = "sv-sub",
+        checkboxGroupInput(
+          inputId  = ns("class_tandem_tandem"),
+          label    = NULL,
+          choices  = choices_tandem,
+          selected = character(0),
+          inline   = FALSE
+        )
+      ),
+
+      checkboxInput(ns("rep_mixed"), "Repetitive/Mixed", value = FALSE),
+      checkboxInput(ns("rep_mixed_subtype"), "Repetitive/Mixed/subtype", value = FALSE),
+      tags$div(class = "sv-sub",
+        checkboxGroupInput(
+          inputId  = ns("class_mobile_mixed"),
+          label    = NULL,
+          choices  = choices_mobile,
+          selected = character(0),
+          inline   = FALSE
+        )
+      ),
+      tags$div(class = "sv-sub",
+        checkboxGroupInput(
+          inputId  = ns("class_tandem_mixed"),
+          label    = NULL,
+          choices  = choices_tandem,
+          selected = character(0),
+          inline   = FALSE
         )
       )
-    )
+    ),
+
+    # UI-only synchronization between subtype parents and children.
+    # Delete/comment out this script to disable the behavior.
+    tags$script(HTML(sprintf("
+      (function() {
+        var syncing = false;
+
+        var ids = {
+          mobileSubtype: '%s',   // checkboxInput (single)
+          tandemSubtype: '%s',   // checkboxInput (single)
+          mixedSubtype:  '%s',   // checkboxInput (single)
+          mobileMobile:  '%s',   // checkboxGroupInput (group)
+          tandemTandem:  '%s',   // checkboxGroupInput (group)
+          mobileMixed:   '%s',   // checkboxGroupInput (group)
+          tandemMixed:   '%s'    // checkboxGroupInput (group)
+        };
+
+        // Helpers
+        function groupValues(name) {
+          return $('input[name=\"' + name + '\"]:checked').map(function(){ return this.value; }).get();
+        }
+        function setGroupChecked(name, checked) {
+          var $boxes = $('input[name=\"' + name + '\"]');
+          $boxes.each(function(){
+            var $b = $(this);
+            if ($b.prop('checked') !== checked) {
+              $b.prop('checked', checked).trigger('change');
+            }
+          });
+          // Shiny binding will pick up individual change events; no need to call setInputValue here.
+        }
+        function setParentChecked(id, checked) {
+          var $p = $('#' + id);
+          if ($p.prop('checked') !== checked) {
+            $p.prop('checked', checked).trigger('change');
+          }
+        }
+
+        // Parent -> children (use ID selector for single checkbox parents)
+        $(document).on('change', '#' + ids.mobileSubtype, function() {
+          if (syncing) return;
+          syncing = true;
+          var on = $(this).is(':checked');
+          setGroupChecked(ids.mobileMobile, on);
+          syncing = false;
+        });
+
+        $(document).on('change', '#' + ids.tandemSubtype, function() {
+          if (syncing) return;
+          syncing = true;
+          var on = $(this).is(':checked');
+          setGroupChecked(ids.tandemTandem, on);
+          syncing = false;
+        });
+
+        $(document).on('change', '#' + ids.mixedSubtype, function() {
+          if (syncing) return;
+          syncing = true;
+          var on = $(this).is(':checked');
+          setGroupChecked(ids.mobileMixed, on);
+          setGroupChecked(ids.tandemMixed, on);
+          syncing = false;
+        });
+
+        // Children -> parent (test any selection in the group(s), then toggle parent)
+        $(document).on('change', 'input[name=\"' + ids.mobileMobile + '\"]', function() {
+          if (syncing) return;
+          syncing = true;
+          var any = groupValues(ids.mobileMobile).length > 0;
+          setParentChecked(ids.mobileSubtype, any);
+          syncing = false;
+        });
+
+        $(document).on('change', 'input[name=\"' + ids.tandemTandem + '\"]', function() {
+          if (syncing) return;
+          syncing = true;
+          var any = groupValues(ids.tandemTandem).length > 0;
+          setParentChecked(ids.tandemSubtype, any);
+          syncing = false;
+        });
+
+        $(document).on('change', 'input[name=\"' + ids.mobileMixed + '\"]', function() {
+          if (syncing) return;
+          syncing = true;
+          var any = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
+          setParentChecked(ids.mixedSubtype, any);
+          syncing = false;
+        });
+
+        $(document).on('change', 'input[name=\"' + ids.tandemMixed + '\"]', function() {
+          if (syncing) return;
+          syncing = true;
+          var any = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
+          setParentChecked(ids.mixedSubtype, any);
+          syncing = false;
+        });
+
+        // Initial sync on connect (in case defaults change)
+        function initialSync() {
+          var mmOn = groupValues(ids.mobileMobile).length > 0;
+          var ttOn = groupValues(ids.tandemTandem).length > 0;
+          var mxOn = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
+
+          setParentChecked(ids.mobileSubtype, mmOn);
+          setParentChecked(ids.tandemSubtype, ttOn);
+          setParentChecked(ids.mixedSubtype, mxOn);
+        }
+        $(document).on('shiny:connected', initialSync);
+      })();
+    ",
+      ns('rep_mobile_subtype'),
+      ns('rep_tandem_subtype'),
+      ns('rep_mixed_subtype'),
+      ns('class_mobile_mobile'),
+      ns('class_tandem_tandem'),
+      ns('class_mobile_mixed'),
+      ns('class_tandem_mixed')
+    )))
   )
 }
-
 
 InherUI <- function(ns) {
   inher_opts <- c(
@@ -296,28 +410,14 @@ GenomicContextUI <- function(ns) {
   )
 }
 
-# SVs UI
-# svOptsUI <- function(ns) {
-#   tagList(
-#     fluidRow(
-#       column(1),
-#       column(2, AnnotUI(ns, "sv")),
-#       column(2, QualityUI(ns, "sv")),
-#       column(2, FreqUI(ns, "sv")),
-#       column(2, svFeatsUI_0(ns)),
-#       column(3)
-#     )
-#   )
-# }
-
 svOptsUI <- function(ns) {
   tagList(
     fluidRow(
       column(3, PopulationUI_0(ns), PopulationUI_1(ns)),
       column(2, PathoUI(ns, "sv"), AnnotUI(ns, "sv")),
+      column(3, svFeatsUI(ns), GenomicContextUI(ns), QualityUI(ns, "sv")),
       column(2, SVlog_conseqUI(ns), SVlogUI(ns)),
-      column(2, svFeatsUI_0(ns), svFeatsUI_1(ns)),
-      column(3, GenomicContextUI(ns), QualityUI(ns, "sv"))
+      column(2, svscannerUI(ns))
     )
   )
 }

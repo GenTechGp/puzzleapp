@@ -68,7 +68,7 @@ ui <- fluidPage(
         tabPanel("Raw Filter", rawFilterUI("raw_filter")),
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
         tabPanel("Logs", log_viewer_ui("log")),
-        tabPanel("About", includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
+        tabPanel("About", tags$head(tags$script(HTML("$(document).on('click', 'a', function(e) {$(this).attr('target', '_blank');});"))), includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
       )
     )
   )

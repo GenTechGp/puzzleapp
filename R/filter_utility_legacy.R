@@ -188,6 +188,110 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
   )
 }
 
+# Helper: Single-key SV_Classification parser and applier (minimal coupling to UI)
+update_sv_classification <- function(session, value) {
+  # Known child sets
+  mobile_subtypes <- c("line","sine","sva","retroposon","dna_transposon","ltr")
+  tandem_subtypes <- c("str","vntr","tr","homo")
+
+  # Normalize incoming tokens into codes (supports labels and hierarchical strings)
+  normalize_token <- function(tok) {
+    tok <- trimws(as.character(tok))
+    if (tok == "") return("")
+
+    # Map top-level labels to codes
+    map_top <- c(
+      "Non-repetitive"            = "nonrep",
+      "Repetitive/Mobile"         = "rep_mobile",
+      "Repetitive/Tandem"         = "rep_tandem",
+      "Repetitive/Mixed"          = "rep_mixed",
+      "Repetitive/Mobile/subtype" = "rep_mobile_subtype",
+      "Repetitive/Tandem/subtype" = "rep_tandem_subtype",
+      "Repetitive/Mixed/subtype"  = "rep_mixed_subtype"
+    )
+    if (tok %in% names(map_top)) tok <- map_top[[tok]]
+
+    # Hierarchical label paths, e.g., "Repetitive/Mobile/SINE"
+    if (grepl("^Repetitive/", tok) && grepl("/", tok)) {
+      parts <- unlist(strsplit(tok, "/", fixed = TRUE))
+      if (length(parts) >= 3) {
+        parent_label <- paste(parts[1:2], collapse = "/")
+        subtype_label <- parts[3]
+        parent_code <- switch(tolower(parent_label),
+          "repetitive/mobile" = "rep_mobile_subtype",
+          "repetitive/tandem" = "rep_tandem_subtype",
+          "repetitive/mixed"  = "rep_mixed_subtype",
+          parent_label
+        )
+        # Map subtype labels to codes (case-insensitive)
+        lab_to_code <- c(
+          "line" = "line", "sine" = "sine", "sva" = "sva",
+          "retroposon" = "retroposon", "dna transposon" = "dna_transposon", "ltr" = "ltr",
+          "str" = "str", "vntr" = "vntr", "tr" = "tr", "homo" = "homo"
+        )
+        sub_code <- lab_to_code[[tolower(subtype_label)]]
+        if (is.null(sub_code)) sub_code <- tolower(subtype_label)
+        tok <- paste0(parent_code, "/", sub_code)
+      }
+    }
+
+    # Already-coded child tokens like "rep_mobile_subtype/sine" pass through
+    tok
+  }
+  # replace space with underscore in value
+  value <- gsub(" ", "_", value, fixed = TRUE)
+  # make to lowercase
+  value <- tolower(value)
+  tokens <- unlist(strsplit(as.character(value), ";", fixed = TRUE))
+  tokens <- tokens[nzchar(tokens)]
+  tokens <- vapply(tokens, normalize_token, FUN.VALUE = character(1))
+
+  # Parent presence: consider plain flag OR any scoped child token for subtype parents
+  present <- list(
+    nonrep            = any(tokens == "nonrep"),
+    rep_mobile        = any(tokens == "rep_mobile"),
+    rep_tandem        = any(tokens == "rep_tandem"),
+    rep_mixed         = any(tokens == "rep_mixed"),
+    rep_mobile_subtype = any(tokens == "rep_mobile_subtype"  | grepl("^rep_mobile_subtype/",  tokens)),
+    rep_tandem_subtype = any(tokens == "rep_tandem_subtype"  | grepl("^rep_tandem_subtype/",  tokens)),
+    rep_mixed_subtype  = any(tokens == "rep_mixed_subtype"   | grepl("^rep_mixed_subtype/",   tokens))
+  )
+
+  # Collect child selections per context (normalize to lowercase)
+  mm_sel <- sub("^rep_mobile_subtype/", "", tokens[grepl("^rep_mobile_subtype/", tokens)])
+  tt_sel <- sub("^rep_tandem_subtype/", "", tokens[grepl("^rep_tandem_subtype/", tokens)])
+  mx_children <- sub("^rep_mixed_subtype/", "", tokens[grepl("^rep_mixed_subtype/", tokens)])
+  mx_mobile_sel <- mx_children[mx_children %in% mobile_subtypes]
+  mx_tandem_sel <- mx_children[mx_children %in% tandem_subtypes]
+
+  # Defaults: select all if subtype flag present but no specific child tokens
+  if (present$rep_mobile_subtype && length(mm_sel) == 0) mm_sel <- mobile_subtypes
+  if (present$rep_tandem_subtype && length(tt_sel) == 0) tt_sel <- tandem_subtypes
+  if (present$rep_mixed_subtype && length(mx_mobile_sel) == 0 && length(mx_tandem_sel) == 0) {
+    mx_mobile_sel <- mobile_subtypes
+    mx_tandem_sel <- tandem_subtypes
+  }
+
+  # Apply parents (explicit TRUE/FALSE so state matches SV_Classification exactly)
+  updateCheckboxInput(session, "nonrep",             value = present$nonrep)
+  updateCheckboxInput(session, "rep_mobile",         value = present$rep_mobile)
+  updateCheckboxInput(session, "rep_tandem",         value = present$rep_tandem)
+  updateCheckboxInput(session, "rep_mixed",          value = present$rep_mixed)
+  updateCheckboxInput(session, "rep_mobile_subtype", value = present$rep_mobile_subtype)
+  updateCheckboxInput(session, "rep_tandem_subtype", value = present$rep_tandem_subtype)
+  updateCheckboxInput(session, "rep_mixed_subtype",  value = present$rep_mixed_subtype)
+
+  # Apply children per context (clear when parent flag absent)
+  updateCheckboxGroupInput(session, "class_mobile_mobile",
+                           selected = if (present$rep_mobile_subtype) unique(mm_sel) else character(0))
+  updateCheckboxGroupInput(session, "class_tandem_tandem",
+                           selected = if (present$rep_tandem_subtype) unique(tt_sel) else character(0))
+  updateCheckboxGroupInput(session, "class_mobile_mixed",
+                           selected = if (present$rep_mixed_subtype) unique(mx_mobile_sel) else character(0))
+  updateCheckboxGroupInput(session, "class_tandem_mixed",
+                           selected = if (present$rep_mixed_subtype) unique(mx_tandem_sel) else character(0))
+}
+
 update_filters_params <- function(search_params, session) {
   # print (search_params)
   # Mapping table: for each base param, SNV and SV update info, and shared update info for 3 params
@@ -291,6 +395,57 @@ update_filters_params <- function(search_params, session) {
     ),
     "Inheritance_PanelApp_Gene" = list(
       shared = list(func = updateCheckboxInput, id = "inheritance_panelapp_gene", value = TRUE, as_logical = TRUE)
+    ),
+    "SVlog_Annotation" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_conseq_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "SVlog_min_recip_overlap" = list(
+      sv  = list(func = updateSliderInput, id = "sv_reciprocal_overlap_fraction", value = TRUE, as_numeric = TRUE)
+    ),
+    "SVlog_max_break_distance" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_breakpoint_distance", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_max_abs_dlen" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_delta_length", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_internal_max_carriers" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_carriers_internal", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_internal_max_families" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_families", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_1000G_max_carriers" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_carriers_1000", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_Advanced_Keeping" = list(
+      sv  = list(func = updateSelectInput, id = "svlog_keeping", selected = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_Advanced_Filtering_out" = list(
+      sv  = list(func = updateSelectInput, id = "svlog_filtering", selected = TRUE, as_numeric = FALSE)
+    ),
+    "Keeping" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_keeping_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "Filtering_out" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_filtering_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "intronic_splice_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_splice_site", value = TRUE, as_numeric = FALSE)
+    ),
+    "intronic_min_len_intron_ratio" = list(
+      sv  = list(func = updateNumericInput, id = "sv_min_ratio_sv_length_intron_length", value = TRUE, as_numeric = FALSE)
+    ),
+    "tad_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_nearest_tad_boundary", value = TRUE, as_numeric = FALSE)
+    ),
+    "enhancer_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_nearest_enhancer", value = TRUE, as_numeric = FALSE)
+    ),
+    "intra_tad_only" = list(
+      sv  = list(func = updateCheckboxInput, id = "sv_intra_tad_boundary", value = TRUE, as_logical = TRUE)
+    ),
+    "inter_tad_only" = list(
+      sv  = list(func = updateCheckboxInput, id = "sv_inter_tad_boundary", value = TRUE, as_logical = TRUE)
     )
   )
 
@@ -300,7 +455,21 @@ update_filters_params <- function(search_params, session) {
   for (param in names(search_params)) {
     value <- search_params[[param]]
     # Determine type by prefix
-    if (startsWith(param, "SNV_")) {
+    # Special-case: SV classification driven by a single key carrying parent and child selections
+    if (startsWith(param, "SV_")) {
+      base_param <- substring(param, 4)
+
+      if (identical(base_param, "Classification")) {
+        update_sv_classification(session, value)
+        next
+      }
+
+      # Default SV handling via mapping table
+      mapping_entry <- param_mapping[[base_param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
+      update_info <- mapping_entry$sv
+
+    } else if (startsWith(param, "SNV_")) {
       base_param <- substring(param, 5)
       mapping_entry <- param_mapping[[base_param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$snv)) next

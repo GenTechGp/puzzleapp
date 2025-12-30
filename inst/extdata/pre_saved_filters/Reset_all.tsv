@@ -26,6 +26,23 @@ SV_SV_type
 SV_Min_SV_Length	0
 SV_Max_SV_Length	0
 SV_Pathogenicity	
-
+SV_SVlog_Annotation	
+SV_SVlog_min_recip_overlap	0
+SV_SVlog_max_break_distance	0
+SV_SVlog_max_abs_dlen	0
+SV_SVlog_internal_max_carriers	0
+SV_SVlog_internal_max_families	0
+SV_SVlog_1000G_max_carriers	0
+SV_SVlog_Advanced_Keeping	0
+SV_SVlog_Advanced_Filtering_out	1
+SV_Keeping	
+SV_Filtering_out	
+SV_intronic_splice_max_dist	0
+SV_intronic_min_len_intron_ratio	0
+SV_tad_max_dist	0
+SV_enhancer_max_dist	0
+SV_intra_tad_only	
+SV_inter_tad_only	
+SV_Classification	
 
 
