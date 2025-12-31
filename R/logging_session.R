@@ -415,7 +415,11 @@ use_headless_logging_lgr <- function(layout = "%l [%t] %m",
     lg$set_threshold(threshold)
   }
 
-  # Remove any existing console appender named "console-headless" to avoid duplicates.
+  # Remove any existing console appenders to avoid duplicates.
+  # Specifically remove the "console" added by setup_app_logging and any prior "console-headless".
+  if ("console" %in% names(lg$appenders)) {
+    try(lg$remove_appender("console"), silent = TRUE)
+  }
   if ("console-headless" %in% names(lg$appenders)) {
     try(lg$remove_appender("console-headless"), silent = TRUE)
   }

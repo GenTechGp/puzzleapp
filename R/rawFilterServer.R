@@ -16,7 +16,7 @@ rawFilterServer <- function(id, shared_store, shared_rx) {
       validate(need(file.exists(path), "File does not exist"))
 
       df <- tryCatch(
-        read.table(path, header = FALSE, sep = "\t", stringsAsFactors = FALSE),
+        read.table(path, header = FALSE, sep = "\t", quote = "", stringsAsFactors = FALSE),
         error = function(e) NULL
       )
       validate(
@@ -36,7 +36,8 @@ rawFilterServer <- function(id, shared_store, shared_rx) {
         rownames = FALSE,
         selection = "none",
         editable = list(target = "cell", disable = list(columns = 0)), # disable first column
-        options = list(paging = FALSE, searching = FALSE, info = FALSE)
+        options = list(paging = FALSE, searching = FALSE, info = FALSE),
+        escape = TRUE
       )
     })
 

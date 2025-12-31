@@ -180,8 +180,10 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       cat("Allele counts:\n")
       print(allele_counts)
 
-      snv_filters <- get_snv_filters(input, phenos())
-      sv_filters <- get_sv_filters(input, phenos())
+      filter_table <- capture_filters(input, phenos(), samples, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
+      filters       <- puzzlecore_parse_filter_table(filter_table)
+      snv_filters   <- filters$snv_filters
+      sv_filters    <- filters$sv_filters
 
       allele_counts_dt <- data.table(
         sample_id = names(allele_counts),

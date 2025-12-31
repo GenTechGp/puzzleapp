@@ -25,7 +25,7 @@ run_pipeline <- function(
   verbose = TRUE
 ) {
   use_headless_logging_lgr(layout = "%l [%t] %m", threshold = "info")
-
+  
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required. Please install.packages('yaml').")
   }
