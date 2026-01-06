@@ -437,7 +437,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # --------------------------------------------------------------------------
     
     # 1) Max distance to splice site (bp) — intronic
-    if (!is.null(filters$intronic_splice_max_dist)) {
+    if (!is.null(filters$intronic_splice_max_dist) && filters$intronic_splice_max_dist > 0) {
       expr <- sprintf(
         "(is.na(INTRON_MIN_DIST) | INTRON_MIN_DIST <= %d)",
         as.integer(filters$intronic_splice_max_dist)
@@ -459,12 +459,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     
     # 3) Max distance to nearest TAD boundary (bp)
     #    Use min(upstream, downstream); if both NA, pass.
-    if (!is.null(filters$tad_max_dist)) {
-      # expr <- sprintf(
-      #   "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | " %+%
-      #     " pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)",
-      #   as.integer(filters$tad_max_dist)
-      # )
+    if (!is.null(filters$tad_max_dist) && filters$tad_max_dist > 0) {
       expr <- sprintf(
         paste0(
           "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | ",
@@ -478,12 +473,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     
     # 4) Max distance to nearest enhancer (bp)
     #    Use min(upstream, downstream); if both NA, pass.
-    if (!is.null(filters$enhancer_max_dist)) {
-      # expr <- sprintf(
-      #   "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | " %+%
-      #     " pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)",
-      #   as.integer(filters$enhancer_max_dist)
-      # )
+    if (!is.null(filters$enhancer_max_dist) && filters$enhancer_max_dist > 0) {
       expr <- sprintf(
         paste0(
           "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | ",

@@ -384,8 +384,8 @@ SVlog_conseqUI <- function(ns) {
 
 SVlogUI <- function(ns) {
   choices <- c("todo", "todo2")  # Placeholder for actual population choices
-  choices_keeping_tier <- c("0", "1", "2", "3")
-  choices_filtering_tier <- c("1", "2", "3")
+  choices_keeping_tier <- c("", "0", "1", "2", "3")
+  choices_filtering_tier <- c("", "1", "2", "3")
   choices_keeping <- c("prioritise_lof_any", "prioritise_lof_high", "prioritise_lof_mendeliome", "prioritise_lof_mod", "prioritise_str_novel")
   choices_filtering <- c("common_1kg", "common_gnomad", "common_internal", "common_intergenic")
   tagList(
