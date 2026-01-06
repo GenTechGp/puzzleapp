@@ -176,11 +176,9 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       # ped <- convert_samples_to_pedigree(shared_store$samples)
       ped <- shared_store$samples
       allele_counts <- getAlleleCounts(ped, input)
-      cat("class of allele_counts:", class(allele_counts), "\n")
       cat("Allele counts:\n")
       print(allele_counts)
-
-      filter_table <- capture_filters(input, phenos(), samples, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
+      filter_table <- capture_filters(input, phenos(), ped, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
       filters       <- puzzlecore_parse_filter_table(filter_table)
       snv_filters   <- filters$snv_filters
       sv_filters    <- filters$sv_filters

@@ -1073,6 +1073,9 @@ puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters
   
   # Only combine and apply compound het if requested
   if (!is.null(snv_filters$inheritance_filter) && snv_filters$inheritance_filter == "Compound Heterozygous") {
+    # Store snv column names for later
+    snv_colnames <- colnames(snv_filtered_data)
+    sv_colnames  <- colnames(sv_filtered_data)
     # Combine, allowing empty inputs
     filtered_data <- data.table::rbindlist(list(snv_filtered_data, sv_filtered_data), use.names = TRUE, fill = TRUE)
     log_info(sprintf("nrow(combined filtered_data): %d", nrow(filtered_data)))
@@ -1083,6 +1086,9 @@ puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters
     # Separate back purely by CATEGORY (no ID or gene logic)
     snv_out <- filtered_data_comphet[CATEGORY == "SNV & Indel"]
     sv_out  <- filtered_data_comphet[CATEGORY == "SV"]
+    # remove any columns not in original data
+    snv_out <- snv_out[, ..snv_colnames]
+    sv_out  <- sv_out[, ..sv_colnames]
     return(list(snv = snv_out, sv = sv_out))
   }
   # Passthrough when not Compound Heterozygous (no combine)
