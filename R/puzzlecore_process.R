@@ -513,7 +513,7 @@ puzzlecore_parse_filter_table <- function(path) {
 
     
     clinvar_filter           = as_vec("SV_Pathogenicity"),
-    classification_filter    = as_vec("SV_Classification"),
+    classification_filter    = as_vec("SV_SVscanner_classification"),
     
     # ------------------------------------------------------------------
     # Tier prioritisation

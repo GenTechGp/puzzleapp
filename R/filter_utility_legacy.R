@@ -61,39 +61,20 @@ getAlleleCounts <- function(pedigree, input) {
   counts
 }
 
-# Helper: construct SV_Classification string from current UI state
-build_sv_classification <- function(input) {
-  # Local-only helper
-  coalesce0 <- function(x) if (is.null(x)) character(0) else x
-
+# Helper: construct SV_SVscanner_classification string from current UI state
+build_SVscanner_classification <- function(input) {
+  # read input values from svscanner_class and svscanner_subtype checkboxGroupInput and make a single concatenated string
   tokens <- character(0)
-
-  # Base parents
-  if (isTRUE(input$nonrep))     tokens <- c(tokens, "nonrep")
-  if (isTRUE(input$rep_mobile)) tokens <- c(tokens, "rep_mobile")
-  if (isTRUE(input$rep_tandem)) tokens <- c(tokens, "rep_tandem")
-  if (isTRUE(input$rep_mixed))  tokens <- c(tokens, "rep_mixed")
-
-  # Mobile context
-  if (isTRUE(input$rep_mobile_subtype)) {
-    mm <- coalesce0(input$class_mobile_mobile)
-    tokens <- c(tokens, if (length(mm)) paste0("rep_mobile_subtype/", mm) else "rep_mobile_subtype")
+  if (!is.null(input$svscanner_class)) {
+    tokens <- c(tokens, input$svscanner_class)
   }
-
-  # Tandem context
-  if (isTRUE(input$rep_tandem_subtype)) {
-    tt <- coalesce0(input$class_tandem_tandem)
-    tokens <- c(tokens, if (length(tt)) paste0("rep_tandem_subtype/", tt) else "rep_tandem_subtype")
+  if (!is.null(input$svscanner_subtype)) {
+    tokens <- c(tokens, input$svscanner_subtype)
   }
-
-  # Mixed context (both child groups)
-  if (isTRUE(input$rep_mixed_subtype)) {
-    mx <- c(coalesce0(input$class_mobile_mixed), coalesce0(input$class_tandem_mixed))
-    tokens <- c(tokens, if (length(mx)) paste0("rep_mixed_subtype/", mx) else "rep_mixed_subtype")
-  }
-
   tokens <- unique(tokens)
-  paste(tokens, collapse = ";")
+  t <- paste(tokens, collapse = ";")
+  cat("SV_SVscanner_classification:", t, "\n")
+  return(t)
 }
 
 capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, flag_save_hpo_panelapp=FALSE, flag_save_presaved_filter=FALSE) {
@@ -141,8 +122,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "enhancer_max_dist" = input$sv_max_distance_to_nearest_enhancer,
     "intra_tad_only" = input$sv_intra_tad_boundary,
     "inter_tad_only" = input$sv_inter_tad_boundary,
-    # Build single-key SV Classification string from parent and child inputs
-    "Classification" = build_sv_classification(input)
+    # Build single-key SV SVscanner_classification string from parent and child inputs
+    "SVscanner_classification" = build_SVscanner_classification(input)
   )
 
   # Shared filters
@@ -196,108 +177,13 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
   )
 }
 
-# Helper: Single-key SV_Classification parser and applier (minimal coupling to UI)
-update_sv_classification <- function(session, value) {
-  # Known child sets
-  mobile_subtypes <- c("line","sine","sva","retroposon","dna_transposon","ltr")
-  tandem_subtypes <- c("str","vntr","tr","homo")
-
-  # Normalize incoming tokens into codes (supports labels and hierarchical strings)
-  normalize_token <- function(tok) {
-    tok <- trimws(as.character(tok))
-    if (tok == "") return("")
-
-    # Map top-level labels to codes
-    map_top <- c(
-      "Non-repetitive"            = "nonrep",
-      "Repetitive/Mobile"         = "rep_mobile",
-      "Repetitive/Tandem"         = "rep_tandem",
-      "Repetitive/Mixed"          = "rep_mixed",
-      "Repetitive/Mobile/subtype" = "rep_mobile_subtype",
-      "Repetitive/Tandem/subtype" = "rep_tandem_subtype",
-      "Repetitive/Mixed/subtype"  = "rep_mixed_subtype"
-    )
-    if (tok %in% names(map_top)) tok <- map_top[[tok]]
-
-    # Hierarchical label paths, e.g., "Repetitive/Mobile/SINE"
-    if (grepl("^Repetitive/", tok) && grepl("/", tok)) {
-      parts <- unlist(strsplit(tok, "/", fixed = TRUE))
-      if (length(parts) >= 3) {
-        parent_label <- paste(parts[1:2], collapse = "/")
-        subtype_label <- parts[3]
-        parent_code <- switch(tolower(parent_label),
-          "repetitive/mobile" = "rep_mobile_subtype",
-          "repetitive/tandem" = "rep_tandem_subtype",
-          "repetitive/mixed"  = "rep_mixed_subtype",
-          parent_label
-        )
-        # Map subtype labels to codes (case-insensitive)
-        lab_to_code <- c(
-          "line" = "line", "sine" = "sine", "sva" = "sva",
-          "retroposon" = "retroposon", "dna transposon" = "dna_transposon", "ltr" = "ltr",
-          "str" = "str", "vntr" = "vntr", "tr" = "tr", "homo" = "homo"
-        )
-        sub_code <- lab_to_code[[tolower(subtype_label)]]
-        if (is.null(sub_code)) sub_code <- tolower(subtype_label)
-        tok <- paste0(parent_code, "/", sub_code)
-      }
-    }
-
-    # Already-coded child tokens like "rep_mobile_subtype/sine" pass through
-    tok
-  }
-  # replace space with underscore in value
-  value <- gsub(" ", "_", value, fixed = TRUE)
-  # make to lowercase
+update_SVscanner_classification <- function(session, value) {
   value <- tolower(value)
-  tokens <- unlist(strsplit(as.character(value), ";", fixed = TRUE))
-  tokens <- tokens[nzchar(tokens)]
-  tokens <- vapply(tokens, normalize_token, FUN.VALUE = character(1))
-
-  # Parent presence: consider plain flag OR any scoped child token for subtype parents
-  present <- list(
-    nonrep            = any(tokens == "nonrep"),
-    rep_mobile        = any(tokens == "rep_mobile"),
-    rep_tandem        = any(tokens == "rep_tandem"),
-    rep_mixed         = any(tokens == "rep_mixed"),
-    rep_mobile_subtype = any(tokens == "rep_mobile_subtype"  | grepl("^rep_mobile_subtype/",  tokens)),
-    rep_tandem_subtype = any(tokens == "rep_tandem_subtype"  | grepl("^rep_tandem_subtype/",  tokens)),
-    rep_mixed_subtype  = any(tokens == "rep_mixed_subtype"   | grepl("^rep_mixed_subtype/",   tokens))
-  )
-
-  # Collect child selections per context (normalize to lowercase)
-  mm_sel <- sub("^rep_mobile_subtype/", "", tokens[grepl("^rep_mobile_subtype/", tokens)])
-  tt_sel <- sub("^rep_tandem_subtype/", "", tokens[grepl("^rep_tandem_subtype/", tokens)])
-  mx_children <- sub("^rep_mixed_subtype/", "", tokens[grepl("^rep_mixed_subtype/", tokens)])
-  mx_mobile_sel <- mx_children[mx_children %in% mobile_subtypes]
-  mx_tandem_sel <- mx_children[mx_children %in% tandem_subtypes]
-
-  # Defaults: select all if subtype flag present but no specific child tokens
-  if (present$rep_mobile_subtype && length(mm_sel) == 0) mm_sel <- mobile_subtypes
-  if (present$rep_tandem_subtype && length(tt_sel) == 0) tt_sel <- tandem_subtypes
-  if (present$rep_mixed_subtype && length(mx_mobile_sel) == 0 && length(mx_tandem_sel) == 0) {
-    mx_mobile_sel <- mobile_subtypes
-    mx_tandem_sel <- tandem_subtypes
-  }
-
-  # Apply parents (explicit TRUE/FALSE so state matches SV_Classification exactly)
-  updateCheckboxInput(session, "nonrep",             value = present$nonrep)
-  updateCheckboxInput(session, "rep_mobile",         value = present$rep_mobile)
-  updateCheckboxInput(session, "rep_tandem",         value = present$rep_tandem)
-  updateCheckboxInput(session, "rep_mixed",          value = present$rep_mixed)
-  updateCheckboxInput(session, "rep_mobile_subtype", value = present$rep_mobile_subtype)
-  updateCheckboxInput(session, "rep_tandem_subtype", value = present$rep_tandem_subtype)
-  updateCheckboxInput(session, "rep_mixed_subtype",  value = present$rep_mixed_subtype)
-
-  # Apply children per context (clear when parent flag absent)
-  updateCheckboxGroupInput(session, "class_mobile_mobile",
-                           selected = if (present$rep_mobile_subtype) unique(mm_sel) else character(0))
-  updateCheckboxGroupInput(session, "class_tandem_tandem",
-                           selected = if (present$rep_tandem_subtype) unique(tt_sel) else character(0))
-  updateCheckboxGroupInput(session, "class_mobile_mixed",
-                           selected = if (present$rep_mixed_subtype) unique(mx_mobile_sel) else character(0))
-  updateCheckboxGroupInput(session, "class_tandem_mixed",
-                           selected = if (present$rep_mixed_subtype) unique(mx_tandem_sel) else character(0))
+  tokens <- unlist(strsplit(value, ";"))
+  cat("tokens to update SVscanner_class and svscanner_subtype:", paste(tokens, collapse = ", "), "\n")
+  # update the two checkboxGroupInput svscanner_class and svscanner_subtype (just update both; then the ones not present will be unchecked)
+  updateCheckboxGroupInput(session, "svscanner_class", selected = tokens)
+  updateCheckboxGroupInput(session, "svscanner_subtype", selected = tokens)
 }
 
 update_filters_params <- function(search_params, session) {
@@ -470,8 +356,8 @@ update_filters_params <- function(search_params, session) {
     if (startsWith(param, "SV_")) {
       base_param <- substring(param, 4)
 
-      if (identical(base_param, "Classification")) {
-        update_sv_classification(session, value)
+      if (identical(base_param, "SVscanner_classification")) {
+        update_SVscanner_classification(session, value)
         next
       }
 

@@ -424,9 +424,14 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       # (assumes TSV values == FINAL_CLASSIFICATION values)
       cls_vals <- paste(sprintf("'%s'", filters$classification_filter),
                         collapse = ", ")
+      # class_expr <- sprintf(
+      #   "FINAL_CLASSIFICATION %%in%% c(%s)",
+      #   cls_vals
+      # )
+      # partial match: any of the selected labels present in FINAL_CLASSIFICATION
       class_expr <- sprintf(
-        "FINAL_CLASSIFICATION %%in%% c(%s)",
-        cls_vals
+        "grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE)",
+        paste(filters$classification_filter, collapse = "|")
       )
       filter_expression <- add_filter_condition(filter_expression, class_expr)
       log_info("[filtServer][filter_dataset] Applying FINAL_CLASSIFICATION filter")

@@ -111,200 +111,34 @@ svFeatsUI <- function(ns) {
 
 svscannerUI <- function(ns) {
   # Child subtype sets (unchecked by default)
-  choices_mobile <- c(
+  choices_class <- c(
+    "Non-repetitive" = "non_repetitive",
+    "Repetitive/Mobile" = "mobile",
+    "Repetitive/Tandem" = "tandem",
+    "Repetitive/Mixed" = "mixed"
+  )
+  choices_subtype <- c(
     "LINE"           = "line",
     "SINE"           = "sine",
-    "SVA"            = "sva",
     "Retroposon"     = "retroposon",
-    "DNA transposon" = "dna_transposon",
-    "LTR"            = "ltr"
-  )
-  choices_tandem <- c(
+    "DNA transposon" = "dna",
+    "LTR"            = "ltr",
     "STR"  = "str",
     "VNTR" = "vntr",
     "TR"   = "tr",
     "HOMO" = "homo"
   )
-
-  tagList(
-    tags$style(HTML("
-      .sv-classification h4 { margin-bottom: 8px; }
-      .sv-classification .sv-sub { margin-left: 24px; margin-top: 6px; }
-      .sv-classification .shiny-input-checkboxgroup { margin-bottom: 8px; }
-      .sv-classification .checkbox { margin: 4px 0; }
-    ")),
-
-    tags$div(
-      class = "sv-classification",
-      tags$h4("SVscanner classification"),
-
-      # Parent items rendered in exact order, with children immediately after each parent.
-      checkboxInput(ns("nonrep"), "Non-repetitive", value = FALSE),
-
-      checkboxInput(ns("rep_mobile"), "Repetitive/Mobile", value = FALSE),
-      checkboxInput(ns("rep_mobile_subtype"), "Repetitive/Mobile/subtype", value = FALSE),
-      tags$div(class = "sv-sub",
-        checkboxGroupInput(
-          inputId  = ns("class_mobile_mobile"),
-          label    = NULL,
-          choices  = choices_mobile,
-          selected = character(0),
-          inline   = FALSE
-        )
-      ),
-
-      checkboxInput(ns("rep_tandem"), "Repetitive/Tandem", value = FALSE),
-      checkboxInput(ns("rep_tandem_subtype"), "Repetitive/Tandem/subtype", value = FALSE),
-      tags$div(class = "sv-sub",
-        checkboxGroupInput(
-          inputId  = ns("class_tandem_tandem"),
-          label    = NULL,
-          choices  = choices_tandem,
-          selected = character(0),
-          inline   = FALSE
-        )
-      ),
-
-      checkboxInput(ns("rep_mixed"), "Repetitive/Mixed", value = FALSE),
-      checkboxInput(ns("rep_mixed_subtype"), "Repetitive/Mixed/subtype", value = FALSE),
-      tags$div(class = "sv-sub",
-        checkboxGroupInput(
-          inputId  = ns("class_mobile_mixed"),
-          label    = NULL,
-          choices  = choices_mobile,
-          selected = character(0),
-          inline   = FALSE
-        )
-      ),
-      tags$div(class = "sv-sub",
-        checkboxGroupInput(
-          inputId  = ns("class_tandem_mixed"),
-          label    = NULL,
-          choices  = choices_tandem,
-          selected = character(0),
-          inline   = FALSE
-        )
-      )
-    ),
-
-    # UI-only synchronization between subtype parents and children.
-    # Delete/comment out this script to disable the behavior.
-    tags$script(HTML(sprintf("
-      (function() {
-        var syncing = false;
-
-        var ids = {
-          mobileSubtype: '%s',   // checkboxInput (single)
-          tandemSubtype: '%s',   // checkboxInput (single)
-          mixedSubtype:  '%s',   // checkboxInput (single)
-          mobileMobile:  '%s',   // checkboxGroupInput (group)
-          tandemTandem:  '%s',   // checkboxGroupInput (group)
-          mobileMixed:   '%s',   // checkboxGroupInput (group)
-          tandemMixed:   '%s'    // checkboxGroupInput (group)
-        };
-
-        // Helpers
-        function groupValues(name) {
-          return $('input[name=\"' + name + '\"]:checked').map(function(){ return this.value; }).get();
-        }
-        function setGroupChecked(name, checked) {
-          var $boxes = $('input[name=\"' + name + '\"]');
-          $boxes.each(function(){
-            var $b = $(this);
-            if ($b.prop('checked') !== checked) {
-              $b.prop('checked', checked).trigger('change');
-            }
-          });
-          // Shiny binding will pick up individual change events; no need to call setInputValue here.
-        }
-        function setParentChecked(id, checked) {
-          var $p = $('#' + id);
-          if ($p.prop('checked') !== checked) {
-            $p.prop('checked', checked).trigger('change');
-          }
-        }
-
-        // Parent -> children (use ID selector for single checkbox parents)
-        $(document).on('change', '#' + ids.mobileSubtype, function() {
-          if (syncing) return;
-          syncing = true;
-          var on = $(this).is(':checked');
-          setGroupChecked(ids.mobileMobile, on);
-          syncing = false;
-        });
-
-        $(document).on('change', '#' + ids.tandemSubtype, function() {
-          if (syncing) return;
-          syncing = true;
-          var on = $(this).is(':checked');
-          setGroupChecked(ids.tandemTandem, on);
-          syncing = false;
-        });
-
-        $(document).on('change', '#' + ids.mixedSubtype, function() {
-          if (syncing) return;
-          syncing = true;
-          var on = $(this).is(':checked');
-          setGroupChecked(ids.mobileMixed, on);
-          setGroupChecked(ids.tandemMixed, on);
-          syncing = false;
-        });
-
-        // Children -> parent (test any selection in the group(s), then toggle parent)
-        $(document).on('change', 'input[name=\"' + ids.mobileMobile + '\"]', function() {
-          if (syncing) return;
-          syncing = true;
-          var any = groupValues(ids.mobileMobile).length > 0;
-          setParentChecked(ids.mobileSubtype, any);
-          syncing = false;
-        });
-
-        $(document).on('change', 'input[name=\"' + ids.tandemTandem + '\"]', function() {
-          if (syncing) return;
-          syncing = true;
-          var any = groupValues(ids.tandemTandem).length > 0;
-          setParentChecked(ids.tandemSubtype, any);
-          syncing = false;
-        });
-
-        $(document).on('change', 'input[name=\"' + ids.mobileMixed + '\"]', function() {
-          if (syncing) return;
-          syncing = true;
-          var any = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
-          setParentChecked(ids.mixedSubtype, any);
-          syncing = false;
-        });
-
-        $(document).on('change', 'input[name=\"' + ids.tandemMixed + '\"]', function() {
-          if (syncing) return;
-          syncing = true;
-          var any = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
-          setParentChecked(ids.mixedSubtype, any);
-          syncing = false;
-        });
-
-        // Initial sync on connect (in case defaults change)
-        function initialSync() {
-          var mmOn = groupValues(ids.mobileMobile).length > 0;
-          var ttOn = groupValues(ids.tandemTandem).length > 0;
-          var mxOn = groupValues(ids.mobileMixed).length > 0 || groupValues(ids.tandemMixed).length > 0;
-
-          setParentChecked(ids.mobileSubtype, mmOn);
-          setParentChecked(ids.tandemSubtype, ttOn);
-          setParentChecked(ids.mixedSubtype, mxOn);
-        }
-        $(document).on('shiny:connected', initialSync);
-      })();
-    ",
-      ns('rep_mobile_subtype'),
-      ns('rep_tandem_subtype'),
-      ns('rep_mixed_subtype'),
-      ns('class_mobile_mobile'),
-      ns('class_tandem_tandem'),
-      ns('class_mobile_mixed'),
-      ns('class_tandem_mixed')
-    )))
+  choices_reciprocal <- c(
+    "Full"      = "full",
+    "Partial"   = "partial"
   )
+  tagList(
+    h4("SVScanner Classifications"),
+    checkboxGroupInput(ns("svscanner_class"), "Class:", choices = choices_class),
+    checkboxGroupInput(ns("svscanner_subtype"), "Subtype:", choices = choices_subtype),
+    checkboxGroupInput(ns("svscanner_reciprocal"), "Reciprocal:", choices = choices_reciprocal)
+  )
+  
 }
 
 InherUI <- function(ns) {
@@ -383,16 +217,26 @@ SVlog_conseqUI <- function(ns) {
 }
 
 SVlogUI <- function(ns) {
-  choices <- c("todo", "todo2")  # Placeholder for actual population choices
-  choices_keeping_tier <- c("", "0", "1", "2", "3")
-  choices_filtering_tier <- c("", "1", "2", "3")
+  choices_keeping_tier <- c(
+    "None" = "",
+    "0" = "0",
+    "1" = "1",
+    "2" = "2",
+    "3" = "3"
+  )
+  choices_filtering_tier <- c(
+    "None" = "",
+    "1" = "1",
+    "2" = "2",
+    "3" = "3"
+  )
   choices_keeping <- c("prioritise_lof_any", "prioritise_lof_high", "prioritise_lof_mendeliome", "prioritise_lof_mod", "prioritise_str_novel")
   choices_filtering <- c("common_1kg", "common_gnomad", "common_internal", "common_intergenic")
   tagList(
     # h4("SVlog"),
     h5("Prioritised = Keeping - Filtering out"),
-    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices_keeping_tier),
-    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices_filtering_tier),
+    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices_keeping_tier, selected = ""),
+    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices_filtering_tier, selected = ""),
     checkboxGroupInput(ns("svlog_keeping_checkboxes"), "Keeping criteria:", choices = choices_keeping),
     checkboxGroupInput(ns("svlog_filtering_checkboxes"), "Filtering out criteria:", choices = choices_filtering)
   )
