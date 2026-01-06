@@ -46,16 +46,16 @@ getAlleleCounts <- function(pedigree, input) {
   if (length(pedigree) > 0) {
     if (input$inher == "Custom") {
       counts <- extractCustomAllelCount(pedigree, input)  # named list
-      cat("Custom allele counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
-      }
+      # cat("Custom allele counts:\n")
+      # for (sid in names(counts)) {
+      #   cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
+      # }
     } else if (input$inher != "") {
       counts <- puzzlecore_compute_allele_table(pedigree, input$inher)  # named list
-      cat("Allele table counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
-      }
+      # cat("Allele table counts:\n")
+      # for (sid in names(counts)) {
+      #   cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
+      # }
     }
   }
   counts
@@ -136,7 +136,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "Keeping" = if (!is.null(input$svlog_keeping_checkboxes)) paste(input$svlog_keeping_checkboxes, collapse = ";") else "",
     "Filtering_out" = if (!is.null(input$svlog_filtering_checkboxes)) paste(input$svlog_filtering_checkboxes, collapse = ";") else "",
     "intronic_splice_max_dist" = input$sv_max_distance_to_splice_site,
-    # "intronic_min_len_intron_ratio" = input$sv_min_ratio_sv_length_intron_length,
+    "intronic_min_len_intron_ratio" = input$sv_min_ratio_sv_length_intron_length,
     "tad_max_dist" = input$sv_max_distance_to_nearest_tad_boundary,
     "enhancer_max_dist" = input$sv_max_distance_to_nearest_enhancer,
     "intra_tad_only" = input$sv_intra_tad_boundary,

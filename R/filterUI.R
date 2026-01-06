@@ -402,7 +402,7 @@ GenomicContextUI <- function(ns) {
   tagList(
     h4("Genomic Context"),
     numericInput(ns("sv_max_distance_to_splice_site"), "Max distance to splice site (bp) - intronic:", value = 0, min = 0, step = 1),
-    numericInput(ns("sv_min_ratio_sv_length_intron_length"), "Min ratio SV length/intron length - intronic:", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_min_ratio_sv_length_intron_length"), "Min ratio SV length/intron length - intronic:", value = 0, min = 0, step = 0.01),
     numericInput(ns("sv_max_distance_to_nearest_tad_boundary"), "Max distance to nearest TAD boundary (bp):", value = 0, min = 0, step = 1),
     checkboxInput(ns("sv_intra_tad_boundary"), "Intra TAD boundary", value = FALSE),
     checkboxInput(ns("sv_inter_tad_boundary"), "Inter TAD boundary", value = FALSE),

@@ -448,7 +448,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     
     # 2) Min ratio SV length / intron length — intronic
     #    Treat non-intronic (INTRON_LENGTH NA or <= 0) as passing.
-    if (!is.null(filters$intronic_min_len_intron_ratio)) {
+    if (!is.null(filters$intronic_min_len_intron_ratio) && filters$intronic_min_len_intron_ratio > 0) {
       expr <- sprintf(
         "(is.na(INTRON_LENGTH) | INTRON_LENGTH <= 0 | VAR_LENGTH / INTRON_LENGTH >= %f)",
         filters$intronic_min_len_intron_ratio
@@ -697,9 +697,13 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   }
 
   # Apply filtering
-  #print(combined_expression)
   log_info(sprintf("[filtServer][filter_dataset] Filter expression: %s", combined_expression))
-  filtered_data <- data[eval(parse(text = combined_expression))]
+  tryCatch({
+    filtered_data <- data[eval(parse(text = combined_expression))]
+  }, error = function(e) {
+    message("Error evaluating filter expression: ", e$message)
+    stop(e)
+  })
 
   if (!is.character(filtered_data$GENE_SYMBOL)) {
     stop("Error: filtered_data$GENE_SYMBOL must be of type character, but is ", class(filtered_data$GENE_SYMBOL))

@@ -81,6 +81,25 @@ check_data <- function(label, data, table_schema) {
       cat(" - ", col, "\n")
     }
   }
+
+  # check if column data types match the schema; if not report; no conversion done here
+  for (nm in names(data)) {
+    expected_type <- table_schema[name == nm, default_type]
+    if (length(expected_type) == 0) next  # skip columns not in schema
+    actual_type <- class(data[[nm]])[1]
+    type_match <- FALSE
+    if (expected_type == "integer" && actual_type %in% c("integer", "integer64")) {
+      type_match <- TRUE
+    } else if (expected_type == "float" && actual_type %in% c("numeric", "double")) {
+      type_match <- TRUE
+    } else if (expected_type == "string" && actual_type %in% c("character", "factor")) {
+      type_match <- TRUE
+    }
+    if (!type_match) {
+      cat(sprintf("Warning: Column '%s' has type '%s' but expected '%s'\n", nm, actual_type, expected_type))
+    }
+  }
+
   return(data)
 }
 
@@ -140,6 +159,11 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
     gt_cols <- grep("^GT_", names(data), value = TRUE)
     for (col in gt_cols) {
       data[, (col) := as.factor(get(col))]
+    }
+
+    # if INTRON_LENGTH exists, ensure it's numeric; allow NA coercion
+    if ("INTRON_LENGTH" %in% names(data)) {
+      data[, INTRON_LENGTH := as.numeric(INTRON_LENGTH)]
     }
 
     if (add_svlog_columns) {
