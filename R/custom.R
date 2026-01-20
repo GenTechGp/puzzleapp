@@ -69,7 +69,9 @@ customServer <- function(id) {
         )
 
         tryCatch({
-          custom_df <- data.table::fread(input$load_from_file, sep = "\t", data.table = FALSE)
+          # custom_df <- data.table::fread(input$load_from_file, sep = "\t", data.table = FALSE)
+          custom_df <- data.table::fread(input$load_from_file, nThread = nthreads, na.strings = c("", ".", "NA"))
+
           custom_df$.row_id <- seq_len(nrow(custom_df))
           shared_store2$data_for_data[["[custom]_Boundary"]] <- custom_df
           shared_store2$data_for_data[["custom"]]            <- custom_df
