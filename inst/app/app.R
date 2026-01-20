@@ -66,6 +66,7 @@ ui <- fluidPage(
       tabsetPanel(
         id = "help_tabs",
         tabPanel("Raw Filter", rawFilterUI("raw_filter")),
+        tabPanel("Custom Annotation", customUI("custom_tab")),
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
         tabPanel("Logs", log_viewer_ui("log")),
         tabPanel("About", tags$head(tags$script(HTML("$(document).on('click', 'a', function(e) {$(this).attr('target', '_blank');});"))), includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
@@ -118,6 +119,7 @@ server <- function(input, output, session) {
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
   rawFilterServer("raw_filter", shared_store, shared_rx)
+  customServer("custom_tab")
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")

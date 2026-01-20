@@ -709,7 +709,6 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
       } else NULL
 
       updateSelectInput(session, "dataset_select", choices = visible_choices, selected = selected_ui)
-
       if (!identical(active(), active_new)) {
         log_debug(sprintf("[Data] sync(%s) -> active set to '%s'", reason, as.character(active_new %||% "<none>")))
         active(active_new)

@@ -33,5 +33,5 @@ utils::globalVariables(c(
   "internal_max_carriers", "internal_max_families", "RM_CLASSIFICATION",
   "RM_RECIPROCAL", "RM_TOTAL_SV_COVERAGE", "TRF_CLASSIFICATION", "TRF_SV_COVERAGE",
   "TRF_PERIOD_SIZE", "TRF_COPY_NUMBER", "TRF_TOTAL_SV_COVERAGE", "CONSENSUS_REPEAT", "FINAL_CLASSIFICATION",
-  "..keep_final", "name", "STRING", "carriers"
+  "..keep_final", "name", "STRING", "carriers", "INTRON_LENGTH", "..snv_colnames", "..sv_colnames"
 ))

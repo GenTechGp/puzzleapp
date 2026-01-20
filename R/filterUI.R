@@ -133,7 +133,7 @@ svscannerUI <- function(ns) {
     "Partial"   = "partial"
   )
   tagList(
-    h4("SVScanner Classifications"),
+    h4("SVscanner Classifications"),
     checkboxGroupInput(ns("svscanner_class"), "Class:", choices = choices_class),
     checkboxGroupInput(ns("svscanner_subtype"), "Subtype:", choices = choices_subtype),
     checkboxGroupInput(ns("svscanner_reciprocal"), "Reciprocal:", choices = choices_reciprocal)
