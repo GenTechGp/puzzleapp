@@ -150,6 +150,9 @@ run_preprocess <- function(config_yaml,
     if (verbose) message("[preprocess] Wrote SV TSV: ", svs_tsv)
   }
 
+  # generate coverage and vaf qc plots html paths
+  generate_qc_htmls_from_config(yaml_path)
+
   invisible(result)
 }
 

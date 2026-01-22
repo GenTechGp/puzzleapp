@@ -15,7 +15,11 @@ home_server <- function(id, shared_store, shared_rx) {
     # })
     # a new reactive to store config samples from YAML or user input
     config_samples <- shiny::reactiveVal(list())
-    svlog_db_path <- NULL
+    paths <- shiny::reactiveValues(
+      svlog_db = NULL,
+      coverage_vaf_html = NULL,
+      somalier_html = NULL
+    )
     clear_shared_store <- function() {
       shared_store$data_for_data  <- list()
       shared_store$original_data  <- list()
@@ -84,19 +88,31 @@ home_server <- function(id, shared_store, shared_rx) {
           )
         }
 
-        # store svlog_db_path for later use
-        svlog_db_path <<- config$paths$svlog_db %||% NULL
-        if (!is.null(svlog_db_path)) {
-          cat("[HomeServer] SVLog DB path from YAML:", svlog_db_path, "\n")
-          output$other_params_text <- renderUI(
-            tags$div(
-              tags$strong("Other params loaded from yaml: "),
-              tags$ul(
-                tags$li(paste("SVLog DB:", svlog_db_path))
-              )
+        paths$svlog_db <- config$paths$svlog_db %||% NULL
+        paths$coverage_vaf_html <- config$paths$coverage_vaf_html %||% NULL
+        paths$somalier_html <- config$paths$somalier_html %||% NULL
+        output$other_params_text <- renderUI({
+          li_list <- Filter(
+            Negate(is.null),
+            list(
+              if (!is.null(paths$svlog_db))
+                tags$li(paste("SVLog DB:", paths$svlog_db)),
+
+              if (!is.null(paths$coverage_vaf_html))
+                tags$li(paste("Coverage html Path:", paths$coverage_vaf_html)),
+
+              if (!is.null(paths$somalier_html))
+                tags$li(paste("Somalier html Path:", paths$somalier_html))
             )
           )
-        }
+
+          if (length(li_list) > 0) {
+            tags$div(
+              tags$strong("Other params loaded from yaml: "),
+              tags$ul(li_list)
+            )
+          }
+        })
 
         # pre-fill TSV input if in single line
         if (!is.null(config$paths$snvs_vcf) && nzchar(config$paths$snvs_vcf)) {
@@ -147,7 +163,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$sticky_work_dir <- input$sticky_work_dir
       create_work_dir(shared_store$work_dir, shared_store$sticky_work_dir)
       # Store in shared_store
-      add_svlog_columns <- !is.null(svlog_db_path)
+      add_svlog_columns <- !is.null(paths$svlog_db)
       collected <- collect_inputs(input, add_svlog_columns = add_svlog_columns)
       if (length(collected$messages) > 0) {
         for (msg in collected$messages) {
@@ -205,8 +221,8 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["vep_consequences"]] <- vep_consequences
 
       # todo: do a proper table schema validation
-      if (!is.null(svlog_db_path)) {
-        shared_store$svlog_db <- fread(svlog_db_path)
+      if (!is.null(paths$svlog_db)) {
+        shared_store$svlog_db <- fread(paths$svlog_db)
       }
 
       stopifnot(
@@ -236,6 +252,21 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
       shared_store$preferred_cols[["panel_app"]] <- input$panelapp_preferences
       shared_store$preferred_cols[["Phenotype"]] <- input$phenotype_preferences
+      
+      if (paths$coverage_vaf_html %||% "" != ""){
+        coverage_vaf_html_path <- paths$coverage_vaf_html
+        coverage_html_dir <- dirname(coverage_vaf_html_path %||% "")
+        addResourcePath("coverage_html", coverage_html_dir)
+        coverage_html_name <- basename(coverage_vaf_html_path %||% "")
+        shared_store$html$coverage_path <- file.path("/coverage_html", coverage_html_name)
+      }
+      if (paths$somalier_html %||% "" != ""){
+        somalier_html_path <- paths$somalier_html
+        somalier_html_dir <- dirname(somalier_html_path %||% "")
+        addResourcePath("somalier_html", somalier_html_dir)
+        somalier_html_name <- basename(somalier_html_path %||% "")
+        shared_store$html$somalier_path <- file.path("/somalier_html", somalier_html_name)
+      }
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
@@ -261,8 +292,8 @@ home_server <- function(id, shared_store, shared_rx) {
         shiny::column(1, shiny::strong("Status")),
         shiny::column(1, shiny::strong("Sex")),
         shiny::column(1, shiny::strong("Code")),
-        shiny::column(3, shiny::strong("BAM Path")),
-        shiny::column(4, shiny::strong("Coverage Path"))
+        shiny::column(5, shiny::strong("BAM Path")),
+        shiny::column(2, shiny::strong("Coverage Path"))
       )
       # Pull samples from config_samples if available
       samples <- config_samples() %||% list()
@@ -274,8 +305,8 @@ home_server <- function(id, shared_store, shared_rx) {
           shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = NULL, choices = v_statuses, selected = s$status %||% "unknown")),
           shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = NULL, choices = v_sexes, selected = s$sex %||% "unknown")),
           shiny::column(1, shiny::numericInput(ns(paste0("code_", i)), label = NULL, value = s$code %||% 1, min = 0)),
-          shiny::column(3, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
-          shiny::column(4, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))
+          shiny::column(5, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
+          shiny::column(2, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))
         )
       })
       shiny::tagList(header_row, sample_rows)

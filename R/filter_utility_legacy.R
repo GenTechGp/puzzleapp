@@ -112,10 +112,10 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "SVlog_internal_max_carriers" = input$sv_max_carriers_internal,
     "SVlog_internal_max_families" = input$sv_max_families,
     "SVlog_1000G_max_carriers" = input$sv_max_carriers_1000,
-    "SVlog_Advanced_Keeping" = input$svlog_keeping,
-    "SVlog_Advanced_Filtering_out" = input$svlog_filtering,
-    "Keeping" = if (!is.null(input$svlog_keeping_checkboxes)) paste(input$svlog_keeping_checkboxes, collapse = ";") else "",
-    "Filtering_out" = if (!is.null(input$svlog_filtering_checkboxes)) paste(input$svlog_filtering_checkboxes, collapse = ";") else "",
+    "SVlog_Advanced_Keeping" = if (!is.null(input$svlog_keeping_checkboxes)) paste(input$svlog_keeping_checkboxes, collapse = ";") else "",
+    "SVlog_Advanced_Filtering_out" = if (!is.null(input$svlog_filtering_checkboxes)) paste(input$svlog_filtering_checkboxes, collapse = ";") else "",
+    "Keeping" = input$svlog_keeping,
+    "Filtering_out" = input$svlog_filtering,
     "intronic_splice_max_dist" = input$sv_max_distance_to_splice_site,
     "intronic_min_len_intron_ratio" = input$sv_min_ratio_sv_length_intron_length,
     "tad_max_dist" = input$sv_max_distance_to_nearest_tad_boundary,
@@ -315,16 +315,16 @@ update_filters_params <- function(search_params, session) {
       sv  = list(func = updateNumericInput, id = "sv_max_carriers_1000", value = TRUE, as_numeric = FALSE)
     ),
     "SVlog_Advanced_Keeping" = list(
-      sv  = list(func = updateSelectInput, id = "svlog_keeping", selected = TRUE, as_numeric = FALSE)
-    ),
-    "SVlog_Advanced_Filtering_out" = list(
-      sv  = list(func = updateSelectInput, id = "svlog_filtering", selected = TRUE, as_numeric = FALSE)
-    ),
-    "Keeping" = list(
       sv  = list(func = updateCheckboxGroupInput, id = "svlog_keeping_checkboxes", selected = TRUE, split = TRUE)
     ),
-    "Filtering_out" = list(
+    "SVlog_Advanced_Filtering_out" = list(
       sv  = list(func = updateCheckboxGroupInput, id = "svlog_filtering_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "Keeping" = list(
+      sv  = list(func = updateSelectInput, id = "svlog_keeping", selected = TRUE, as_numeric = FALSE)
+    ),
+    "Filtering_out" = list(
+      sv  = list(func = updateSelectInput, id = "svlog_filtering", selected = TRUE, as_numeric = FALSE)
     ),
     "intronic_splice_max_dist" = list(
       sv  = list(func = updateNumericInput, id = "sv_max_distance_to_splice_site", value = TRUE, as_numeric = FALSE)

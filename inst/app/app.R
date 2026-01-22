@@ -61,6 +61,7 @@ ui <- fluidPage(
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Phenotype", dataUI("phenotype")),
+    tabPanel("QC Plots", qcPlots("qc_plots")),
     tabPanel(
       "Help",
       tabsetPanel(
@@ -98,6 +99,7 @@ server <- function(input, output, session) {
   shared_store$hpo_id_data <- NULL
   shared_store$work_dir <- NULL
   shared_store$sticky_work_dir <- FALSE
+  shared_store$html <- list()
   shared_store$verbose_level <- 0L
   shared_rx <- list(
     data_version = reactiveVal(0L),
@@ -120,6 +122,7 @@ server <- function(input, output, session) {
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
   rawFilterServer("raw_filter", shared_store, shared_rx)
   customServer("custom_tab")
+  qcPlotsServer("qc_plots", shared_store, shared_rx)
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")
