@@ -99,16 +99,16 @@ home_server <- function(id, shared_store, shared_rx) {
                 tags$li(paste("SVLog DB:", paths$svlog_db)),
 
               if (!is.null(paths$coverage_vaf_html))
-                tags$li(paste("Coverage html Path:", paths$coverage_vaf_html)),
+                tags$li(paste("Coverage html:", paths$coverage_vaf_html)),
 
               if (!is.null(paths$somalier_html))
-                tags$li(paste("Somalier html Path:", paths$somalier_html))
+                tags$li(paste("Somalier html:", paths$somalier_html))
             )
           )
 
           if (length(li_list) > 0) {
             tags$div(
-              tags$strong("Other params loaded from yaml: "),
+              tags$strong("Other data loaded from yaml: "),
               tags$ul(li_list)
             )
           }

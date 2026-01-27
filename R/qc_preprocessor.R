@@ -122,7 +122,15 @@ load_coverage_from_config <- function(cfg) {
 # ------------------------------------------------------------
 
 process_vaf <- function(snvs_dt, pedigree, max_n = 200000) {
-  if (is.null(snvs_dt) || !"CATEGORY" %in% names(snvs_dt)) return(NULL)
+  cat(colnames(snvs_dt), sep = ", ")
+  if (is.null(snvs_dt)){
+    cat("No snvs tsv is provided\n")
+    return(NULL)
+  }
+  if (is.null(snvs_dt) || !"CATEGORY" %in% names(snvs_dt)) {
+    cat("No CATEGORY column is found\n")
+    return(NULL)
+  }
   dt <- as.data.table(snvs_dt)[CATEGORY == "SNV & Indel"]
   if (!nrow(dt)) return(NULL)
 
@@ -237,7 +245,7 @@ generate_coverage_vaf_html <- function(coverage_data, snvs_dt, pedigree, out_pat
     x = ~CHROM, y = ~AVERAGE_COVERAGE,
     color = ~SAMPLE, colors = palette,
     type = "scatter", mode = "markers",
-    marker = list(size = 12, opacity = 0.6)
+    marker = list(size = 9, opacity = 0.6)
   ) %>%
     layout(
       title = "Average Coverage",
@@ -267,7 +275,8 @@ generate_coverage_vaf_html <- function(coverage_data, snvs_dt, pedigree, out_pat
     norm,
     x = ~CHROM, y = ~norm_cov,
     color = ~SAMPLE, colors = palette,
-    type = "scatter", mode = "markers"
+    type = "scatter", mode = "markers",
+    marker = list(size = 9, opacity = 0.6)
   ) %>%
     layout(
       title = "Normalized Coverage",
@@ -302,6 +311,10 @@ generate_coverage_vaf_html <- function(coverage_data, snvs_dt, pedigree, out_pat
         showlegend = FALSE,
         dragmode = "pan"
       )
+  } else {
+    message("No valid VAF data found; skipping VAF plot")
+    # add a placeholder paragraph
+    p_vaf <- tags$p("No valid VAF data found; VAF plot not generated.")
   }
 
   # Assemble page with spacing between independent widgets

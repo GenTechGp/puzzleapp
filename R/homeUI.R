@@ -65,7 +65,7 @@ home_ui <- function(id) {
       shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","chm13v1.1","mm10","rn6","custom (as configured in app.conf - experimental)"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
     ),
     fluidRow(
-      column(6, uiOutput(ns("other_params_text")))
+      column(12, uiOutput(ns("other_params_text")))
     ),
 
     shiny::br(),
