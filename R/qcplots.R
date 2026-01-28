@@ -55,7 +55,7 @@ qcPlotsServer <- function(id, shared_store, shared_rx) {
   moduleServer(id, function(input, output, session) {
 
     observe({
-      req(shared_rx$data_version())
+      req(shared_rx$qcplot_version())
       cat("Updating QC plots iframes...\n")
 
       ## Coverage

@@ -164,7 +164,13 @@ home_server <- function(id, shared_store, shared_rx) {
       create_work_dir(shared_store$work_dir, shared_store$sticky_work_dir)
       # Store in shared_store
       add_svlog_columns <- !is.null(paths$svlog_db)
-      collected <- collect_inputs(input, add_svlog_columns = add_svlog_columns)
+      # todo: do a proper table schema validation
+      svlog_db <- NULL
+      if (!is.null(paths$svlog_db)) {
+         svlog_db <- data.table::fread(paths$svlog_db)
+         shared_store$svlog_db <- svlog_db
+      }
+      collected <- collect_inputs(input, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db)
       if (length(collected$messages) > 0) {
         for (msg in collected$messages) {
           shiny::showNotification(msg, type = "error")
@@ -220,10 +226,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["[vep_consequences]_Boundary"]] <- vep_consequences
       shared_store$data_for_data[["vep_consequences"]] <- vep_consequences
 
-      # todo: do a proper table schema validation
-      if (!is.null(paths$svlog_db)) {
-        shared_store$svlog_db <- fread(paths$svlog_db)
-      }
+
 
       stopifnot(
         !identical(
@@ -270,6 +273,7 @@ home_server <- function(id, shared_store, shared_rx) {
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
+      bump_version(version_type = "qcplot", shared_rx = shared_rx)
 
       msgs <- c()
       msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))

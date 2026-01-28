@@ -106,7 +106,8 @@ server <- function(input, output, session) {
     panelapp_version = reactiveVal(0L),
     igv_version = reactiveVal(0L),
     genesymbol_version = reactiveVal(0L),
-    hpoid_version = reactiveVal(0L)
+    hpoid_version = reactiveVal(0L),
+    qcplot_version = reactiveVal(0L)
   )
 
   home_server("home", shared_store, shared_rx)

@@ -616,9 +616,59 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # --------------------------------------------------------------------------
     # SVlog database filters (this mutates `data`, so keep it last)
     # --------------------------------------------------------------------------
-    if (!is.null(svlog_db)) {
-      
+    svlog_filter_fields <- c(
+      "svlog_min_recip_overlap",
+      "svlog_max_break_distance",
+      "svlog_max_abs_dlen",
+      "svlog_gnomad_af",
+      "svlog_1000g_max_carriers",
+      "svlog_internal_max_carriers",
+      "clinvar_filter"
+    )
+
+    present <- intersect(svlog_filter_fields, names(filters))
+
+    has_svlog_filters <- length(present) > 0 && any(
+      vapply(
+        filters[present],
+        function(x) {
+          !is.null(x) &&
+            length(x) > 0 &&
+            !any(is.na(x)) &&
+            any(nzchar(as.character(x)))
+        },
+        logical(1)
+      )
+    )
+
+    svlog_fields <- c(
+      "svlog_min_recip_overlap",
+      "svlog_max_break_distance",
+      "svlog_max_abs_dlen"
+    )
+
+    present_vals <- numeric(0)
+
+    for (f in svlog_fields) {
+      val <- filters[[f]]
+
+      if (!is.null(val) && !is.na(val)) {
+        present_vals <- c(present_vals, as.numeric(val))
+      }
+    }
+
+    flag_zero_check <- length(present_vals) > 0 && any(present_vals > 0)
+
+    if (!is.null(svlog_db) && nrow(svlog_db) > 0 && has_svlog_filters && flag_zero_check) {
+          
       log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")
+      # cat("svlog_min_recip_overlap:", filters$svlog_min_recip_overlap, "\n")
+      # cat("svlog_max_break_distance:", filters$svlog_max_break_distance, "\n")
+      # cat("svlog_max_abs_dlen:", filters$svlog_max_abs_dlen, "\n")
+      # cat("svlog_gnomad_af:", filters$svlog_gnomad_af, "\n")
+      # cat("svlog_1000g_max_carriers:", filters$svlog_1000g_max_carriers, "\n")
+      # cat("svlog_internal_max_carriers:", filters$svlog_internal_max_carriers, "\n")
+      # cat("clinvar_filter:", paste(filters$clinvar_filter, collapse = ","), "\n")
       
       # keep a copy of original data before SVlog merge
       data_before_svlog <- data
@@ -630,11 +680,6 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       if (!"ID" %in% names(svlog_db)) {
         stop("svlog_db does not contain 'ID' column, required for SVlog merge.")
       }
-      
-      ids_no_svlog <- setdiff(
-        unique(data$ID),
-        unique(svlog_db$ID)
-      )
       
       svlog_summary <- filter_svlog_to_wide(
         svlog_db  = svlog_db,
@@ -653,6 +698,10 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
       log_info(sprintf("[filtServer][filter_dataset] SVlog filter: %d variants with passing SVlog database evidence", nrow(data)))
       # rescue variants that had no SVlog record at all
+      ids_no_svlog <- setdiff(
+        unique(data_before_svlog$ID),
+        unique(svlog_db$ID)
+      )
       if (length(ids_no_svlog) > 0) {
         rescued <- data_before_svlog[ID %in% ids_no_svlog]
         log_info(sprintf("[filtServer][filter_dataset] SVlog rescue: %d variants had no SVlog record and were kept unfiltered", nrow(rescued)))
@@ -807,6 +856,19 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
   return(all_filtered_data)
 }
 
+# ---------- helpers ----------
+safe_max_num <- function(x) {
+  x <- x[!is.na(x)]
+  if (!length(x)) return(NA_real_)
+  max(x)
+}
+safe_max_int <- function(x) {
+  x <- x[!is.na(x)]
+  if (!length(x)) return(NA_integer_)
+  as.integer(max(x))
+}
+
+
 # Function to filter and summarise SVlog database entries per SV
 filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   if (is.null(svlog_db) || !nrow(svlog_db)) {
@@ -814,18 +876,6 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   }
   
   dt <- data.table::as.data.table(data.table::copy(svlog_db))
-  
-  # ---------- helpers ----------
-  safe_max_num <- function(x) {
-    x <- x[!is.na(x)]
-    if (!length(x)) return(NA_real_)
-    max(x)
-  }
-  safe_max_int <- function(x) {
-    x <- x[!is.na(x)]
-    if (!length(x)) return(NA_integer_)
-    as.integer(max(x))
-  }
   
   # carriers = HET + HOM (NA-aware)
   dt[, carriers := {
@@ -931,7 +981,6 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   
   if (!is.null(sv_filters$clinvar_filter) &&
       length(sv_filters$clinvar_filter) > 0) {
-    
     cf <- sv_filters$clinvar_filter
     cf <- gsub(" ", "_", cf)
     
@@ -989,7 +1038,14 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   # No evidence from any DB → do not filter on SVlog
   no_evidence <- !(used_gnomAD | used_kg | used_internal | used_clinvar)
   agg[no_evidence, pass_svlog := TRUE]
+
+  wide <- make_svlog_wide_summary(dt, agg)
+  wide
   
+}
+
+make_svlog_wide_summary <- function(dt, agg) {
+
   # ---------- 3) keep only passing svlog_id ----------
   keep_ids <- agg[pass_svlog == TRUE, svlog_id]
   dt_pass  <- dt[svlog_id %in% keep_ids]

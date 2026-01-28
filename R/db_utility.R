@@ -549,7 +549,7 @@ expand_ranges_by_code <- function(data_ranges_dt, samples, names_to_expand) {
   rbind(data_ranges_dt[!name %in% names_to_expand], expanded, use.names = TRUE)
 }
 
-collect_inputs <- function(input, add_svlog_columns = FALSE) {
+collect_inputs <- function(input, add_svlog_columns = FALSE, svlog_db = NULL) {
   messages <- list()
   # Collect sample info
   n <- input$num_individuals
@@ -607,7 +607,7 @@ collect_inputs <- function(input, add_svlog_columns = FALSE) {
   sv_default_dt <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
-      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads, snv = FALSE, add_svlog_columns = add_svlog_columns)
+      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads, snv = FALSE, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db)
       data_ranges_dt <- fread(system.file("extdata", "db", "table_schema", "sv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
       data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF", "alt_allele_count"))
       sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
@@ -692,7 +692,7 @@ prepare_table <- function(dt, selected_cols) {
   dt_subset
 }
 
-bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol", "hpoid"), shared_rx) {
+bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol", "hpoid", "qcplot"), shared_rx) {
   if (version_type == "data") {
     shared_rx$data_version(shared_rx$data_version() + 1L)
   } else if (version_type == "panelapp") {
@@ -703,6 +703,8 @@ bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol
     shared_rx$genesymbol_version(shared_rx$genesymbol_version() + 1L)
   } else if (version_type == "hpoid") {
     shared_rx$hpoid_version(shared_rx$hpoid_version() + 1L)
+  } else if (version_type == "qcplot") {
+    shared_rx$qcplot_version(shared_rx$qcplot_version() + 1L)
   }
 }
 

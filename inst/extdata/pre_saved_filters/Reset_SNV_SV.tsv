@@ -23,9 +23,9 @@ SV_SVlog_Annotation
 SV_SVlog_min_recip_overlap	0
 SV_SVlog_max_break_distance	0
 SV_SVlog_max_abs_dlen	0
-SV_SVlog_internal_max_carriers	0
-SV_SVlog_internal_max_families	0
-SV_SVlog_1000G_max_carriers	0
+SV_SVlog_internal_max_carriers	
+SV_SVlog_internal_max_families	
+SV_SVlog_1000G_max_carriers	
 SV_SVlog_Advanced_Keeping	
 SV_SVlog_Advanced_Filtering_out	
 SV_Keeping	

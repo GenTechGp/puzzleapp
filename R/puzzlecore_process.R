@@ -103,6 +103,70 @@ check_data <- function(label, data, table_schema) {
   return(data)
 }
 
+
+treat_svlog <- function(data, svlog_db) {
+  # add dummy rows for ClinVar, InternalCohort, ONT1000G, gnomAD, gnomAD_AF_max, ONT1000G_carriers_max, Internal_carriers_max, Internal_families_max, ClinVar_CLASS
+  sv_extra_cols <- list(
+    gnomAD = NA_character_,
+    ONT1000G = NA_character_,
+    InternalCohort = NA_character_,
+    ClinVar = NA_character_,
+    gnomAD_AF_max = NA_real_,
+    ONT1000G_carriers_max = NA_integer_,
+    Internal_carriers_max = NA_integer_,
+    Internal_families_max = NA_integer_,
+    ClinVar_CLASS = NA_character_
+  )
+  for (col in names(sv_extra_cols)) {
+    if (!(col %in% names(data))) {
+      data[[col]] <- rep(sv_extra_cols[[col]], nrow(data))
+    }
+  }
+  data_before_svlog <- data
+  dt <- data.table::as.data.table(svlog_db)
+  dt[, carriers := {
+    h <- ifelse(is.na(HET), 0L, as.integer(HET))
+    m <- ifelse(is.na(HOM), 0L, as.integer(HOM))
+    out <- h + m
+    both_na <- is.na(HET) & is.na(HOM)
+    out[both_na] <- NA_integer_
+    out
+  }]
+  agg_min <- dt[
+    ,
+    .(
+      gnomAD_AF_max = safe_max_num(AF[SRC == "gnomAD"]),
+      ont1000g_max_carriers = safe_max_int(carriers[SRC %in% c("ONT1000G","1000g")]),
+      internal_max_carriers = safe_max_int(carriers[SRC %in% c("InternalCohort","internal")]),
+      internal_max_families = safe_max_int(NUM_FAMS[SRC %in% c("InternalCohort","internal")]),
+      clinvar_labels = paste(unique(CLNSIG[SRC == "ClinVar"]), collapse = ";"),
+      pass_svlog = TRUE
+    ),
+    by = svlog_id
+  ]
+
+  svlog_summary <- make_svlog_wide_summary(dt, agg_min)
+  data.table::setDT(svlog_summary)
+  data <- data[svlog_summary[, .(ID)], on = "ID", nomatch = 0L]
+  cols <- setdiff(intersect(names(data), names(svlog_summary)), "ID")
+  data[svlog_summary, on = "ID", (cols) := mget(paste0("i.", cols))]
+
+  ids_no_svlog <- setdiff(
+    unique(data_before_svlog$ID),
+    unique(svlog_db$ID)
+  )
+  if (length(ids_no_svlog) > 0) {
+    rescued <- data_before_svlog[ID %in% ids_no_svlog]
+    # bind them back; they will have NA in the SVlog columns
+    data <- data.table::rbindlist(
+      list(data, rescued),
+      use.names = TRUE,
+      fill = TRUE
+    )
+  }
+  return(data)
+}
+
 # export the functino in roxygen
 #' Read Variant TSV with Extra Columns
 #' This function reads a variant TSV file and adds extra columns if they are missing.
@@ -110,11 +174,12 @@ check_data <- function(label, data, table_schema) {
 #' @param nthreads The number of threads to use for reading the file.
 #' @param snv Logical indicating if the file is for SNVs (TRUE) or SVs (FALSE).
 #' @param add_svlog_columns Logical indicating whether to add SVlog-specific columns (only for SVs).
+#' @param svlog_db Optional path to the SVlog database.
 #' @return A data.table containing the variant data with extra columns added.
 #' @examples
 #' # variant_data <- puzzlecore_read_variant_tsv("path/to/variant_file.tsv", nthreads = 4)
 #' @export
-puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog_columns = FALSE) {
+puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog_columns = FALSE, svlog_db = NULL) {
     # data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"), nrows = 2000)
     data <- data.table::fread(file_path, nThread = nthreads, na.strings = c("", ".", "NA"))
     if (is.null(data)) {
@@ -163,28 +228,14 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
 
     # if INTRON_LENGTH exists, ensure it's numeric; allow NA coercion
     if ("INTRON_LENGTH" %in% names(data)) {
-      data[, INTRON_LENGTH := as.numeric(INTRON_LENGTH)]
+      data[, INTRON_LENGTH := suppressWarnings(as.numeric(INTRON_LENGTH))]
     }
 
     if (add_svlog_columns) {
-      # add dummy rows for ClinVar, InternalCohort, ONT1000G, gnomAD, gnomAD_AF_max, ONT1000G_carriers_max, Internal_carriers_max, Internal_families_max, ClinVar_CLASS
-      sv_extra_cols <- list(
-        ClinVar = NA_character_,
-        InternalCohort = NA_character_,
-        ONT1000G = NA_character_,
-        gnomAD = NA_character_,
-        gnomAD_AF_max = NA_real_,
-        ONT1000G_carriers_max = NA_integer_,
-        Internal_carriers_max = NA_integer_,
-        Internal_families_max = NA_integer_,
-        ClinVar_CLASS = NA_character_
-      )
-      for (col in names(sv_extra_cols)) {
-        if (!(col %in% names(data))) {
-          data[[col]] <- rep(sv_extra_cols[[col]], nrow(data))
-        }
-      }
+      data <- treat_svlog(data, svlog_db)
+      
     }
+
 
     return(data)
 }

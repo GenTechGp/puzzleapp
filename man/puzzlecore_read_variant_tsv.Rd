@@ -9,7 +9,8 @@ puzzlecore_read_variant_tsv(
   file_path,
   nthreads,
   snv = TRUE,
-  add_svlog_columns = FALSE
+  add_svlog_columns = FALSE,
+  svlog_db = NULL
 )
 }
 \arguments{
@@ -20,6 +21,8 @@ puzzlecore_read_variant_tsv(
 \item{snv}{Logical indicating if the file is for SNVs (TRUE) or SVs (FALSE).}
 
 \item{add_svlog_columns}{Logical indicating whether to add SVlog-specific columns (only for SVs).}
+
+\item{svlog_db}{Optional path to the SVlog database.}
 }
 \value{
 A data.table containing the variant data with extra columns added.

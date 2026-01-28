@@ -196,12 +196,12 @@ PopulationUI_1 <- function(ns) {
     selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
     strong("ONT 1000 Genomes"),
     h5("Max carriers (HOME + HET)"),
-    numericInput(ns("sv_max_carriers_1000"), label = NULL, value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_carriers_1000"), label = NULL, value = NULL, min = 0, step = 1),
     strong("Internal Cohort"),
     h5("Max carriers (HOME + HET)"),
-    numericInput(ns("sv_max_carriers_internal"), label = NULL, value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_carriers_internal"), label = NULL, value = NULL, min = 0, step = 1),
     h5("Max families:"),
-    numericInput(ns("sv_max_families"), label = NULL, value = 0, min = 0, step = 1)
+    numericInput(ns("sv_max_families"), label = NULL, value = NULL, min = 0, step = 1)
   )
 }
 

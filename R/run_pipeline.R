@@ -108,7 +108,7 @@ run_pipeline <- function(
     cat("SV TSV file does not exist: ", sv_path, "\n")
   } else {
     add_svlog_columns <- !is.null(svlog_db)
-    sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads, snv=FALSE, add_svlog_columns = add_svlog_columns)
+    sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads, snv=FALSE, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db )
   }
 
   filtered_data <- puzzlecore_variant_filter(
