@@ -367,7 +367,8 @@ selectFiltersUI <- function(id) {
     fluidRow(
       column(1, actionButton(ns("btn_reset"), "Reset all filters", class = "btn-secondary")),
       column(1, actionButton(ns("btn_apply_filters"), "Apply filters", class = "btn-primary")),
-      column(10)
+      column(5, textOutput(ns("num_variants_after_filtering"))),
+      column(5)
     ),
     br(),
     header_UI(ns),

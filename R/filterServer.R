@@ -200,8 +200,16 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         cat("filtered:", paste(col_order_filtered, collapse = ", "), "\n")
         stop("Column order changed after filtering!")
       }
-      showNotification(sprintf("snvs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SNV"]])), type = "message")
-      showNotification(sprintf("svs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SV"]])), type = "message")
+
+      snv_status <- sprintf("Filtered SNV: %s / %s", nrow(shared_store$data_for_data[["SNV"]]), nrow(shared_store$original_data[["SNV"]]))
+      sv_status <- sprintf("SV: %s / %s", nrow(shared_store$data_for_data[["SV"]]), nrow(shared_store$original_data[["SV"]]))
+      showNotification(snv_status, type = "message")
+      showNotification(sv_status, type = "message")
+
+      # show snv_status and sv_status
+      output$num_variants_after_filtering <- renderText({
+        paste(snv_status, sv_status, sep = "; ")
+      })
 
       # add spliceai_filter to value_for_data
       shared_store$value_for_data[["SNV"]] <- list(splice_numeric_threshold = snv_filters$spliceai_filter)
