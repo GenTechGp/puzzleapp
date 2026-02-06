@@ -68,6 +68,8 @@
 #' 
 #' @importFrom dplyr filter group_by summarise left_join mutate
 #' 
+#' @importFrom markdown markdownToHTML
+#' 
 #' @keywords internal
 "_PACKAGE"
 

@@ -207,7 +207,7 @@ PopulationUI_1 <- function(ns) {
 
 SVlog_conseqUI <- function(ns) {
   annotation_select_opts <- c("None", "High impact", "Moderate to high impact")
-  svlog_conseq_opts <- c("affects CDS", "affects only promoter", "affects TAD boundary", "affects UTR", "intronic", "intergenic", "splice altering", "other")
+  svlog_conseq_opts <- c("affects_cds", "affects_only_promoter", "affects_tad_boundary", "affects_utr", "intronic", "intergenic", "splice_altering", "other")
   ui_elements <- list(
     h4("SVlog annotation"),
     selectInput(ns("svlog_consequence"), "SVlog Consequence:", choices = annotation_select_opts, selected = "None"),

@@ -290,6 +290,60 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL
 
+  # ClinVar filter
+  if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
+    # Normalize input
+    filters$clinvar_filter <- gsub(" ", "_", filters$clinvar_filter)
+    log_info("[filtServer][filter_dataset] Applying ClinVar filter")
+
+    # Mapping for special cases
+    special_map <- list(
+      "VUS" = "uncertain",
+      "Conflicting" = "conflicting"
+    )
+    column_name <- "ClinVar"
+    if (is_snv) {
+      column_name <- "CLINVAR"
+    }
+    if ("Other" %in% filters$clinvar_filter) {
+      # Exclude all explicit categories except those explicitly selected alongside "Other"
+      explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
+      selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
+      exclude_explicit <- setdiff(explicit_terms, selected_explicit)
+
+      if (length(exclude_explicit) > 0) {
+        word_boundary_terms <- c()
+        substring_terms <- c()
+        for (term in exclude_explicit) {
+          if (term %in% names(special_map)) {
+            substring_terms <- c(substring_terms, special_map[[term]])
+          } else {
+            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+          }
+        }
+        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+        negation_expr <- sprintf("!grepl('%s', %s, ignore.case = TRUE)", clinvar_pattern, column_name)
+        filter_expression <- add_filter_condition(filter_expression, negation_expr)
+      }
+    } else {
+      word_boundary_terms <- c()
+      substring_terms <- c()
+      for (term in filters$clinvar_filter) {
+        if (term %in% names(special_map)) {
+          # special case → substring match (no word boundaries)
+          substring_terms <- c(substring_terms, special_map[[term]])
+        } else {
+          # normal case → strict word-boundary match
+          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+        }
+      }
+      # Combine all patterns into one regex
+      clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+      clinvar_condition <- sprintf("grepl('%s', %s, ignore.case = TRUE)", clinvar_pattern, column_name)
+      filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
+    }
+  }
+
   if (is_snv) {
     log_info("[filtServer][filter_dataset] Applying SNV-specific filters")
     # SNV-specific filters
@@ -306,57 +360,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
     override_threshold <- if (isTRUE(filters$use_af)) filters$af_value else 0.05
 
-    # ClinVar filter and override
+    # ClinVar override for specific terms
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
-      # Normalize input
-      filters$clinvar_filter <- gsub(" ", "_", filters$clinvar_filter)
-      log_info("[filtServer][filter_dataset] Applying ClinVar filter")
-
-      # Mapping for special cases
-      special_map <- list(
-        "VUS" = "uncertain",
-        "Conflicting" = "conflicting"
-      )
-
-      if ("Other" %in% filters$clinvar_filter) {
-        # Exclude all explicit categories except those explicitly selected alongside "Other"
-        explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
-        selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
-        exclude_explicit <- setdiff(explicit_terms, selected_explicit)
-
-        if (length(exclude_explicit) > 0) {
-          word_boundary_terms <- c()
-          substring_terms <- c()
-          for (term in exclude_explicit) {
-            if (term %in% names(special_map)) {
-              substring_terms <- c(substring_terms, special_map[[term]])
-            } else {
-              word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
-            }
-          }
-          clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-          negation_expr <- sprintf("!grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-          filter_expression <- add_filter_condition(filter_expression, negation_expr)
-        }
-      } else {
-        word_boundary_terms <- c()
-        substring_terms <- c()
-        for (term in filters$clinvar_filter) {
-          if (term %in% names(special_map)) {
-            # special case → substring match (no word boundaries)
-            substring_terms <- c(substring_terms, special_map[[term]])
-          } else {
-            # normal case → strict word-boundary match
-            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
-          }
-        }
-        # Combine all patterns into one regex
-        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-        clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-        filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
-      }
-
-      # ClinVar override for specific terms
       override_patterns <- c()
       if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bPathogenic\\\\b")
       if ("Likely_pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely_pathogenic\\\\b")
@@ -364,7 +369,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
-        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, override_threshold)
+        clinvar_override_condition <- sprintf("(grepl('%s', %s, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, column_name, override_threshold)
       }
     }
 
@@ -382,13 +387,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
 
     # Ensure SpliceAI and ClinVar overrides are applied
-    override_conditions <- list()
-
     if (filters$inheritance_filter == "X-Linked Recessive") {
       if (!is.null(spliceai_override_condition)) spliceai_override_condition <- sprintf("(%s & CHROM == 'chrX')", spliceai_override_condition)
       if (!is.null(clinvar_override_condition)) clinvar_override_condition <- sprintf("(%s & CHROM == 'chrX')", clinvar_override_condition)
     }
 
+    # override_conditions <- list()
     # override_conditions <- c(spliceai_override_condition, clinvar_override_condition)
     # override_conditions <- Filter(Negate(is.null), override_conditions)  # Remove NULLs
     # 
