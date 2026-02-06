@@ -233,10 +233,10 @@ SVlogUI <- function(ns) {
   choices_keeping <- c("prioritise_lof_any", "prioritise_lof_high", "prioritise_lof_mendeliome", "prioritise_lof_mod", "prioritise_str_novel")
   choices_filtering <- c("common_1kg", "common_gnomad", "common_internal", "common_intergenic")
   tagList(
-    # h4("SVlog"),
-    h5("Prioritised = Keeping - Filtering out"),
-    selectInput(ns("svlog_keeping"), "Keeping:", choices = choices_keeping_tier, selected = ""),
-    selectInput(ns("svlog_filtering"), "Filtering out:", choices = choices_filtering_tier, selected = ""),
+    fluidRow(
+      column(6, checkboxGroupInput(ns("svlog_keeping"), "Keeping:", choices = choices_keeping_tier)),
+      column(6, checkboxGroupInput(ns("svlog_filtering"), "Filtering out:", choices = choices_filtering_tier))
+    ),
     checkboxGroupInput(ns("svlog_keeping_checkboxes"), "Keeping criteria:", choices = choices_keeping),
     checkboxGroupInput(ns("svlog_filtering_checkboxes"), "Filtering out criteria:", choices = choices_filtering)
   )

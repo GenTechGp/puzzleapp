@@ -182,7 +182,6 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       filters       <- puzzlecore_parse_filter_table(filter_table)
       snv_filters   <- filters$snv_filters
       sv_filters    <- filters$sv_filters
-
       allele_counts_dt <- data.table(
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
