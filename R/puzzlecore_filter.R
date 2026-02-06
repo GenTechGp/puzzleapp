@@ -520,18 +520,36 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # SVlog Consequence
     # --------------------------------------------------------------------------
     
-    if (!is.null(filters$svlog_annotation_filter) &&
-        length(filters$svlog_annotation_filter) > 0) {
-      
-      pat <- paste(filters$svlog_annotation_filter, collapse = "|")
-      
-      expr <- sprintf(
-        "(is.na(SVLOG_CONSEQUENCE) | grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))",
-        pat
+    if (!is.null(filters$svlog_annotation_filter) && length(filters$svlog_annotation_filter) > 0) {
+      svlog_conseq_opts <- c(
+        "affects_cds",
+        "affects_only_promoter",
+        "affects_tad_boundary",
+        "affects_utr",
+        "intronic",
+        "intergenic",
+        "splice_altering",
+        "other"
       )
-      
-      filter_expression <- add_filter_condition(filter_expression, expr)
-      log_info("[filtServer][filter_dataset] Applying SVlog annotation filter")
+      log_info("[filtServer][filter_dataset] Applying SVLOG_CONSEQUENCE filter")
+      selected <- tolower(filters$svlog_annotation_filter)
+      if ("other" %in% selected) {
+        # all known SVLOG consequence terms except "other"
+        excluded_terms <- setdiff(svlog_conseq_opts, "other")
+        # if user also selected specific terms, exclude those from negation
+        explicitly_selected <- setdiff(selected, "other")
+        if (length(explicitly_selected) > 0) {
+          excluded_terms <- setdiff(excluded_terms, explicitly_selected)
+        }
+        if (length(excluded_terms) > 0) {
+          negation_expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | !grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", paste(excluded_terms, collapse = "|"))
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
+        }
+      } else {
+        pat <- paste(filters$svlog_annotation_filter, collapse = "|")
+        expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", pat)
+        filter_expression <- add_filter_condition(filter_expression, expr)
+      }
     }
     
     # --------------------------------------------------------------------------
