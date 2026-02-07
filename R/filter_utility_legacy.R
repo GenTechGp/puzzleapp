@@ -61,22 +61,6 @@ getAlleleCounts <- function(pedigree, input) {
   counts
 }
 
-# Helper: construct SV_SVscanner_classification string from current UI state
-build_SVscanner_classification <- function(input) {
-  # read input values from svscanner_class and svscanner_subtype checkboxGroupInput and make a single concatenated string
-  tokens <- character(0)
-  if (!is.null(input$svscanner_class)) {
-    tokens <- c(tokens, input$svscanner_class)
-  }
-  if (!is.null(input$svscanner_subtype)) {
-    tokens <- c(tokens, input$svscanner_subtype)
-  }
-  tokens <- unique(tokens)
-  t <- paste(tokens, collapse = ";")
-  cat("SV_SVscanner_classification:", t, "\n")
-  return(t)
-}
-
 capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, flag_save_hpo_panelapp=FALSE, flag_save_presaved_filter=FALSE) {
   # SNV filters (excluding shared)
   snv_filters <- list(
@@ -122,8 +106,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "enhancer_max_dist" = input$sv_max_distance_to_nearest_enhancer,
     "intra_tad_only" = input$sv_intra_tad_boundary,
     "inter_tad_only" = input$sv_inter_tad_boundary,
-    # Build single-key SV SVscanner_classification string from parent and child inputs
-    "SVscanner_classification" = build_SVscanner_classification(input)
+    "SVscanner_classification" = if(!is.null(input$svscanner_class)) paste(input$svscanner_class, collapse = ";") else "",
+    "SVscanner_reciprocal" = if(!is.null(input$svscanner_reciprocal)) paste(input$svscanner_reciprocal, collapse = ";") else ""
   )
   # Shared filters
   shared_filters <- list(
@@ -174,15 +158,6 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     Variable = names(all_filters),
     Value = vapply(all_filters, function(x) if (is.null(x)) "" else as.character(x), FUN.VALUE = character(1))
   )
-}
-
-update_SVscanner_classification <- function(session, value) {
-  value <- tolower(value)
-  tokens <- unlist(strsplit(value, ";"))
-  cat("tokens to update SVscanner_class and svscanner_subtype:", paste(tokens, collapse = ", "), "\n")
-  # update the two checkboxGroupInput svscanner_class and svscanner_subtype (just update both; then the ones not present will be unchecked)
-  updateCheckboxGroupInput(session, "svscanner_class", selected = tokens)
-  updateCheckboxGroupInput(session, "svscanner_subtype", selected = tokens)
 }
 
 update_filters_params <- function(search_params, session) {
@@ -342,6 +317,12 @@ update_filters_params <- function(search_params, session) {
     ),
     "inter_tad_only" = list(
       sv  = list(func = updateCheckboxInput, id = "sv_inter_tad_boundary", value = TRUE, as_logical = TRUE)
+    ),
+    "SVscanner_classification" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svscanner_class", selected = TRUE, split = TRUE)
+    ),
+    "SVscanner_reciprocal" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svscanner_reciprocal", selected = TRUE, split = TRUE)
     )
   )
 
@@ -350,38 +331,29 @@ update_filters_params <- function(search_params, session) {
 
   for (param in names(search_params)) {
     value <- search_params[[param]]
-    # Determine type by prefix
-    # Special-case: SV classification driven by a single key carrying parent and child selections
     if (startsWith(param, "SV_")) {
-      base_param <- substring(param, 4)
-
-      if (identical(base_param, "SVscanner_classification")) {
-        update_SVscanner_classification(session, value)
-        next
-      }
-
-      # Default SV handling via mapping table
-      mapping_entry <- param_mapping[[base_param]]
-      if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
-      update_info <- mapping_entry$sv
-
+      prefix_len <- 4
+      type <- "sv"
     } else if (startsWith(param, "SNV_")) {
-      base_param <- substring(param, 5)
-      mapping_entry <- param_mapping[[base_param]]
-      if (is.null(mapping_entry) || is.null(mapping_entry$snv)) next
-      update_info <- mapping_entry$snv
-    } else if (startsWith(param, "SV_")) {
-      base_param <- substring(param, 4)
-      mapping_entry <- param_mapping[[base_param]]
-      if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
-      update_info <- mapping_entry$sv
+      prefix_len <- 5
+      type <- "snv"
     } else {
-      # Shared params: extend allowlist to include the new three
-      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative", "Substract_PanelApp_Gene_Lists", "Substract_PanelApp_Genes", "Inheritance_PanelApp_Gene")) next
+      # Shared params
+      if (!param %in% c(
+        "Inheritance", "PanelApp_Genes", "Custom_Genes",
+        "Treat_Negative", "Substract_PanelApp_Gene_Lists",
+        "Substract_PanelApp_Genes", "Inheritance_PanelApp_Gene"
+      )) next
+
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
+      next
     }
+    base_param <- substring(param, prefix_len)
+    mapping_entry <- param_mapping[[base_param]]
+    if (is.null(mapping_entry) || is.null(mapping_entry[[type]])) next
+    update_info <- mapping_entry[[type]]
 
     # Conversion logic
     if (!is.null(update_info$as_numeric)) value <- as.numeric(value)

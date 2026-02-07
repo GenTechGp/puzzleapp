@@ -113,11 +113,6 @@ svscannerUI <- function(ns) {
   # Child subtype sets (unchecked by default)
   choices_class <- c(
     "Non-repetitive" = "non_repetitive",
-    "Repetitive/Mobile" = "mobile",
-    "Repetitive/Tandem" = "tandem",
-    "Repetitive/Mixed" = "mixed"
-  )
-  choices_subtype <- c(
     "LINE"           = "line",
     "SINE"           = "sine",
     "Retroposon"     = "retroposon",
@@ -126,7 +121,8 @@ svscannerUI <- function(ns) {
     "STR"  = "str",
     "VNTR" = "vntr",
     "TR"   = "tr",
-    "HOMO" = "homo"
+    "HOMO" = "homo",
+    "Other" = "other"
   )
   choices_reciprocal <- c(
     "Full"      = "full",
@@ -135,7 +131,6 @@ svscannerUI <- function(ns) {
   tagList(
     h4("SVscanner Classifications"),
     checkboxGroupInput(ns("svscanner_class"), "Class:", choices = choices_class),
-    checkboxGroupInput(ns("svscanner_subtype"), "Subtype:", choices = choices_subtype),
     checkboxGroupInput(ns("svscanner_reciprocal"), "Reciprocal:", choices = choices_reciprocal)
   )
   

@@ -44,3 +44,4 @@ SV_enhancer_max_dist	0
 SV_intra_tad_only	
 SV_inter_tad_only	
 SV_SVscanner_classification	
+SV_SVscanner_reciprocal	

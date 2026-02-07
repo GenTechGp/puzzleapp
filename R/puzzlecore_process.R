@@ -561,10 +561,10 @@ puzzlecore_parse_filter_table <- function(path) {
     sv_features              = as_vec_any(c("SV_SV type", "SV_SV_type")),
     min_svlen                = as_num_any(c("SV_Min SV Length", "SV_Min_SV_Length")),
     max_svlen                = as_num_any(c("SV_Max SV Length", "SV_Max_SV_Length")),
-
     
     clinvar_filter           = as_vec("SV_Pathogenicity"),
-    classification_filter    = as_vec("SV_SVscanner_classification"),
+    svscanner_classification_filter    = as_vec("SV_SVscanner_classification"),
+    svscanner_reciprocal_filter = as_vec("SV_SVscanner_reciprocal"),
     
     # ------------------------------------------------------------------
     # Tier prioritisation

@@ -421,24 +421,50 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
     
     # ---- 2) SV classification labels ----
-    if (!is.null(filters$classification_filter) &&
-        length(filters$classification_filter) > 0) {
-      
-      # exact match on FINAL_CLASSIFICATION
-      # (assumes TSV values == FINAL_CLASSIFICATION values)
-      cls_vals <- paste(sprintf("'%s'", filters$classification_filter),
-                        collapse = ", ")
-      # class_expr <- sprintf(
-      #   "FINAL_CLASSIFICATION %%in%% c(%s)",
-      #   cls_vals
-      # )
-      # partial match: any of the selected labels present in FINAL_CLASSIFICATION
-      class_expr <- sprintf(
-        "grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE)",
-        paste(filters$classification_filter, collapse = "|")
+    if (!is.null(filters$svscanner_classification_filter) && length(filters$svscanner_classification_filter) > 0) {
+      log_info("[filtServer][filter_dataset] Applying SVscanner_CLASSIFICATION filter")
+      # Define known classification labels
+      sv_class_opts <- c(
+        "non_repetitive",
+        "line",
+        "sine",
+        "retroposon",
+        "dna",
+        "ltr",
+        "str",
+        "vntr",
+        "tr",
+        "homo",
+        "other"
       )
-      filter_expression <- add_filter_condition(filter_expression, class_expr)
-      log_info("[filtServer][filter_dataset] Applying FINAL_CLASSIFICATION filter")
+      selected <- tolower(filters$svscanner_classification_filter)
+      if ("other" %in% selected) {
+        # all known labels except "other"
+        excluded_terms <- setdiff(sv_class_opts, "other")
+        # if user also selected specific labels, don't exclude them
+        explicitly_selected <- setdiff(selected, "other")
+        if (length(explicitly_selected) > 0) {
+          excluded_terms <- setdiff(excluded_terms, explicitly_selected)
+        }
+        if (length(excluded_terms) > 0) {
+          negation_expr <- sprintf(
+            "(is.na(FINAL_CLASSIFICATION) | !grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", paste(excluded_terms, collapse = "|")
+          )
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
+        }
+      } else {
+        pat <- paste(filters$svscanner_classification_filter, collapse = "|")
+        class_expr <- sprintf("(is.na(FINAL_CLASSIFICATION) | grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", pat)
+        filter_expression <- add_filter_condition(filter_expression, class_expr)
+      }
+    }
+
+    # svscanner_reciprocal_filter
+    if(!is.null(filters$svscanner_reciprocal_filter) && length(filters$svscanner_reciprocal_filter) > 0) {
+      log_info("[filtServer][filter_dataset] Applying SVscanner_RECIPROCAL filter")
+      pat <- paste(filters$svscanner_reciprocal_filter, collapse = "|")
+      reciprocal_expr <- sprintf("(is.na(RM_RECIPROCAL) | grepl('%s', RM_RECIPROCAL, ignore.case = TRUE))", pat)
+      filter_expression <- add_filter_condition(filter_expression, reciprocal_expr)
     }
     
     # --------------------------------------------------------------------------
