@@ -9,7 +9,6 @@ SNV_gnomADv4 AF	0.001
 SNV_Affected only	TRUE
 SNV_Allele balance	0
 SNV_Genotype quality	20
-SNV_Filter value	All variants
 SV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant;Synonymous variant;5'UTR variant;3'UTR variant;Intron variant
 SV_SV type	
 SV_Min SV Length	0
@@ -18,7 +17,6 @@ SV_gnomADv4 AF	0.001
 SV_Affected only	TRUE
 SV_Allele balance	0
 SV_Genotype quality	20
-SV_Filter value	All variants
 Inheritance	Dominant/De Novo
 PanelApp_Genes	Mendeliome
 Substract_PanelApp_Gene_Lists	

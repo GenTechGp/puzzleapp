@@ -331,29 +331,24 @@ update_filters_params <- function(search_params, session) {
 
   for (param in names(search_params)) {
     value <- search_params[[param]]
-    if (startsWith(param, "SV_")) {
-      prefix_len <- 4
-      type <- "sv"
-    } else if (startsWith(param, "SNV_")) {
-      prefix_len <- 5
-      type <- "snv"
+    # Determine type by prefix
+    if (startsWith(param, "SNV_")) {
+      base_param <- substring(param, 5)
+      mapping_entry <- param_mapping[[base_param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$snv)) next
+      update_info <- mapping_entry$snv
+    } else if (startsWith(param, "SV_")) {
+      base_param <- substring(param, 4)
+      mapping_entry <- param_mapping[[base_param]]
+      if (is.null(mapping_entry) || is.null(mapping_entry$sv)) next
+      update_info <- mapping_entry$sv
     } else {
-      # Shared params
-      if (!param %in% c(
-        "Inheritance", "PanelApp_Genes", "Custom_Genes",
-        "Treat_Negative", "Substract_PanelApp_Gene_Lists",
-        "Substract_PanelApp_Genes", "Inheritance_PanelApp_Gene"
-      )) next
-
+      # Shared params: extend allowlist to include the new three
+      if (!param %in% c("Inheritance", "PanelApp_Genes", "Custom_Genes", "Treat_Negative", "Substract_PanelApp_Gene_Lists", "Substract_PanelApp_Genes", "Inheritance_PanelApp_Gene")) next
       mapping_entry <- param_mapping[[param]]
       if (is.null(mapping_entry) || is.null(mapping_entry$shared)) next
       update_info <- mapping_entry$shared
-      next
     }
-    base_param <- substring(param, prefix_len)
-    mapping_entry <- param_mapping[[base_param]]
-    if (is.null(mapping_entry) || is.null(mapping_entry[[type]])) next
-    update_info <- mapping_entry[[type]]
 
     # Conversion logic
     if (!is.null(update_info$as_numeric)) value <- as.numeric(value)

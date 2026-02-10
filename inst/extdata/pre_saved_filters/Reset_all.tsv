@@ -3,23 +3,26 @@ Inheritance
 PanelApp_Genes	
 Custom_Genes	
 Treat_Negative	FALSE
-Inheritance_PanelAPP_Gene	FALSE
+Inheritance_PanelApp_Gene	FALSE
 Substract_PanelApp_Gene_Lists	
 Substract_PanelApp_Genes	
 HPO_Terms	
 SNV_Annotation	
 SNV_Pathogenicity	
-SNV_SpliceAI score	0
+SNV_SpliceAI_score	0
 SNV_gnomADv4_AF	1
-SNV_Affected only	
-SNV_Filter value	
-SNV_Genotype quality	0
-SNV_Allele balance	0
+SNV_Affected_only	
+SNV_Genotype_quality	0
+SNV_Allele_balance	0
+SNV_REVEL	0
+SNV_AlphaMissense	0
+SNV_SIFT	
+SNV_PolyPhen	
+SNV_Use_AF	FALSE
 SV_Inheritance	
 SV_Annotation	
 SV_gnomADv4_AF	1
 SV_Affected only	
-SV_Filter value	
 SV_Genotype_quality	0
 SV_Allele_balance	0
 SV_SV_type	
