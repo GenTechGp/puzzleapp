@@ -1120,6 +1120,13 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         var_length <- if ("VAR_LENGTH" %in% names(row)) row$VAR_LENGTH[1] else NULL
         alt <- if ("ALT" %in% names(row)) row$ALT[1] else NULL
         log_info(sprintf("[Data] ID %s maps to CHROM=%s POS=%s VAR_LENGTH=%s VAR_TYPE=%s", as.character(id_clicked), as.character(chrom), as.character(pos), as.character(var_length), as.character(var_type)))
+        if (is.null(chrom) || is.null(pos) || is.na(chrom)   || is.na(pos)) {
+          mesg <- sprintf("[Data] Skipping ID %s due to missing CHROM or POS (CHROM=%s, POS=%s)", as.character(id_clicked), as.character(chrom), as.character(pos))
+          log_info(mesg)
+          showNotification(mesg, type = "error", duration = 8)
+          return(NULL)
+        }
+
         info_list <- list(
           ID =  as.character(id_clicked),
           CHROM = as.character(chrom),
