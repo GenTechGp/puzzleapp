@@ -64,6 +64,9 @@ home_ui <- function(id) {
       ),
       shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","chm13v1.1","mm10","rn6","custom (as configured in app.conf - experimental)"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
     ),
+    fluidRow(
+      column(12, uiOutput(ns("other_params_text")))
+    ),
 
     shiny::br(),
     shiny::fluidRow(
@@ -108,9 +111,29 @@ home_ui <- function(id) {
           }
         }, false);
       })();
-    ", ns("open_new_session"))))
+    ", ns("open_new_session")))),
 
-  )
+    # ---- Add solid line and image at the end of the page ----
+    shiny::tags$hr(style = "border: 0; border-top: 1px solid #000; margin-top: 20px;"),
+
+    fluidRow(
+      column(3),
+      column(6,
+        shiny::div(
+          style = "margin-top: 10px; text-align: center;",
+          shiny::tags$img(
+            src = "puzzleapp-assets/logo.png",  # served from inst/www via addResourcePath
+            alt = "PuzzleApp image",
+            style = "max-width: 80%; height: auto; display: inline-block;"
+          )
+        )
+      ),
+      column(3)
+    )
 
 
-}
+
+  ) # end tagList
+
+
+} # end home_ui

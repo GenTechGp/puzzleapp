@@ -55,13 +55,35 @@ run_app()
       storage=gdata/if89+gdata/project1+gdata/project2
       modules=R/4.5.0
 ```
-3.  (Optional) File -\> Quit Session -\> Start New Session
+3. Connect/go to Rstudio. File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
 ```
 dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
 d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
 cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
-.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8989) # change port if needed
+.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8895)
+```
+
+#### (Optional) Connect without RStudio 
+3. Get the compute node number (e.g. gadi-cpu-bdw-0123)
+4. Run the following in the local command line (change N(=0123) and PORT(=8895) as needed)
+```
+N="0123";PORT=8895;ssh -L ${PORT}:localhost:${PORT} gadi -t ssh -L ${PORT}:localhost:${PORT} gadi-cpu-bdw-${N}
+```
+
+5. Connect on a separate terminal
+```
+ssh gadi
+ssh gadi-cpu-bdw-${N}
+module load intel-compiler-llvm/2025.2.0
+module load intel-mkl/2025.2.0
+module load R/4.5.0
+R
+
+dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
+d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
+cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
+.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8895)
 ```
 
 ## Working directory (shared-safe mode)

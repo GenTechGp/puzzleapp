@@ -27,7 +27,7 @@
 #' @importFrom data.table
 #'   data.table as.data.table copy is.data.table haskey key
 #'   setkey set setDT setcolorder rbindlist fread fwrite tstrsplit
-#'   fifelse :=
+#'   fifelse := setnames melt %chin%
 #'
 #' @importFrom stringr str_extract str_remove
 #'
@@ -42,9 +42,9 @@
 #'
 #' @importFrom lobstr obj_addr
 #'
-#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table
+#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table read.table
 #'
-#' @importFrom stats setNames
+#' @importFrom stats setNames density
 #' 
 #' @importFrom bit64 as.integer64
 #' 
@@ -59,6 +59,16 @@
 #' @importFrom GenomicAlignments readGAlignments
 #' 
 #' @importFrom Rsamtools ScanBamParam
+#' 
+#' @importFrom plotly plot_ly layout
+#' 
+#' @importFrom magrittr %>%
+#' 
+#' @importFrom RColorBrewer brewer.pal
+#' 
+#' @importFrom dplyr filter group_by summarise left_join mutate
+#' 
+#' @importFrom markdown markdownToHTML
 #' 
 #' @keywords internal
 "_PACKAGE"

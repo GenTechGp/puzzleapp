@@ -1,4 +1,5 @@
 library(puzzleapp)
+# options(warn = 2)
 
 # App-level init: console logging + purge logs older than 100 days
 # use the $HOME/puzzleapp/logs directory if available, otherwise "logs" in current dir
@@ -60,12 +61,16 @@ ui <- fluidPage(
     tabPanel("IGV", igvUI("igv")),
     tabPanel("PanelApp", dataUI("panel_app")),
     tabPanel("Phenotype", dataUI("phenotype")),
+    tabPanel("QC Plots", qcPlots("qc_plots")),
     tabPanel(
       "Help",
       tabsetPanel(
         id = "help_tabs",
+        tabPanel("Raw Filter", rawFilterUI("raw_filter")),
+        tabPanel("Custom Annotation", customUI("custom_tab")),
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
-        tabPanel("Logs", log_viewer_ui("log"))
+        tabPanel("Logs", log_viewer_ui("log")),
+        tabPanel("About", tags$head(tags$script(HTML("$(document).on('click', 'a', function(e) {$(this).attr('target', '_blank');});"))), includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
       )
     )
   )
@@ -88,18 +93,21 @@ server <- function(input, output, session) {
   shared_store$vep_map <- NULL
   shared_store$phenotype_data <- NULL
   shared_store$vep_consequences <- NULL
+  shared_store$svlog_db <- NULL
   shared_store$igv_data <- NULL
   shared_store$gene_symbol_data <- NULL
   shared_store$hpo_id_data <- NULL
   shared_store$work_dir <- NULL
   shared_store$sticky_work_dir <- FALSE
+  shared_store$html <- list()
   shared_store$verbose_level <- 0L
   shared_rx <- list(
     data_version = reactiveVal(0L),
     panelapp_version = reactiveVal(0L),
     igv_version = reactiveVal(0L),
     genesymbol_version = reactiveVal(0L),
-    hpoid_version = reactiveVal(0L)
+    hpoid_version = reactiveVal(0L),
+    qcplot_version = reactiveVal(0L)
   )
 
   home_server("home", shared_store, shared_rx)
@@ -113,6 +121,9 @@ server <- function(input, output, session) {
 
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
+  rawFilterServer("raw_filter", shared_store, shared_rx)
+  customServer("custom_tab")
+  qcPlotsServer("qc_plots", shared_store, shared_rx)
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")

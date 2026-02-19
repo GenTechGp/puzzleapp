@@ -25,53 +25,6 @@ read_search_files <- function(directory, flag_all=TRUE) {
   return(search_data)
 }
 
-get_snv_filters <- function(input, phenos) {
-  snv_filters <- list(
-    clinvar_filter = input$clinvar_checkboxes,
-    af_value = as.numeric(input$af),
-    annotation_filter = input$conseq_checkboxes,
-    revel_value = input$revel,
-    sift_filter = input$sift,
-    polyphen_filter = input$polyphen,
-    spliceai_filter = input$spliceai_score,
-    inheritance_filter = input$inher,
-    panelapp_filter = input$panelapp,
-    custom_genes = parse_gene_list(input$custom_genes),
-    substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
-    substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
-    treat_negative = input$treat_negative,
-    inheritance_panelapp_gene = input$inheritance_panelapp_gene,
-    genotype_quality_value = input$genotype_quality,
-    allele_balance_value = input$allele_balance,
-    hpo_terms_list = phenos,
-    affected_only = input$affected_switch,
-    use_af = input$use_af
-  )
-  return(snv_filters)
-}
-
-get_sv_filters <- function(input, phenos) {
-  sv_filters <- list(
-    inheritance_filter = input$inher,
-    panelapp_filter = input$panelapp,
-    custom_genes = parse_gene_list(input$custom_genes),
-    substract_panelapp_gene_lists_filter = input$substract_panelapp_gene_lists,
-    substract_panelapp_genes_filter = parse_gene_list(input$substract_panelapp_genes),
-    treat_negative = input$treat_negative,
-    inheritance_panelapp_gene = input$inheritance_panelapp_gene,
-    annotation_filter = input$sv_conseq_checkboxes,
-    sv_features = input$sv_features_checkboxes,
-    min_svlen = input$min_svlen,
-    max_svlen = input$max_svlen,
-    genotype_quality_value = input$sv_genotype_quality,
-    allele_balance_value = input$sv_allele_balance,
-    af_value = as.numeric(input$sv_af),
-    hpo_terms_list = phenos,
-    affected_only = input$sv_affected_switch
-  )
-  return(sv_filters)
-}
-
 list_files <- function(dir) {
   if(is.null(dir)) return(character(0))
   log_info(sprintf("[filtServer] Listing files in directory: %s", dir))
@@ -93,16 +46,16 @@ getAlleleCounts <- function(pedigree, input) {
   if (length(pedigree) > 0) {
     if (input$inher == "Custom") {
       counts <- extractCustomAllelCount(pedigree, input)  # named list
-      cat("Custom allele counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
-      }
+      # cat("Custom allele counts:\n")
+      # for (sid in names(counts)) {
+      #   cat(sprintf("  %s: %s\n", sid, counts[[sid]] %||% ""))
+      # }
     } else if (input$inher != "") {
       counts <- puzzlecore_compute_allele_table(pedigree, input$inher)  # named list
-      cat("Allele table counts:\n")
-      for (sid in names(counts)) {
-        cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
-      }
+      # cat("Allele table counts:\n")
+      # for (sid in names(counts)) {
+      #   cat(sprintf("  %s: %s\n", sid, counts[[sid]]))
+      # }
     }
   }
   counts
@@ -113,30 +66,49 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
   snv_filters <- list(
     "Annotation" = if (!is.null(input$conseq_checkboxes)) paste(input$conseq_checkboxes, collapse = ";") else "",
     "Pathogenicity" = if (!is.null(input$clinvar_checkboxes)) paste(input$clinvar_checkboxes, collapse = ";") else "",
-    "SpliceAI score" = input$spliceai_score,
+    "SpliceAI_score" = input$spliceai_score,
     "REVEL" = input$revel,
     "AlphaMissense" = input$alpha_missense,
     "SIFT" = input$sift,
     "PolyPhen" = input$polyphen,
-    "gnomADv4 AF" = input$af,
-    "Affected only" = input$affected_switch,
-    "Allele balance" = input$allele_balance,
-    "Genotype quality" = input$genotype_quality,
+    "gnomADv4_AF" = input$af,
+    "Affected_only" = input$affected_switch,
+    "Allele_balance" = input$allele_balance,
+    "Genotype_quality" = input$genotype_quality,
     "Use_AF" = input$use_af
   )
 
   # SV filters (excluding shared)
   sv_filters <- list(
     "Annotation" = if (!is.null(input$sv_conseq_checkboxes)) paste(input$sv_conseq_checkboxes, collapse = ";") else "",
-    "SV type" = if (!is.null(input$sv_features_checkboxes)) paste(input$sv_features_checkboxes, collapse = ";") else "",
-    "Min SV Length" = input$min_svlen,
-    "Max SV Length" = input$max_svlen,
-    "gnomADv4 AF" = input$sv_af,
-    "Affected only" = input$sv_affected_switch,
-    "Allele balance" = input$sv_allele_balance,
-    "Genotype quality" = input$sv_genotype_quality
+    "Pathogenicity" = if (!is.null(input$sv_clinvar_checkboxes)) paste(input$sv_clinvar_checkboxes, collapse = ";") else "",
+    "SV_type" = if (!is.null(input$sv_features_checkboxes)) paste(input$sv_features_checkboxes, collapse = ";") else "",
+    "Min_SV_Length" = input$min_svlen,
+    "Max_SV_Length" = input$max_svlen,
+    "gnomADv4_AF" = input$sv_af,
+    "Affected_only" = input$sv_affected_switch,
+    "Allele_balance" = input$sv_allele_balance,
+    "Genotype_quality" = input$sv_genotype_quality,
+    "SVlog_Annotation" = if (!is.null(input$svlog_conseq_checkboxes)) paste(input$svlog_conseq_checkboxes, collapse = ";") else "",
+    "SVlog_min_recip_overlap" = input$sv_reciprocal_overlap_fraction,
+    "SVlog_max_break_distance" = input$sv_max_breakpoint_distance,
+    "SVlog_max_abs_dlen" = input$sv_max_delta_length,
+    "SVlog_internal_max_carriers" = input$sv_max_carriers_internal,
+    "SVlog_internal_max_families" = input$sv_max_families,
+    "SVlog_1000G_max_carriers" = input$sv_max_carriers_1000,
+    "SVlog_Advanced_Keeping" = if (!is.null(input$svlog_keeping_checkboxes)) paste(input$svlog_keeping_checkboxes, collapse = ";") else "",
+    "SVlog_Advanced_Filtering_out" = if (!is.null(input$svlog_filtering_checkboxes)) paste(input$svlog_filtering_checkboxes, collapse = ";") else "",
+    "Keeping" = if(!is.null(input$svlog_keeping)) paste(input$svlog_keeping, collapse = ";") else "",
+    "Filtering_out" = if(!is.null(input$svlog_filtering)) paste(input$svlog_filtering, collapse = ";") else "",
+    "intronic_splice_max_dist" = input$sv_max_distance_to_splice_site,
+    "intronic_min_len_intron_ratio" = input$sv_min_ratio_sv_length_intron_length,
+    "tad_max_dist" = input$sv_max_distance_to_nearest_tad_boundary,
+    "enhancer_max_dist" = input$sv_max_distance_to_nearest_enhancer,
+    "intra_tad_only" = input$sv_intra_tad_boundary,
+    "inter_tad_only" = input$sv_inter_tad_boundary,
+    "SVscanner_classification" = if(!is.null(input$svscanner_class)) paste(input$svscanner_class, collapse = ";") else "",
+    "SVscanner_reciprocal" = if(!is.null(input$svscanner_reciprocal)) paste(input$svscanner_reciprocal, collapse = ";") else ""
   )
-
   # Shared filters
   shared_filters <- list(
     "Inheritance" = input$inher
@@ -189,7 +161,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
 }
 
 update_filters_params <- function(search_params, session) {
-  # print (search_params)
+  # print(search_params)
   # Mapping table: for each base param, SNV and SV update info, and shared update info for 3 params
   param_mapping <- list(
     "Annotation" = list(
@@ -197,9 +169,13 @@ update_filters_params <- function(search_params, session) {
       sv  = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE)
     ),
     "Pathogenicity" = list(
-      snv = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE)
+      snv = list(func = updateCheckboxGroupInput, id = "clinvar_checkboxes", selected = TRUE, split = TRUE),
+      sv = list(func = updateCheckboxGroupInput, id = "sv_clinvar_checkboxes", selected = TRUE, split = TRUE)
     ),
     "SpliceAI score" = list(
+      snv = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE)
+    ),
+    "SpliceAI_score" = list(
       snv = list(func = updateNumericInput, id = "spliceai_score", value = TRUE, as_numeric = TRUE)
     ),
     "REVEL" = list(
@@ -218,19 +194,36 @@ update_filters_params <- function(search_params, session) {
       snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
       sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
     ),
+    "gnomADv4_AF" = list(
+      snv = list(func = updateSelectInput, id = "af", selected = TRUE, as_numeric = FALSE),
+      sv  = list(func = updateSelectInput, id = "sv_af", selected = TRUE, as_numeric = FALSE)
+    ),
     "Use_AF" = list(
       snv = list(func = updateCheckboxInput, id = "use_af", value = TRUE, as_logical = TRUE)
     ),
     "SV type" = list(
       sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)
     ),
+    "SV_type" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "sv_features_checkboxes", selected = TRUE, split = TRUE)
+    ),
     "Min SV Length" = list(
+      sv  = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE)
+    ),
+    "Min_SV_Length" = list(
       sv  = list(func = updateNumericInput, id = "min_svlen", value = TRUE, as_numeric = TRUE)
     ),
     "Max SV Length" = list(
       sv  = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE)
     ),
+    "Max_SV_Length" = list(
+      sv  = list(func = updateNumericInput, id = "max_svlen", value = TRUE, as_numeric = TRUE)
+    ),
     "Affected only" = list(
+      snv = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
+      sv  = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE)
+    ),
+    "Affected_only" = list(
       snv = list(func = updateCheckboxInput, id = "affected_switch", value = TRUE, as_logical = TRUE),
       sv  = list(func = updateCheckboxInput, id = "sv_affected_switch", value = TRUE, as_logical = TRUE)
     ),
@@ -238,7 +231,15 @@ update_filters_params <- function(search_params, session) {
       snv = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE)
     ),
+    "Allele_balance" = list(
+      snv = list(func = updateSliderInput, id = "allele_balance", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_allele_balance", value = TRUE, as_numeric = TRUE)
+    ),
     "Genotype quality" = list(
+      snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
+    ),
+    "Genotype_quality" = list(
       snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
     ),
@@ -265,6 +266,63 @@ update_filters_params <- function(search_params, session) {
     ),
     "Inheritance_PanelApp_Gene" = list(
       shared = list(func = updateCheckboxInput, id = "inheritance_panelapp_gene", value = TRUE, as_logical = TRUE)
+    ),
+    "SVlog_Annotation" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_conseq_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "SVlog_min_recip_overlap" = list(
+      sv  = list(func = updateSliderInput, id = "sv_reciprocal_overlap_fraction", value = TRUE, as_numeric = TRUE)
+    ),
+    "SVlog_max_break_distance" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_breakpoint_distance", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_max_abs_dlen" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_delta_length", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_internal_max_carriers" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_carriers_internal", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_internal_max_families" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_families", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_1000G_max_carriers" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_carriers_1000", value = TRUE, as_numeric = FALSE)
+    ),
+    "SVlog_Advanced_Keeping" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_keeping_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "SVlog_Advanced_Filtering_out" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_filtering_checkboxes", selected = TRUE, split = TRUE)
+    ),
+    "Keeping" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_keeping", selected = TRUE, split = TRUE)
+    ),
+    "Filtering_out" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svlog_filtering", selected = TRUE, split = TRUE)
+    ),
+    "intronic_splice_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_splice_site", value = TRUE, as_numeric = FALSE)
+    ),
+    "intronic_min_len_intron_ratio" = list(
+      sv  = list(func = updateNumericInput, id = "sv_min_ratio_sv_length_intron_length", value = TRUE, as_numeric = FALSE)
+    ),
+    "tad_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_nearest_tad_boundary", value = TRUE, as_numeric = FALSE)
+    ),
+    "enhancer_max_dist" = list(
+      sv  = list(func = updateNumericInput, id = "sv_max_distance_to_nearest_enhancer", value = TRUE, as_numeric = FALSE)
+    ),
+    "intra_tad_only" = list(
+      sv  = list(func = updateCheckboxInput, id = "sv_intra_tad_boundary", value = TRUE, as_logical = TRUE)
+    ),
+    "inter_tad_only" = list(
+      sv  = list(func = updateCheckboxInput, id = "sv_inter_tad_boundary", value = TRUE, as_logical = TRUE)
+    ),
+    "SVscanner_classification" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svscanner_class", selected = TRUE, split = TRUE)
+    ),
+    "SVscanner_reciprocal" = list(
+      sv  = list(func = updateCheckboxGroupInput, id = "svscanner_reciprocal", selected = TRUE, split = TRUE)
     )
   )
 
@@ -325,7 +383,7 @@ update_custom_alleles <- function(search_params, session) {
         if (!is.null(session$input[[input_id]])) {
           updateRadioButtons(session, inputId = input_id, selected = val)
         } else {
-          log_error(sprintf("[update_filters_params] Skipped %s - not yet rendered\n", input_id))
+          log_error(sprintf("[update_filters_params] Skipped %s - not yet rendered or sample IDs are different\n", input_id))
         }
       }
     }
@@ -378,7 +436,7 @@ save_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
 
 save_filters <- function(input, phenos, file_path, samples, sticky) {
   filter_save_name <- input$filters_save_name
-  filters_dt <- capture_filters(input, phenos, samples)
+  filters_dt <- capture_filters(input, phenos, samples, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
 
   file_path <- create_safe_dir(file_path, sticky = sticky)
 

@@ -33,7 +33,12 @@ Imports:
     IRanges,
     VariantAnnotation,
     GenomicAlignments,
-    Rsamtools
+    Rsamtools,
+    plotly,
+    magrittr,
+    RColorBrewer,
+    dplyr,
+    markdown
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3

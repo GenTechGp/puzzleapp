@@ -25,7 +25,7 @@ run_pipeline <- function(
   verbose = TRUE
 ) {
   use_headless_logging_lgr(layout = "%l [%t] %m", threshold = "info")
-
+  
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required. Please install.packages('yaml').")
   }
@@ -82,28 +82,34 @@ run_pipeline <- function(
   phenotype_data    <- puzzlecore_load_phenotype_data(dep$phenotype_data)
 
   # Parse 2-column filter table (Key<TAB>Value) and map to filter lists
-  filters       <- .parse_filter_table(filter_table)
+  filters       <- puzzlecore_parse_filter_table(filter_table)
   filters_snv   <- filters$snv_filters
   filters_sv    <- filters$sv_filters
-  allele_counts <- puzzlecore_compute_allele_table(
-    samples_list,
-    filters_snv$inheritance_filter
-  ) # named list
-  allele_counts_dt <- data.table(
-    sample_id    = names(allele_counts),
-    allele_count = unlist(allele_counts, use.names = FALSE)
-  )
+  allele_counts_dt <- puzzlecore_allele_counts_table(samples_list, filters_snv$inheritance_filter, filters_snv$custom_allele_counts)
+  # cat("Allele counts data.table:\n")
+  # print(allele_counts_dt)
+
+  svlog_db <- NULL
+  if (!is.null(cfg$paths$svlog_db)) {
+    #todo: validate svlog_db path and format before reading
+    svlog_db   <- fread(cfg$paths$svlog_db)
+  }
 
   snv_path <- cfg$paths$snvs_tsv %||% ""
   sv_path  <- cfg$paths$svs_tsv  %||% ""
+  snv_data <- NULL
+  sv_data  <- NULL
   if (!file.exists(snv_path)) {
-    stop("SNV TSV file does not exist: ", snv_path)
+    cat("SNV TSV file does not exist: ", snv_path, "\n")
+  } else {
+    snv_data <- puzzlecore_read_variant_tsv(snv_path, nthreads = nthreads)
   }
   if (!file.exists(sv_path)) {
-    stop("SV TSV file does not exist: ", sv_path)
+    cat("SV TSV file does not exist: ", sv_path, "\n")
+  } else {
+    add_svlog_columns <- !is.null(svlog_db)
+    sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads, snv=FALSE, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db )
   }
-  snv_data <- puzzlecore_read_variant_tsv(snv_path, nthreads = nthreads)
-  sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads)
 
   filtered_data <- puzzlecore_variant_filter(
     snv_data = snv_data,
@@ -114,12 +120,13 @@ run_pipeline <- function(
     allele_tab = allele_counts_dt,
     panel_app_genes = panel_app_genes,
     vep_consequences = vep_consequences,
-    phenotype_data = phenotype_data
+    phenotype_data = phenotype_data,
+    svlog_db = svlog_db
   )
   result_snv <- filtered_data$snv
   result_sv <- filtered_data$sv
-  if (verbose) message(sprintf("[pipeline] SNV filtered rows: %s", nrow(result_snv)))
-  if (verbose) message(sprintf("[pipeline] SV filtered rows: %s", nrow(result_sv)))
+  if (verbose && !is.null(snv_data) && !is.null(result_snv)) message(sprintf("[pipeline] SNV filtered rows: %s/%s", nrow(result_snv), nrow(snv_data)))
+  if (verbose && !is.null(sv_data) && !is.null(result_sv)) message(sprintf("[pipeline] SV filtered rows: %s/%s", nrow(result_sv), nrow(sv_data)))
   # cat("colnames SNV:", paste(colnames(result_snv), collapse = ", "), "\n")
   out_snv <- file.path(output_dir, "filtered_snv.tsv")
   write.table(result_snv, file = out_snv, sep = "\t", row.names = FALSE, quote = FALSE)
@@ -133,109 +140,4 @@ run_pipeline <- function(
     snv_result = result_snv,
     sv_result = result_sv
   ))
-}
-
-# ---------- Internal helpers (not exported) ----------
-
-# Two-column filter file parser (Key<TAB>Value).
-.parse_filter_table <- function(path) {
-  dt <- data.table::fread(path, header = FALSE, sep = "\t", data.table = TRUE)
-  if (ncol(dt) < 2) stop("Filter file must have two columns: Key<TAB>Value")
-  data.table::setnames(dt, c("key", "value"))
-  dt[, key := trimws(key)]
-  dt[, value := trimws(value)]
-
-  # helpers
-  get_first <- function(k) {
-    v <- dt[key == k, value]
-    if (length(v) == 0) return(NULL)
-    v[1]
-  }
-  as_vec <- function(k) {
-    v <- get_first(k)
-    if (is.null(v) || !nzchar(v)) return(character(0))
-    y <- unlist(strsplit(v, "[,;]+"))
-    y <- trimws(y)
-    y[nzchar(y)]
-  }
-  as_scalar_str <- function(k) {
-    v <- get_first(k)
-    if (is.null(v) || !nzchar(v)) return("")
-    v
-  }
-  as_bool <- function(k, default = FALSE) {
-    v <- get_first(k)
-    if (is.null(v) || !nzchar(v)) return(default)
-    tolower(v) %in% c("true", "1", "yes", "y")
-  }
-  as_num <- function(k) {
-    v <- get_first(k)
-    if (is.null(v) || !nzchar(v)) return(NULL)
-    suppressWarnings({
-      out <- as.numeric(v)
-    })
-    if (is.na(out)) return(NULL)
-    out
-  }
-
-  snv_filters <- list(
-    # Vectors -> character(0) when blank
-    clinvar_filter                         = as_vec("SNV_Pathogenicity"),
-    annotation_filter                      = as_vec("SNV_Annotation"),
-    panelapp_filter                        = as_vec("PanelApp_Genes"),
-    custom_genes                           = as_vec("Custom_Genes"),
-    substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Genes_Lists"),
-    substract_panelapp_genes_filter        = as_vec("Substract_PanelApp_Genes"),
-    hpo_terms_list                         = as_vec("HPO_Terms"),
-
-    # Numerics -> NULL when blank
-    af_value               = as_num("SNV_gnomADv4 AF"),
-    revel_value            = as_num("SNV_REVEL"),
-    spliceai_filter        = as_num("SNV_SpliceAI score"),
-    genotype_quality_value = as_num("SNV_Genotype quality"),
-    allele_balance_value   = as_num("SNV_Allele balance"),
-
-    # Scalars (strings) guarded by nzchar() downstream
-    sift_filter           = as_scalar_str("SNV_SIFT"),
-    polyphen_filter       = as_scalar_str("SNV_PolyPhen"),
-    inheritance_filter    = as_scalar_str("Inheritance"),
-
-    # Booleans
-    treat_negative              = as_bool("Treat_Negative", FALSE),
-    affected_only              = as_bool("SNV_Affected only", FALSE),
-    inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE)
-  )
-
-  sv_filters <- list(
-    # Vectors -> character(0) when blank
-    annotation_filter                      = as_vec("SV_Annotation"),
-    sv_features                            = as_vec("SV_SV type"),
-    panelapp_filter                        = as_vec("PanelApp_Genes"),
-    custom_genes                           = as_vec("Custom_Genes"),
-    substract_panelapp_gene_lists_filter   = as_vec("Substract_PanelApp_Genes_Lists"),
-    substract_panelapp_genes_filter        = as_vec("Substract_PanelApp_Genes"),
-    hpo_terms_list                         = as_vec("HPO_Terms"),
-
-    # Numerics -> NULL when blank
-    af_value             = as_num("SV_gnomADv4 AF"),
-    min_svlen            = as_num("SV_Min SV Length"),
-    max_svlen            = as_num("SV_Max SV Length"),
-    genotype_quality_value = as_num("SV_Genotype quality"),
-    allele_balance_value   = as_num("SV_Allele balance"),
-    inheritance_filter     = as_scalar_str("Inheritance"),
-
-    # Booleans
-    treat_negative             = as_bool("Treat_Negative", FALSE),
-    affected_only              = as_bool("SV_Affected only", FALSE),
-    inheritance_panelapp_gene  = as_bool("Inheritance_PanelApp_Gene", FALSE)
-  )
-
-  # Debug print (optional)
-  # print(snv_filters)
-  # print(sv_filters)
-
-  list(
-    snv_filters = snv_filters,
-    sv_filters  = sv_filters
-  )
 }

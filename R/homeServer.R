@@ -9,13 +9,17 @@
 home_server <- function(id, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-
+    status_text <- shiny::reactiveVal("No data loaded yet.")
     # observe({
     #   cat("[DEBUG] All input names:", names(reactiveValuesToList(input)), "\n")
     # })
     # a new reactive to store config samples from YAML or user input
     config_samples <- shiny::reactiveVal(list())
-
+    paths <- shiny::reactiveValues(
+      svlog_db = NULL,
+      coverage_vaf_html = NULL,
+      somalier_html = NULL
+    )
     clear_shared_store <- function() {
       shared_store$data_for_data  <- list()
       shared_store$original_data  <- list()
@@ -44,25 +48,13 @@ home_server <- function(id, shared_store, shared_rx) {
       ))
     })
 
-
     observeEvent(input$confirm_restart, ignoreInit = TRUE, {
       removeModal()
       session$reload()
     })
 
-    # Feedback to user
-    # listen to shared_rx$data_version to update status
-    shiny::observeEvent(shared_rx$data_version(), {
-      output$status <- shiny::renderText({
-        msgs <- c()
-        # check if shared_store$original_data is empty list
-        if (length(shared_store$original_data) == 0) {
-          return("No data loaded yet.")
-        }
-        msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
-        msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
-        paste(msgs, collapse = "\n")
-      })
+    output$status <- shiny::renderText({
+      status_text()
     })
 
     shiny::observeEvent(input$load_yml, {
@@ -96,6 +88,32 @@ home_server <- function(id, shared_store, shared_rx) {
           )
         }
 
+        paths$svlog_db <- config$paths$svlog_db %||% NULL
+        paths$coverage_vaf_html <- config$paths$coverage_vaf_html %||% NULL
+        paths$somalier_html <- config$paths$somalier_html %||% NULL
+        output$other_params_text <- renderUI({
+          li_list <- Filter(
+            Negate(is.null),
+            list(
+              if (!is.null(paths$svlog_db))
+                tags$li(paste("SVLog DB:", paths$svlog_db)),
+
+              if (!is.null(paths$coverage_vaf_html))
+                tags$li(paste("Coverage html:", paths$coverage_vaf_html)),
+
+              if (!is.null(paths$somalier_html))
+                tags$li(paste("Somalier html:", paths$somalier_html))
+            )
+          )
+
+          if (length(li_list) > 0) {
+            tags$div(
+              tags$strong("Other data loaded from yaml: "),
+              tags$ul(li_list)
+            )
+          }
+        })
+
         # pre-fill TSV input if in single line
         if (!is.null(config$paths$snvs_vcf) && nzchar(config$paths$snvs_vcf)) {
           shiny::updateTextInput(session, "snvs_vcf", value = config$paths$snvs_vcf)
@@ -124,10 +142,12 @@ home_server <- function(id, shared_store, shared_rx) {
 
     shiny::observeEvent(input$load_data, {
       # disable load button to prevent multiple clicks
-      shiny::updateActionButton(session, "load_data", disabled = TRUE)
+      status_text("Loading data...")
+      shinyjs::disable("load_data")
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
-        shiny::updateActionButton(session, "load_data", disabled = FALSE)
+        shinyjs::enable("load_data")
+        status_text("No data loaded yet.")
         return()
       }
       clear_shared_store()
@@ -143,12 +163,20 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$sticky_work_dir <- input$sticky_work_dir
       create_work_dir(shared_store$work_dir, shared_store$sticky_work_dir)
       # Store in shared_store
-      collected <- collect_inputs(input)
+      add_svlog_columns <- !is.null(paths$svlog_db)
+      # todo: do a proper table schema validation
+      svlog_db <- NULL
+      if (!is.null(paths$svlog_db)) {
+         svlog_db <- data.table::fread(paths$svlog_db)
+         shared_store$svlog_db <- svlog_db
+      }
+      collected <- collect_inputs(input, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db)
       if (length(collected$messages) > 0) {
         for (msg in collected$messages) {
           shiny::showNotification(msg, type = "error")
         }
-        shiny::updateActionButton(session, "load_data", disabled = FALSE)
+        shinyjs::enable("load_data")
+        status_text("No data loaded yet.")
         return()
       }
       vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
@@ -174,7 +202,8 @@ home_server <- function(id, shared_store, shared_rx) {
         custom_genome <- get_igv_custom_genome()
         if (is.null(custom_genome)) {
           shiny::showNotification("Custom genome is not properly configured in app.conf.", type = "error")
-          shiny::updateActionButton(session, "load_data", disabled = FALSE)
+          shinyjs::enable("load_data")
+          status_text("No data loaded yet.")
           return()
         }
         igv_genome_name <- custom_genome$name
@@ -197,6 +226,8 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["[vep_consequences]_Boundary"]] <- vep_consequences
       shared_store$data_for_data[["vep_consequences"]] <- vep_consequences
 
+
+
       stopifnot(
         !identical(
           lobstr::obj_addr(shared_store$data_for_data[["SNV"]]),
@@ -216,19 +247,58 @@ home_server <- function(id, shared_store, shared_rx) {
       selected_pref_sv_cols <- resolve_colnames(input$sv_preferences, svs_cols)
       cat("Selected SNV columns based on preferences:", selected_pref_snv_cols, "\n")
       cat("Selected SV columns based on preferences:", selected_pref_sv_cols, "\n")
-      # shared_data$pref$variants <- selected_pref_variant_cols
-      # shared_data$pref$panelapp <- input$panelapp_preferences
-      # shared_data$pref$phenotype <- input$phenotype_preferences
 
       shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
       shared_store$preferred_cols[["panel_app"]] <- input$panelapp_preferences
       shared_store$preferred_cols[["Phenotype"]] <- input$phenotype_preferences
+      
+      if (paths$coverage_vaf_html %||% "" != "") {
+        coverage_vaf_html_path <- normalizePath(paths$coverage_vaf_html %||% "", mustWork = FALSE)
+        if (!is.na(coverage_vaf_html_path) && nzchar(coverage_vaf_html_path) && file.exists(coverage_vaf_html_path)) {
+          coverage_html_safe_dir <- file.path(tempdir(), "coverage_html")
+          cat("Copying coverage VAF HTML to safe directory:", coverage_html_safe_dir, "\n")
+          if (!dir.exists(coverage_html_safe_dir)) {
+            dir.create(coverage_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
+          }
+          coverage_html_name <- basename(coverage_vaf_html_path)
+          coverage_html_safe_path <- file.path(coverage_html_safe_dir, coverage_html_name)
+          file.copy(coverage_vaf_html_path, coverage_html_safe_path, overwrite = TRUE)
+          addResourcePath("coverage_html", coverage_html_safe_dir)
+          shared_store$html$coverage_path <- file.path("coverage_html", coverage_html_name)
+          shared_store$html$coverage_path_original <- coverage_html_safe_path
+        }
+      }
+      if (paths$somalier_html %||% "" != "") {
+        somalier_html_path <- normalizePath(paths$somalier_html %||% "", mustWork = FALSE)
+        if (!is.na(somalier_html_path) && nzchar(somalier_html_path) && file.exists(somalier_html_path)) {
+          somalier_html_safe_dir <- file.path(tempdir(), "somalier_html")
+          cat("Copying Somalier HTML to safe directory:", somalier_html_safe_dir, "\n")
+          if (!dir.exists(somalier_html_safe_dir)) {
+            dir.create(somalier_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
+          }
+          somalier_html_name <- basename(somalier_html_path)
+          somalier_html_safe_path <- file.path(somalier_html_safe_dir, somalier_html_name)
+          file.copy(somalier_html_path, somalier_html_safe_path, overwrite = TRUE)
+          addResourcePath("somalier_html", somalier_html_safe_dir)
+          shared_store$html$somalier_path <- file.path("somalier_html", somalier_html_name)
+          shared_store$html$somalier_path_original <- somalier_html_safe_path
+        }
+      }
 
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
+      bump_version(version_type = "qcplot", shared_rx = shared_rx)
 
+      msgs <- c()
+      msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
+      msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
+
+      status_text(paste(msgs, collapse = "\n"))
       cat("Data loaded into shared_store.\n")
+
+      shinyjs::disable("load_yml")
+
     })
 
     output$samples_panel <- shiny::renderUI({
@@ -241,8 +311,8 @@ home_server <- function(id, shared_store, shared_rx) {
         shiny::column(1, shiny::strong("Status")),
         shiny::column(1, shiny::strong("Sex")),
         shiny::column(1, shiny::strong("Code")),
-        shiny::column(3, shiny::strong("BAM Path")),
-        shiny::column(4, shiny::strong("Coverage Path"))
+        shiny::column(5, shiny::strong("BAM Path")),
+        shiny::column(2, shiny::strong("Coverage Path"))
       )
       # Pull samples from config_samples if available
       samples <- config_samples() %||% list()
@@ -254,8 +324,8 @@ home_server <- function(id, shared_store, shared_rx) {
           shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = NULL, choices = v_statuses, selected = s$status %||% "unknown")),
           shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = NULL, choices = v_sexes, selected = s$sex %||% "unknown")),
           shiny::column(1, shiny::numericInput(ns(paste0("code_", i)), label = NULL, value = s$code %||% 1, min = 0)),
-          shiny::column(3, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
-          shiny::column(4, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))
+          shiny::column(5, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
+          shiny::column(2, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))
         )
       })
       shiny::tagList(header_row, sample_rows)
@@ -265,25 +335,30 @@ home_server <- function(id, shared_store, shared_rx) {
     # Using JavaScript to read/write cookies and communicate with Shiny
     # If/when the browser sends input$cookie_prefs → dropdowns update with cookie values.
     # --- Default preferences ---
-    snv_default   <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF",
-                            "N_HOM_ALT", "SpliceAI_pred", "CLINVAR", "REVEL", "SIFT", "PolyPhen",
-                            "am_class", "am_pathogenicity", "CADD_PHRED", "CADD_RAW",
-                            "PANEL_APP", "INHERITANCE")
-    sv_default   <- c("ID", "PRIORITY", "NOTES", "GT", "CONSEQUENCE", "GENE_SYMBOL", "AF",
-                            "N_HOM_ALT", "SpliceAI_pred", "CLINVAR", "REVEL", "SIFT", "PolyPhen",
-                            "am_class", "am_pathogenicity", "CADD_PHRED", "CADD_RAW",
-                            "PANEL_APP", "INHERITANCE")
-    panelapp_default   <- c("Entity_Name", "Mode_Of_Inheritance", "Level4", "Sources")
-    phenotype_default  <- c("disease_id", "hpo_id", "gene_symbol", "hpo_name", "ncbi_gene_id")
-    # --- All available columns (user can choose any of these) ---
+    # read from file
+    colnames_dt <- fread(system.file("extdata", "db", "table_schema", "colnames.tsv", package = "puzzleapp"))
+
+    # Helpers
+    get_raw <- function(key) {
+      v <- colnames_dt[name == key, value][1]
+      if (length(v) == 0 || is.na(v)) return(NA_character_)
+      trimws(gsub('"', "", v))
+    }
+    get_vec <- function(key) {
+      v <- get_raw(key)
+      if (is.na(v)) character(0) else trimws(strsplit(v, ";", fixed = TRUE)[[1]])
+    }
+
+    # Defaults (vectors)
+    snv_default        <- get_vec("snv_default")
+    sv_default         <- get_vec("sv_default")
+    panelapp_default   <- get_vec("panelapp_default")
+    phenotype_default  <- get_vec("phenotype_default")
+
+    # All available columns (keep as semicolon strings to match your original structure)
     colnames_options <- data.table(
-      Table = c("SNV", "SV", "PanelApp", "Phenotype"),
-      colNames = c(
-        "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort;GQ",
-        "AD;AF;ALT;Acceptor_Gain;Acceptor_Loss;CADD_PHRED;CADD_RAW;CATEGORY;CHROM;CLINVAR;CONSEQUENCE;DP;Donor_Gain;Donor_Loss;FILTER;GENE_ID;GENE_SYMBOL;GT;HGVSc;HGVSg;HGVSp;HPO_COUNT;HPO_ID;ID;INHERITANCE;NOTES;N_HOM_ALT;PANEL_APP;POS;PRIORITY;PRIORITYFlag;PolyPhen;QUAL;REF;REVEL;SIFT;SpliceAI_pred;TRANSCRIPT;VAF;VAR_LENGTH;VAR_TYPE;alt_allele_count;am_class;am_pathogenicity;clinvar_override;spliceai_override;gnomAD_ID;CLINVAR_ID;N_Cohort;GQ",
-        "Entity_Name;Entity_type;Gene_Symbol;Sources;Level4;Level3;Level2;Model_Of_Inheritance;Phenotypes;Omim;Orphanet;HPO;Publications;Description;Flagged;GEL_Status;UserRatings_Green_amber_red;version;ready;Mode_of_pathogenicity;EnsemblId_GRch37;EnsemblId_GRch38;HGNC;Position_Chromosome;Position_GRCh37_Start;Position_GRCh37_End;Position_GRCh38_Start;Position_GRCh38_End;STR_Repeated_Sequence;STR_Normal_Repeats;STR_Pathogenic_Repeats;Region_Haploinsufficiency_Score;Region_Triplosensitivity_Score;Region_Required_Overlap_Percentage;Region_Variant_Type;Region_Verbose_Name;Panel_ID;Panel_Version",
-        "disease_id;gene_symbol;hpo_id;hpo_name;ncbi_gene_id"
-      )
+      Table    = c("SNV", "SV", "PanelApp", "Phenotype"),
+      colNames = c(get_raw("SNV"), get_raw("SV"), get_raw("PanelApp"), get_raw("Phenotype"))
     )
 
     # --- Utility to update one dropdown ---

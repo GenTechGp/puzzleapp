@@ -5,13 +5,11 @@ SNV_Pathogenicity	Pathogenic;Likely pathogenic;Not available
 SNV_SpliceAI score	0.2
 SNV_gnomADv4 AF	0.01
 SNV_Affected only	TRUE
-SNV_Filter value	PASS only variants
 SNV_Genotype quality	20
 SNV_Allele balance	0.20
 SV_Inheritance	Homozygous Recessive
 SV_Annotation	Stop gained;Start lost;Stop lost;Splice variant;Frameshift variant;Missense variant;In-frame variant
 SV_gnomADv4 AF	0.01
 SV_Affected only	TRUE
-SV_Filter value	PASS only variants
 SV_Genotype quality	20
 SV_Allele balance	0.20

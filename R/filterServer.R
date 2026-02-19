@@ -176,18 +176,18 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       # ped <- convert_samples_to_pedigree(shared_store$samples)
       ped <- shared_store$samples
       allele_counts <- getAlleleCounts(ped, input)
-      cat("class of allele_counts:", class(allele_counts), "\n")
       cat("Allele counts:\n")
       print(allele_counts)
-
-      snv_filters <- get_snv_filters(input, phenos())
-      sv_filters <- get_sv_filters(input, phenos())
-
+      filter_table <- capture_filters(input, phenos(), ped, flag_save_samples=TRUE, flag_save_hpo_panelapp=TRUE, flag_save_presaved_filter=FALSE)
+      filters       <- puzzlecore_parse_filter_table(filter_table)
+      snv_filters   <- filters$snv_filters
+      sv_filters    <- filters$sv_filters
       allele_counts_dt <- data.table(
         sample_id = names(allele_counts),
         allele_count = unlist(allele_counts, use.names = FALSE)
       )
-      filtered_data <- puzzlecore_variant_filter(snv_data=snvs_data, sv_data=svs_data, snv_filters=snv_filters, sv_filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data)
+      svlog_db <- shared_store$svlog_db
+      filtered_data <- puzzlecore_variant_filter(snv_data=snvs_data, sv_data=svs_data, snv_filters=snv_filters, sv_filters=sv_filters, pedigree=pedigree, allele_tab=allele_counts_dt, panel_app_genes=panel_app_genes, vep_consequences=vep_consequences, phenotype_data=phenotype_data, svlog_db=svlog_db)
       shared_store$data_for_data[["SNV"]] <- filtered_data$snv
       shared_store$data_for_data[["SV"]] <- filtered_data$sv
 
@@ -199,8 +199,16 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         cat("filtered:", paste(col_order_filtered, collapse = ", "), "\n")
         stop("Column order changed after filtering!")
       }
-      showNotification(sprintf("snvs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SNV"]])), type = "message")
-      showNotification(sprintf("svs_data_filtered to %s rows", nrow(shared_store$data_for_data[["SV"]])), type = "message")
+
+      snv_status <- sprintf("Filtered SNV: %s / %s", nrow(shared_store$data_for_data[["SNV"]]), nrow(shared_store$original_data[["SNV"]]))
+      sv_status <- sprintf("SV: %s / %s", nrow(shared_store$data_for_data[["SV"]]), nrow(shared_store$original_data[["SV"]]))
+      showNotification(snv_status, type = "message")
+      showNotification(sv_status, type = "message")
+
+      # show snv_status and sv_status
+      output$num_variants_after_filtering <- renderText({
+        paste(snv_status, sv_status, sep = "; ")
+      })
 
       # add spliceai_filter to value_for_data
       shared_store$value_for_data[["SNV"]] <- list(splice_numeric_threshold = snv_filters$spliceai_filter)
@@ -229,15 +237,27 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
     })
 
-    observeEvent(input$pathogenicity, {
-      cat(sprintf("[homeServer] Pathogenicity filter changed: %s\n", input$pathogenicity))
+    observeEvent(input$sv_annotation, {
+      updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
+    })
+
+    updatePathogenicitySelection <- function(selected_option, checkbox_id, session) {
+      cat(sprintf("Pathogenicity selection changed: %s\n", selected_option))
       pathogenicity_map <- list(
         "Pathogenic/Likely pathogenic" = c("Pathogenic", "Likely pathogenic"),
         "Not benign" = c("Pathogenic", "Likely pathogenic", "VUS", "Conflicting")
       )
-      select <- pathogenicity_map[[input$pathogenicity]]
+      select <- pathogenicity_map[[selected_option]]
       if (is.null(select)) select <- character(0)
-      updateCheckboxGroupInput(session, "clinvar_checkboxes", selected = select)
+      updateCheckboxGroupInput(session, checkbox_id, selected = select)
+    }
+
+    observeEvent(input$pathogenicity, {
+      updatePathogenicitySelection(input$pathogenicity, "clinvar_checkboxes", session)
+    })
+
+    observeEvent(input$sv_pathogenicity, {
+      updatePathogenicitySelection(input$sv_pathogenicity, "sv_clinvar_checkboxes", session)
     })
 
     ##################### PanelApp
@@ -391,6 +411,10 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
 
     observeEvent(input$btn_delete_pre_saved_filters, {
       req(input$delete_pre_saved_filters)
+      if (!is.null(input$pre_saved_filters) && input$pre_saved_filters == input$delete_pre_saved_filters) {
+        showNotification("Can't delete a filter that is currently selected. Error.", type = "error")
+        return()
+      }
       file_path <- shared_store$work_dir
       if (is.null(file_path) || file_path == "") {
         showNotification("Work directory not set. Cannot delete filters.", type = "error")
@@ -411,7 +435,23 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       update_filters_params(filter_params, session)
       if (length(filter_params[["HPO_Terms"]]) > 0) {
         phenos(c(filter_params[["HPO_Terms"]]))
-      }  
+      }
+
+      # This code part is not tested properly yet
+      if (!is.null(filter_params$Inheritance)) {
+        # Wait 500 ms (enough time for UI to render) if loaded$filters$Inheritance is "Custom" then update custom alleles
+        if (filter_params$Inheritance == "Custom") {
+          log_info("[filtServer] Loaded session has Custom inheritance, will update custom alleles after delay")
+          shinyjs::delay(500, {
+            if (allele_table_ready()){
+              update_custom_alleles(filter_params, session)
+            } else {
+              log_error("Allele table not ready after 500ms, cannot update custom alleles")
+            }
+          })
+        }
+      }
+
     }, ignoreInit = TRUE)
 
     observeEvent(input$btn_reset, {

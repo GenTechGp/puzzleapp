@@ -13,7 +13,8 @@ puzzlecore_variant_filter(
   allele_tab,
   panel_app_genes,
   vep_consequences,
-  phenotype_data
+  phenotype_data,
+  svlog_db = NULL
 )
 }
 \arguments{
@@ -34,6 +35,8 @@ puzzlecore_variant_filter(
 \item{vep_consequences}{Data table of VEP consequences}
 
 \item{phenotype_data}{Data table of phenotype information}
+
+\item{svlog_db}{Data table of SVlog database entries (optional)}
 }
 \value{
 Filtered data table of variants after applying filters and compound heterozygous filtering

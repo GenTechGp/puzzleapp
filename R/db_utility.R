@@ -17,8 +17,8 @@ NULL
 #     * Character:  dummy1_<orig-or-NA>, dummy2_<orig-or-NA>
 #     * Logical:    TRUE, FALSE   (order fixed)
 #     * Numeric (double): 0, 100 (unless overridden by data_ranges)
-#     * Integer:    -100L, 100L (unless overridden by data_ranges)
-#     * integer64:  -100, 100 (as integer64)  (treated like integer)
+#     * Integer:    0L, 100L (unless overridden by data_ranges)
+#     * integer64:  0, 100 (as integer64)  (treated like integer)
 #     * Date:       origin - 100 days, origin + 100 days
 #                   (1969-09-23, 1970-04-11)
 #     * POSIXct/POSIXt: epoch + 0 sec, epoch + 100 sec
@@ -267,13 +267,13 @@ make_boundary_table <- function(x,
       # integer64: never overridden by data_ranges (ints/doubles only)
       if (is_integer64(v)) {
         if (requireNamespace("bit64", quietly = TRUE)) {
-          dummy1[[col]] <- bit64::as.integer64(-100)
+          dummy1[[col]] <- bit64::as.integer64(0)
           dummy2[[col]] <- bit64::as.integer64(100)
         } else {
-          dummy1[[col]] <- -100
+          dummy1[[col]] <- 0
           dummy2[[col]] <- 100
         }
-        logf(sprintf("[boundary][dummy] %s integer64 -> (-100, 100)", col))
+        logf(sprintf("[boundary][dummy] %s integer64 -> (0, 100)", col))
       } else if (is.integer(v)) {
         # Use data_ranges if provided
         used_override <- FALSE
@@ -295,9 +295,9 @@ make_boundary_table <- function(x,
           }
         }
         if (!used_override) {
-          dummy1[[col]] <- as.integer(-100)
+          dummy1[[col]] <- as.integer(0)
           dummy2[[col]] <- as.integer(100)
-          logf(sprintf("[boundary][dummy] %s integer -> (-100, 100)", col))
+          logf(sprintf("[boundary][dummy] %s integer -> (0, 100)", col))
         }
       } else if (is_date(v)) {
         dummy1[[col]] <- date_dummy1
@@ -549,7 +549,7 @@ expand_ranges_by_code <- function(data_ranges_dt, samples, names_to_expand) {
   rbind(data_ranges_dt[!name %in% names_to_expand], expanded, use.names = TRUE)
 }
 
-collect_inputs <- function(input) {
+collect_inputs <- function(input, add_svlog_columns = FALSE, svlog_db = NULL) {
   messages <- list()
   # Collect sample info
   n <- input$num_individuals
@@ -588,7 +588,7 @@ collect_inputs <- function(input) {
   if (!is.null(input$snvs_tsv) && nzchar(input$snvs_tsv)) {
     if (file.exists(input$snvs_tsv)) {
       snvs_data <- puzzlecore_read_variant_tsv(input$snvs_tsv, nthreads = nthreads)
-      data_ranges_dt <- fread(system.file("extdata", "db", "data_ranges", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
+      data_ranges_dt <- fread(system.file("extdata", "db", "table_schema", "snv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
       data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF", "alt_allele_count"))
       snv_default_dt <- make_boundary_table(snvs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
       snvs_data <- add_row_id(snvs_data)
@@ -597,6 +597,9 @@ collect_inputs <- function(input) {
       messages <- c(messages, "SNVs & Indels TSV file not found.")
       return(list(messages = messages))
     }
+  } else {
+    snvs_data <- data.table::data.table()
+    snv_default_dt <- data.table::data.table()
   }
 
   # SVs
@@ -604,14 +607,19 @@ collect_inputs <- function(input) {
   sv_default_dt <- NULL
   if (!is.null(input$svs_tsv) && nzchar(input$svs_tsv)) {
     if (file.exists(input$svs_tsv)) {
-      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads)
-      sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE)
+      svs_data <- puzzlecore_read_variant_tsv(input$svs_tsv, nthreads = nthreads, snv = FALSE, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db)
+      data_ranges_dt <- fread(system.file("extdata", "db", "table_schema", "sv_ranges.tsv", package = "puzzleapp"), nThread = nthreads)
+      data_ranges_dt <- expand_ranges_by_code(data_ranges_dt, samples, names_to_expand = c("VAF", "alt_allele_count"))
+      sv_default_dt <- make_boundary_table(svs_data, round_base = 10, slice_pct = 100, add_row_id = TRUE, data_ranges = data_ranges_dt)
       svs_data <- add_row_id(svs_data)
     } else {
       # shiny::showNotification("SVs TSV file not found.", type = "error")
       messages <- c(messages, "SVs TSV file not found.")
       return(list(messages = messages))
     }
+  } else {
+    svs_data <- data.table::data.table()
+    sv_default_dt <- data.table::data.table()
   }
 
   # PanelApp
@@ -684,7 +692,7 @@ prepare_table <- function(dt, selected_cols) {
   dt_subset
 }
 
-bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol", "hpoid"), shared_rx) {
+bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol", "hpoid", "qcplot"), shared_rx) {
   if (version_type == "data") {
     shared_rx$data_version(shared_rx$data_version() + 1L)
   } else if (version_type == "panelapp") {
@@ -695,6 +703,8 @@ bump_version <- function(version_type = c("data", "panelapp", "igv", "genesymbol
     shared_rx$genesymbol_version(shared_rx$genesymbol_version() + 1L)
   } else if (version_type == "hpoid") {
     shared_rx$hpoid_version(shared_rx$hpoid_version() + 1L)
+  } else if (version_type == "qcplot") {
+    shared_rx$qcplot_version(shared_rx$qcplot_version() + 1L)
   }
 }
 

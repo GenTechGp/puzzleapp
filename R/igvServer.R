@@ -196,7 +196,16 @@ igv_server <- function(id, shared_store, shared_rx) {
             error = function(e) { showNotification(sprintf("BAM error: %s", e$message), type = "error"); NULL }
           )
           if (!is.null(bam)) {
-            loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_label, data = bam, displayMode = "EXPANDED")
+            withCallingHandlers(
+              {
+                loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_label, data = bam, displayMode = "EXPANDED")
+              },
+              warning = function(w) {
+                if (grepl("BAM tag export", conditionMessage(w))) {
+                  invokeRestart("muffleWarning")
+                }
+              }
+            )
           }
           removeNotification(nid)
         }

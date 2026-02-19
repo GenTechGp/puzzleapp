@@ -14,3 +14,6 @@ tests/configs/real.yaml
 tests/preprocess_out/
 tests/out_snv/
 tests/filters/f3.tsv
+tests/out_sv
+tests/svlog
+tests/configs/sample2.yaml

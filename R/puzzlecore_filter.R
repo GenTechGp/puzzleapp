@@ -68,7 +68,7 @@ text_filter <- function(column, values) {
 quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
   if (!is.null(filters$af_value) && filters$af_value < 1) 
-    conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
+    #conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
 
   # check if pedigree samples have status "affected" if so get their codes
   gq_vars <- grep("^GQ_", colnames(data), value = TRUE)
@@ -102,6 +102,10 @@ parse_gene_list <- function(x) {
 
 # Helper function: Apply PanelApp and custom gene filters
 panelapp_filter <- function(filters, panel_app_genes) {
+  # cat("nrow panel_app_genes:", nrow(panel_app_genes), "\n")
+  # cat("filters$panelapp_filter:", paste(filters$panelapp_filter, collapse = ","), "\n")
+  # cat("filters$custom_genes:", paste(filters$custom_genes, collapse = ","), "\n")
+  # cat("filters$substract_panelapp_gene_lists_filter:", paste(filters$substract_panelapp_gene_lists_filter, collapse = ","), "\n")
   # custom_genes is already parsed (character vector). May be NULL/empty.
   custom_vec <- filters$custom_genes
   if (is.null(custom_vec)) custom_vec <- character(0)
@@ -224,7 +228,7 @@ apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
 }
 
 # Generic filter function for SNVs and SVs
-filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE) {
+filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, is_snv = TRUE, svlog_db = NULL) {
   # Return NULL immediately if input is NULL
   if (is.null(data)) return(NULL)
   if (nrow(data) == 0) return(data)
@@ -273,18 +277,72 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       specific_list <- setdiff(specific_list, mapped_other_terms)
     }
     if (length(specific_list) > 0) {
-      negation_expr <- sprintf("!grepl('%s', CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
+      negation_expr <- sprintf("!grepl('%s', VEP_CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
       filter_expression <- add_filter_condition(filter_expression, negation_expr)
     }
   } else {
     filter_expression <- add_filter_condition(
       filter_expression,
-      text_filter("CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
+      text_filter("VEP_CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
     )
   }
 
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL
+
+  # ClinVar filter
+  if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
+    # Normalize input
+    filters$clinvar_filter <- gsub(" ", "_", filters$clinvar_filter)
+    log_info("[filtServer][filter_dataset] Applying ClinVar filter")
+
+    # Mapping for special cases
+    special_map <- list(
+      "VUS" = "uncertain",
+      "Conflicting" = "conflicting"
+    )
+    column_name <- "ClinVar"
+    if (is_snv) {
+      column_name <- "CLINVAR"
+    }
+    if ("Other" %in% filters$clinvar_filter) {
+      # Exclude all explicit categories except those explicitly selected alongside "Other"
+      explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
+      selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
+      exclude_explicit <- setdiff(explicit_terms, selected_explicit)
+
+      if (length(exclude_explicit) > 0) {
+        word_boundary_terms <- c()
+        substring_terms <- c()
+        for (term in exclude_explicit) {
+          if (term %in% names(special_map)) {
+            substring_terms <- c(substring_terms, special_map[[term]])
+          } else {
+            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+          }
+        }
+        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+        negation_expr <- sprintf("!grepl('%s', %s, ignore.case = TRUE)", clinvar_pattern, column_name)
+        filter_expression <- add_filter_condition(filter_expression, negation_expr)
+      }
+    } else {
+      word_boundary_terms <- c()
+      substring_terms <- c()
+      for (term in filters$clinvar_filter) {
+        if (term %in% names(special_map)) {
+          # special case → substring match (no word boundaries)
+          substring_terms <- c(substring_terms, special_map[[term]])
+        } else {
+          # normal case → strict word-boundary match
+          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+        }
+      }
+      # Combine all patterns into one regex
+      clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
+      clinvar_condition <- sprintf("grepl('%s', %s, ignore.case = TRUE)", clinvar_pattern, column_name)
+      filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
+    }
+  }
 
   if (is_snv) {
     log_info("[filtServer][filter_dataset] Applying SNV-specific filters")
@@ -302,57 +360,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
     override_threshold <- if (isTRUE(filters$use_af)) filters$af_value else 0.05
 
-    # ClinVar filter and override
+    # ClinVar override for specific terms
     if (!is.null(filters$clinvar_filter) && length(filters$clinvar_filter) > 0) {
-      # Normalize input
-      filters$clinvar_filter <- gsub(" ", "_", filters$clinvar_filter)
-      log_info("[filtServer][filter_dataset] Applying ClinVar filter")
-
-      # Mapping for special cases
-      special_map <- list(
-        "VUS" = "uncertain",
-        "Conflicting" = "conflicting"
-      )
-
-      if ("Other" %in% filters$clinvar_filter) {
-        # Exclude all explicit categories except those explicitly selected alongside "Other"
-        explicit_terms <- c("Pathogenic", "Likely_pathogenic", "VUS", "Conflicting", "Benign", "Likely_benign", "Not_available")
-        selected_explicit <- intersect(setdiff(filters$clinvar_filter, "Other"), explicit_terms)
-        exclude_explicit <- setdiff(explicit_terms, selected_explicit)
-
-        if (length(exclude_explicit) > 0) {
-          word_boundary_terms <- c()
-          substring_terms <- c()
-          for (term in exclude_explicit) {
-            if (term %in% names(special_map)) {
-              substring_terms <- c(substring_terms, special_map[[term]])
-            } else {
-              word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
-            }
-          }
-          clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-          negation_expr <- sprintf("!grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-          filter_expression <- add_filter_condition(filter_expression, negation_expr)
-        }
-      } else {
-        word_boundary_terms <- c()
-        substring_terms <- c()
-        for (term in filters$clinvar_filter) {
-          if (term %in% names(special_map)) {
-            # special case → substring match (no word boundaries)
-            substring_terms <- c(substring_terms, special_map[[term]])
-          } else {
-            # normal case → strict word-boundary match
-            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
-          }
-        }
-        # Combine all patterns into one regex
-        clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
-        clinvar_condition <- sprintf("grepl('%s', CLINVAR, ignore.case = TRUE)", clinvar_pattern)
-        filter_expression <- paste(filter_expression, clinvar_condition, sep = " & ")
-      }
-
-      # ClinVar override for specific terms
       override_patterns <- c()
       if ("Pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bPathogenic\\\\b")
       if ("Likely_pathogenic" %in% filters$clinvar_filter) override_patterns <- c(override_patterns, "\\\\bLikely_pathogenic\\\\b")
@@ -360,7 +369,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
       if (length(override_patterns) > 0) {
         override_pattern <- paste(override_patterns, collapse = "|")
-        clinvar_override_condition <- sprintf("(grepl('%s', CLINVAR, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, override_threshold)
+        clinvar_override_condition <- sprintf("(grepl('%s', %s, ignore.case = TRUE) & (is.na(AF) | AF < %f))", override_pattern, column_name, override_threshold)
       }
     }
 
@@ -378,13 +387,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
 
     # Ensure SpliceAI and ClinVar overrides are applied
-    override_conditions <- list()
-
     if (filters$inheritance_filter == "X-Linked Recessive") {
       if (!is.null(spliceai_override_condition)) spliceai_override_condition <- sprintf("(%s & CHROM == 'chrX')", spliceai_override_condition)
       if (!is.null(clinvar_override_condition)) clinvar_override_condition <- sprintf("(%s & CHROM == 'chrX')", clinvar_override_condition)
     }
 
+    # override_conditions <- list()
     # override_conditions <- c(spliceai_override_condition, clinvar_override_condition)
     # override_conditions <- Filter(Negate(is.null), override_conditions)  # Remove NULLs
     # 
@@ -393,7 +401,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # }
 
   } else {
+    
+    # --------------------------------------------------------------------------
     # SV-specific filters
+    # --------------------------------------------------------------------------
+    
+    # ---- 1) Basic SV properties: type + length ----
     log_info("[filtServer][filter_dataset] Filtering SVs based on type and length")
     sv_type_map <- list("Insertion" = "INS", "Deletion" = "DEL", "Duplication" = "DUP", "Inversion" = "INV", "Translocation" = "TRA|BND")
     sv_types <- unlist(sv_type_map[filters$sv_features])
@@ -405,6 +418,348 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     }
     if (!is.null(filters$max_svlen) && filters$max_svlen > 0) {
       filter_expression <- add_filter_condition(filter_expression, sprintf("VAR_LENGTH <= %d", filters$max_svlen))
+    }
+    
+    # ---- 2) SV classification labels ----
+    if (!is.null(filters$svscanner_classification_filter) && length(filters$svscanner_classification_filter) > 0) {
+      log_info("[filtServer][filter_dataset] Applying SVscanner_CLASSIFICATION filter")
+      # Define known classification labels
+      sv_class_opts <- c(
+        "non_repetitive",
+        "line",
+        "sine",
+        "retroposon",
+        "dna",
+        "ltr",
+        "str",
+        "vntr",
+        "tr",
+        "homo",
+        "other"
+      )
+      selected <- tolower(filters$svscanner_classification_filter)
+      if ("other" %in% selected) {
+        # all known labels except "other"
+        excluded_terms <- setdiff(sv_class_opts, "other")
+        # if user also selected specific labels, don't exclude them
+        explicitly_selected <- setdiff(selected, "other")
+        if (length(explicitly_selected) > 0) {
+          excluded_terms <- setdiff(excluded_terms, explicitly_selected)
+        }
+        if (length(excluded_terms) > 0) {
+          negation_expr <- sprintf(
+            "(is.na(FINAL_CLASSIFICATION) | !grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", paste(excluded_terms, collapse = "|")
+          )
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
+        }
+      } else {
+        pat <- paste(filters$svscanner_classification_filter, collapse = "|")
+        class_expr <- sprintf("(is.na(FINAL_CLASSIFICATION) | grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", pat)
+        filter_expression <- add_filter_condition(filter_expression, class_expr)
+      }
+    }
+
+    # svscanner_reciprocal_filter
+    if(!is.null(filters$svscanner_reciprocal_filter) && length(filters$svscanner_reciprocal_filter) > 0) {
+      log_info("[filtServer][filter_dataset] Applying SVscanner_RECIPROCAL filter")
+      pat <- paste(filters$svscanner_reciprocal_filter, collapse = "|")
+      reciprocal_expr <- sprintf("(is.na(RM_RECIPROCAL) | grepl('%s', RM_RECIPROCAL, ignore.case = TRUE))", pat)
+      filter_expression <- add_filter_condition(filter_expression, reciprocal_expr)
+    }
+    
+    # --------------------------------------------------------------------------
+    # Genomic context filters
+    # --------------------------------------------------------------------------
+    
+    # 1) Max distance to splice site (bp) — intronic
+    if (!is.null(filters$intronic_splice_max_dist) && filters$intronic_splice_max_dist > 0) {
+      expr <- sprintf(
+        "(is.na(INTRON_MIN_DIST) | INTRON_MIN_DIST <= %d)",
+        as.integer(filters$intronic_splice_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying intronic splice distance filter")
+    }
+    
+    # 2) Min ratio SV length / intron length — intronic
+    #    Treat non-intronic (INTRON_LENGTH NA or <= 0) as passing.
+    if (!is.null(filters$intronic_min_len_intron_ratio) && filters$intronic_min_len_intron_ratio > 0) {
+      expr <- sprintf(
+        "(is.na(INTRON_LENGTH) | INTRON_LENGTH <= 0 | VAR_LENGTH / INTRON_LENGTH >= %f)",
+        filters$intronic_min_len_intron_ratio
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying intronic length/intron ratio filter")
+    }
+    
+    # 3) Max distance to nearest TAD boundary (bp)
+    #    Use min(upstream, downstream); if both NA, pass.
+    if (!is.null(filters$tad_max_dist) && filters$tad_max_dist > 0) {
+      expr <- sprintf(
+        paste0(
+          "((is.na(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST)) | ",
+          "pmin(INTERGENIC_NEAREST_UPSTREAM_TAD_DIST, INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST, na.rm = TRUE) <= %d)"
+        ),
+        as.integer(filters$tad_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying TAD boundary distance filter")
+    }
+    
+    # 4) Max distance to nearest enhancer (bp)
+    #    Use min(upstream, downstream); if both NA, pass.
+    if (!is.null(filters$enhancer_max_dist) && filters$enhancer_max_dist > 0) {
+      expr <- sprintf(
+        paste0(
+          "((is.na(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST) & is.na(INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST)) | ",
+          "pmin(INTERGENIC_NEAREST_UPSTREAM_ENH_DIST, INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST, na.rm = TRUE) <= %d)"
+        ),
+        as.integer(filters$enhancer_max_dist)
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info("[filtServer][filter_dataset] Applying enhancer distance filter")
+    }
+    
+    # 5) Intra / inter TAD boundary
+    #    If both FALSE → no filter.
+    #    If only intra TRUE → type == 'intra'
+    #    If only inter TRUE → type == 'inter'
+    #    If both TRUE → restrict to intra or inter (exclude NA/other).
+    if (isTRUE(filters$intra_tad_only) || isTRUE(filters$inter_tad_only)) {
+      wanted <- character()
+      if (isTRUE(filters$intra_tad_only)) wanted <- c(wanted, "intra")
+      if (isTRUE(filters$inter_tad_only)) wanted <- c(wanted, "inter")
+      
+      vals <- paste(sprintf("'%s'", wanted), collapse = ", ")
+      expr <- sprintf(
+        "INTERGENIC_BOUNDARY_SPAN_TYPE %%in%% c(%s)",
+        vals
+      )
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying TAD span filter: %s",
+        paste(wanted, collapse = ",")
+      ))
+    }
+    
+    # --------------------------------------------------------------------------
+    # SVlog Consequence
+    # --------------------------------------------------------------------------
+    
+    if (!is.null(filters$svlog_annotation_filter) && length(filters$svlog_annotation_filter) > 0) {
+      svlog_conseq_opts <- c(
+        "affects_cds",
+        "affects_only_promoter",
+        "affects_tad_boundary",
+        "affects_utr",
+        "intronic",
+        "intergenic",
+        "splice_altering",
+        "other"
+      )
+      log_info("[filtServer][filter_dataset] Applying SVLOG_CONSEQUENCE filter")
+      selected <- tolower(filters$svlog_annotation_filter)
+      if ("other" %in% selected) {
+        # all known SVLOG consequence terms except "other"
+        excluded_terms <- setdiff(svlog_conseq_opts, "other")
+        # if user also selected specific terms, exclude those from negation
+        explicitly_selected <- setdiff(selected, "other")
+        if (length(explicitly_selected) > 0) {
+          excluded_terms <- setdiff(excluded_terms, explicitly_selected)
+        }
+        if (length(excluded_terms) > 0) {
+          negation_expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | !grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", paste(excluded_terms, collapse = "|"))
+          filter_expression <- add_filter_condition(filter_expression, negation_expr)
+        }
+      } else {
+        pat <- paste(filters$svlog_annotation_filter, collapse = "|")
+        expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", pat)
+        filter_expression <- add_filter_condition(filter_expression, expr)
+      }
+    }
+    
+    # --------------------------------------------------------------------------
+    # Tier prioritisation: Keeping / Filtering out
+    # --------------------------------------------------------------------------
+    K <- filters$keeping_tiers
+    F <- filters$filtering_out_tiers
+    
+    # Normalise: drop empty strings if they slip through
+    if (!is.null(K)) K <- K[nzchar(K)] else K <- character(0)
+    if (!is.null(F)) F <- F[nzchar(F)] else F <- character(0)
+    
+    if (length(K) > 0 || length(F) > 0) {
+      
+      # Helper: build regex that matches a tier as a whole token in
+      # a comma-separated string (e.g. "1" matches "1,2" but not "10")
+      mk_tier_pattern <- function(x) {
+        paste(sprintf("(^|,)%s(,|$)", x), collapse = "|")
+      }
+      
+      # Part 1: KEEPING has at least one of the selected Keeping tiers
+      if (length(K) > 0) {
+        pat_keep <- mk_tier_pattern(K)
+        keep_part <- sprintf(
+          "(!is.na(KEEPING) & grepl('%s', KEEPING))",
+          pat_keep
+        )
+      } else {
+        keep_part <- "TRUE"
+      }
+      
+      # Part 2: FILTERING_OUT has none of the selected Filtering out tiers
+      if (length(F) > 0) {
+        pat_out <- mk_tier_pattern(F)
+        out_part <- sprintf(
+          "(is.na(FILTERING_OUT) | !grepl('%s', FILTERING_OUT))",
+          pat_out
+        )
+      } else {
+        out_part <- "TRUE"
+      }
+      
+      tier_expr <- sprintf("(%s & %s)", keep_part, out_part)
+      
+      filter_expression <- add_filter_condition(filter_expression, tier_expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying tier filter (Keeping=%s, Filtering out=%s)",
+        paste(K, collapse = ","),
+        paste(F, collapse = ",")
+      ))
+    }
+    
+    # --------------------------------------------------------------------------
+    # Advanced: Keeping / Filtering out predicate selection
+    # --------------------------------------------------------------------------
+    
+    K <- filters$svlog_advanced_keeping
+    F <- filters$svlog_advanced_filtering_out
+    
+    if (!is.null(K)) K <- K[nzchar(K)] else K <- character(0)
+    if (!is.null(F)) F <- F[nzchar(F)] else F <- character(0)
+    
+    if (length(K) > 0 || length(F) > 0) {
+      
+      mk_pat <- function(x) paste(sprintf("(^|,)%s(,|$)", x), collapse = "|")
+      
+      # KEEPING_EVIDENCE has at least one selected Keeping predicate
+      keep_part <- if (length(K) > 0) {
+        sprintf("(!is.na(KEEPING_EVIDENCE) & grepl('%s', KEEPING_EVIDENCE))", mk_pat(K))
+      } else "TRUE"
+      
+      # FILTERING_OUT_EVIDENCE has none of the selected Filtering out predicates
+      out_part <- if (length(F) > 0) {
+        sprintf("(is.na(FILTERING_OUT_EVIDENCE) | !grepl('%s', FILTERING_OUT_EVIDENCE))", mk_pat(F))
+      } else "TRUE"
+      
+      expr <- sprintf("(%s & %s)", keep_part, out_part)
+      
+      filter_expression <- add_filter_condition(filter_expression, expr)
+      log_info(sprintf(
+        "[filtServer][filter_dataset] Applying SVlog advanced evidence filter (Keeping=%s, Filtering out=%s)",
+        paste(K, collapse = ","), paste(F, collapse = ",")
+      ))
+    }
+    
+    # --------------------------------------------------------------------------
+    # SVlog database filters (this mutates `data`, so keep it last)
+    # --------------------------------------------------------------------------
+    svlog_filter_fields <- c(
+      "svlog_min_recip_overlap",
+      "svlog_max_break_distance",
+      "svlog_max_abs_dlen",
+      "svlog_gnomad_af",
+      "svlog_1000g_max_carriers",
+      "svlog_internal_max_carriers",
+      "clinvar_filter"
+    )
+
+    present <- intersect(svlog_filter_fields, names(filters))
+
+    has_svlog_filters <- length(present) > 0 && any(
+      vapply(
+        filters[present],
+        function(x) {
+          !is.null(x) &&
+            length(x) > 0 &&
+            !any(is.na(x)) &&
+            any(nzchar(as.character(x)))
+        },
+        logical(1)
+      )
+    )
+
+    svlog_fields <- c(
+      "svlog_min_recip_overlap",
+      "svlog_max_break_distance",
+      "svlog_max_abs_dlen"
+    )
+
+    present_vals <- numeric(0)
+
+    for (f in svlog_fields) {
+      val <- filters[[f]]
+
+      if (!is.null(val) && !is.na(val)) {
+        present_vals <- c(present_vals, as.numeric(val))
+      }
+    }
+
+    flag_zero_check <- length(present_vals) > 0 && any(present_vals > 0)
+
+    if (!is.null(svlog_db) && nrow(svlog_db) > 0 && has_svlog_filters && flag_zero_check) {
+          
+      log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")
+      # cat("svlog_min_recip_overlap:", filters$svlog_min_recip_overlap, "\n")
+      # cat("svlog_max_break_distance:", filters$svlog_max_break_distance, "\n")
+      # cat("svlog_max_abs_dlen:", filters$svlog_max_abs_dlen, "\n")
+      # cat("svlog_gnomad_af:", filters$svlog_gnomad_af, "\n")
+      # cat("svlog_1000g_max_carriers:", filters$svlog_1000g_max_carriers, "\n")
+      # cat("svlog_internal_max_carriers:", filters$svlog_internal_max_carriers, "\n")
+      # cat("clinvar_filter:", paste(filters$clinvar_filter, collapse = ","), "\n")
+      
+      # keep a copy of original data before SVlog merge
+      data_before_svlog <- data
+      
+      # IDs that have *no* entry in svlog_db at all
+      if (!"ID" %in% names(data)) {
+        stop("SV data does not contain 'ID' column, required for SVlog merge.")
+      }
+      if (!"ID" %in% names(svlog_db)) {
+        stop("svlog_db does not contain 'ID' column, required for SVlog merge.")
+      }
+      
+      svlog_summary <- filter_svlog_to_wide(
+        svlog_db  = svlog_db,
+        sv_filters = filters
+      )
+      # inner join: only IDs with passing SVlog evidence survive here
+      # data <- merge(
+      #   data,
+      #   svlog_summary,
+      #   by = "ID"
+      # )
+      data.table::setDT(svlog_summary)
+      data <- data[svlog_summary[, .(ID)], on = "ID", nomatch = 0L]
+      cols <- setdiff(intersect(names(data), names(svlog_summary)), "ID")
+      data[svlog_summary, on = "ID", (cols) := mget(paste0("i.", cols))]
+
+      log_info(sprintf("[filtServer][filter_dataset] SVlog filter: %d variants with passing SVlog database evidence", nrow(data)))
+      # rescue variants that had no SVlog record at all
+      ids_no_svlog <- setdiff(
+        unique(data_before_svlog$ID),
+        unique(svlog_db$ID)
+      )
+      if (length(ids_no_svlog) > 0) {
+        rescued <- data_before_svlog[ID %in% ids_no_svlog]
+        log_info(sprintf("[filtServer][filter_dataset] SVlog rescue: %d variants had no SVlog record and were kept unfiltered", nrow(rescued)))
+        # bind them back; they will have NA in the SVlog columns
+        data <- data.table::rbindlist(
+          list(data, rescued),
+          use.names = TRUE,
+          fill = TRUE
+        )
+      }
     }
   }
 
@@ -444,9 +799,13 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   }
 
   # Apply filtering
-  #print(combined_expression)
   log_info(sprintf("[filtServer][filter_dataset] Filter expression: %s", combined_expression))
-  filtered_data <- data[eval(parse(text = combined_expression))]
+  tryCatch({
+    filtered_data <- data[eval(parse(text = combined_expression))]
+  }, error = function(e) {
+    message("Error evaluating filter expression: ", e$message)
+    stop(e)
+  })
 
   if (!is.character(filtered_data$GENE_SYMBOL)) {
     stop("Error: filtered_data$GENE_SYMBOL must be of type character, but is ", class(filtered_data$GENE_SYMBOL))
@@ -545,6 +904,247 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
   return(all_filtered_data)
 }
 
+# ---------- helpers ----------
+safe_max_num <- function(x) {
+  x <- x[!is.na(x)]
+  if (!length(x)) return(NA_real_)
+  max(x)
+}
+safe_max_int <- function(x) {
+  x <- x[!is.na(x)]
+  if (!length(x)) return(NA_integer_)
+  as.integer(max(x))
+}
+
+
+# Function to filter and summarise SVlog database entries per SV
+filter_svlog_to_wide <- function(svlog_db, sv_filters) {
+  if (is.null(svlog_db) || !nrow(svlog_db)) {
+    return(data.table::data.table())
+  }
+  
+  dt <- data.table::as.data.table(data.table::copy(svlog_db))
+  
+  # carriers = HET + HOM (NA-aware)
+  dt[, carriers := {
+    h <- ifelse(is.na(HET), 0L, as.integer(HET))
+    m <- ifelse(is.na(HOM), 0L, as.integer(HOM))
+    out <- h + m
+    both_na <- is.na(HET) & is.na(HOM)
+    out[both_na] <- NA_integer_
+    out
+  }]
+  
+  # ---------- 1) similarity / matching filters (row-level) ----------
+  keep <- rep(TRUE, nrow(dt))
+  
+  # Non-INS: reciprocal overlap
+  if (!is.null(sv_filters$svlog_min_recip_overlap)) {
+    thr <- sv_filters$svlog_min_recip_overlap
+    has_ov <- !is.na(dt$OVL_Q) & !is.na(dt$OVL_T)
+    keep[has_ov] <- keep[has_ov] & (pmin(dt$OVL_Q[has_ov], dt$OVL_T[has_ov]) >= thr)
+    # rows with no overlap info (INS) are unaffected
+  }
+  
+  # INS: breakpoint distance
+  if (!is.null(sv_filters$svlog_max_break_distance)) {
+    thr <- sv_filters$svlog_max_break_distance
+    has_dist <- !is.na(dt$DIST)
+    keep[has_dist] <- keep[has_dist] & (dt$DIST[has_dist] <= thr)
+    # non-INS (DIST NA) unaffected
+  }
+  
+  # INS: |Δlen|
+  if (!is.null(sv_filters$svlog_max_abs_dlen)) {
+    thr <- sv_filters$svlog_max_abs_dlen
+    has_dlen <- !is.na(dt$DLEN)
+    keep[has_dlen] <- keep[has_dlen] & (abs(dt$DLEN[has_dlen]) <= thr)
+    # non-INS (DLEN NA) unaffected
+  }
+  
+  dt <- dt[keep]
+  if (!nrow(dt)) return(data.table::data.table())
+  
+  # ---------- 2) per-svlog_id DB summaries & pass/fail ----------
+  agg <- unique(dt[, .(svlog_id)])
+  
+  # gnomAD
+  gnom <- dt[SRC == "gnomAD",
+             .(gnomAD_AF_max = safe_max_num(AF)),
+             by = svlog_id]
+  agg <- merge(agg, gnom, by = "svlog_id", all.x = TRUE)
+  has_gnomAD <- !is.na(agg$gnomAD_AF_max)
+  if (!is.null(sv_filters$svlog_gnomad_af)) {
+    thr <- sv_filters$svlog_gnomad_af
+    agg[, gnomAD_pass := is.na(gnomAD_AF_max) | gnomAD_AF_max <= thr]
+  } else {
+    agg[, gnomAD_pass := NA]
+  }
+  
+  # ONT 1000G
+  kg <- dt[SRC %in% c("ONT1000G", "1000g"),
+           .(ont1000g_max_carriers = safe_max_int(carriers)),
+           by = svlog_id]
+  agg <- merge(agg, kg, by = "svlog_id", all.x = TRUE)
+  has_kg <- !is.na(agg$ont1000g_max_carriers)
+  if (!is.null(sv_filters$svlog_1000g_max_carriers)) {
+    thr <- as.integer(sv_filters$svlog_1000g_max_carriers)
+    agg[, ont1000g_pass :=
+          is.na(ont1000g_max_carriers) | ont1000g_max_carriers <= thr]
+  } else {
+    agg[, ont1000g_pass := NA]
+  }
+  
+  # Internal cohort
+  internal <- dt[SRC %in% c("InternalCohort", "internal"),
+                 .(
+                   internal_max_carriers = safe_max_int(carriers),
+                   internal_max_families = safe_max_int(NUM_FAMS)
+                 ),
+                 by = svlog_id]
+  agg <- merge(agg, internal, by = "svlog_id", all.x = TRUE)
+  has_internal <- !is.na(agg$internal_max_carriers) | !is.na(agg$internal_max_families)
+  
+  if (!is.null(sv_filters$svlog_internal_max_carriers)) {
+    thr <- as.integer(sv_filters$svlog_internal_max_carriers)
+    carriers_ok <- is.na(agg$internal_max_carriers) | agg$internal_max_carriers <= thr
+  } else {
+    carriers_ok <- rep(TRUE, nrow(agg))
+  }
+  if (!is.null(sv_filters$svlog_internal_max_families)) {
+    thr <- as.integer(sv_filters$svlog_internal_max_families)
+    fam_ok <- is.na(agg$internal_max_families) | agg$internal_max_families <= thr
+  } else {
+    fam_ok <- rep(TRUE, nrow(agg))
+  }
+  agg[, internal_pass := carriers_ok & fam_ok]
+  
+  # ClinVar
+  clin <- dt[SRC == "ClinVar" & !is.na(CLNSIG) & nzchar(CLNSIG),
+             .(clinvar_labels = paste(unique(CLNSIG), collapse = ";")),
+             by = svlog_id]
+  agg <- merge(agg, clin, by = "svlog_id", all.x = TRUE)
+  has_clinvar <- !is.na(agg$clinvar_labels) & nzchar(agg$clinvar_labels)
+  agg[, clinvar_pass := TRUE]
+  
+  if (!is.null(sv_filters$clinvar_filter) &&
+      length(sv_filters$clinvar_filter) > 0) {
+    cf <- sv_filters$clinvar_filter
+    cf <- gsub(" ", "_", cf)
+    
+    special_map <- list(
+      "VUS"        = "uncertain",
+      "Conflicting" = "conflicting"
+    )
+    
+    word_boundary_terms <- character()
+    substring_terms     <- character()
+    for (term in cf) {
+      if (term %in% names(special_map)) {
+        substring_terms <- c(substring_terms, special_map[[term]])
+      } else {
+        word_boundary_terms <- c(word_boundary_terms,
+                                 paste0("\\b", term, "\\b"))
+      }
+    }
+    clinvar_pattern <- paste(c(word_boundary_terms, substring_terms),
+                             collapse = "|")
+    want_na <- "Not available" %in% sv_filters$clinvar_filter
+    
+    agg[, clinvar_pass := {
+      lab <- clinvar_labels
+      has_lab <- !is.na(lab) & nzchar(lab)
+      hit <- rep(FALSE, .N)
+      if (any(has_lab)) {
+        hit[has_lab] <- grepl(clinvar_pattern, lab[has_lab], ignore.case = TRUE)
+      }
+      if (want_na) {
+        hit | !has_lab
+      } else {
+        hit
+      }
+    }]
+  }
+  
+  # which DBs actually contribute evidence per svlog_id
+  used_gnomAD   <- has_gnomAD   & !is.na(agg$gnomAD_pass)
+  used_kg       <- has_kg       & !is.na(agg$ont1000g_pass)
+  used_internal <- has_internal
+  used_clinvar  <- has_clinvar   # only constrains if filter actually applied above
+  
+  # agg[, pass_svlog :=
+  #       (used_gnomAD   & gnomAD_pass) |
+  #       (used_kg       & ont1000g_pass) |
+  #       (used_internal & internal_pass) |
+  #       (used_clinvar  & clinvar_pass)]
+  
+  agg[, pass_svlog :=
+        (used_gnomAD   & gnomAD_pass) |
+        (used_kg & ont1000g_pass & used_internal & internal_pass) |
+        (used_clinvar  & clinvar_pass)]
+  
+  # No evidence from any DB → do not filter on SVlog
+  no_evidence <- !(used_gnomAD | used_kg | used_internal | used_clinvar)
+  agg[no_evidence, pass_svlog := TRUE]
+
+  wide <- make_svlog_wide_summary(dt, agg)
+  wide
+  
+}
+
+make_svlog_wide_summary <- function(dt, agg) {
+
+  # ---------- 3) keep only passing svlog_id ----------
+  keep_ids <- agg[pass_svlog == TRUE, svlog_id]
+  dt_pass  <- dt[svlog_id %in% keep_ids]
+  if (!nrow(dt_pass)) return(data.table::data.table())
+  
+  # ---------- 4) long → wide: id = (svlog_id, ID), columns = SRC, value = STRING ----------
+  # collapse multiple STRINGs per (svlog_id, ID, SRC)
+  collapsed <- dt_pass[
+    ,
+    .(STRING = paste(unique(STRING), collapse = ",")),
+    by = .(ID, SRC)
+  ]
+  
+  wide <- data.table::dcast(
+    collapsed,
+    ID ~ SRC,
+    value.var = "STRING",
+    fill = NA_character_
+  )
+  
+  # ---------- 5) add per-ID summary columns ----------
+  # map svlog_id -> ID for passing rows
+  id_map <- unique(dt_pass[, .(svlog_id, ID)])
+  id_agg <- merge(id_map, agg, by = "svlog_id", all.x = TRUE)
+  
+  id_summary <- id_agg[
+    ,
+    .(
+      gnomAD_AF_max            = safe_max_num(gnomAD_AF_max),
+      ONT1000G_carriers_max    = safe_max_int(ont1000g_max_carriers),
+      Internal_carriers_max    = safe_max_int(internal_max_carriers),
+      Internal_families_max    = safe_max_int(internal_max_families),
+      ClinVar_CLASS = {
+        labs <- clinvar_labels
+        labs <- labs[!is.na(labs) & nzchar(labs)]
+        if (!length(labs)) NA_character_ else paste(unique(labs), collapse = ",")
+      }
+    ),
+    by = ID
+  ]
+  
+  wide <- merge(
+    wide,
+    id_summary,
+    by = "ID",
+    all.x = TRUE
+  )
+  
+  wide[]
+}
+
 # export this function in roxygen
 #' Variant filtering function for SNVs and SVs
 #' @param snv_data Data table of SNV variants
@@ -556,9 +1156,10 @@ apply_compound_het <- function(all_filtered_data, pedigree, filters) {
 #' @param panel_app_genes Data table of PanelApp genes
 #' @param vep_consequences Data table of VEP consequences
 #' @param phenotype_data Data table of phenotype information
+#' @param svlog_db Data table of SVlog database entries (optional)
 #' @return Filtered data table of variants after applying filters and compound heterozygous filtering
 #' @export
-puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data) {
+puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, svlog_db = NULL) {
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SNV"))
   filter_time <- system.time({
     snv_filtered_data <- filter_dataset(snv_data, snv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, TRUE)
@@ -568,13 +1169,16 @@ puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters
 
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SV"))
   filter_time <- system.time({
-    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE)
+    sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE, svlog_db)
   })
   log_info(sprintf("nrow(filtered_data): %d", nrow(sv_filtered_data)))
   log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
   
   # Only combine and apply compound het if requested
   if (!is.null(snv_filters$inheritance_filter) && snv_filters$inheritance_filter == "Compound Heterozygous") {
+    # Store snv column names for later
+    snv_colnames <- colnames(snv_filtered_data)
+    sv_colnames  <- colnames(sv_filtered_data)
     # Combine, allowing empty inputs
     filtered_data <- data.table::rbindlist(list(snv_filtered_data, sv_filtered_data), use.names = TRUE, fill = TRUE)
     log_info(sprintf("nrow(combined filtered_data): %d", nrow(filtered_data)))
@@ -585,6 +1189,9 @@ puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters
     # Separate back purely by CATEGORY (no ID or gene logic)
     snv_out <- filtered_data_comphet[CATEGORY == "SNV & Indel"]
     sv_out  <- filtered_data_comphet[CATEGORY == "SV"]
+    # remove any columns not in original data
+    snv_out <- snv_out[, ..snv_colnames]
+    sv_out  <- sv_out[, ..sv_colnames]
     return(list(snv = snv_out, sv = sv_out))
   }
   # Passthrough when not Compound Heterozygous (no combine)
