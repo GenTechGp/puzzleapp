@@ -125,8 +125,8 @@ run_pipeline <- function(
   )
   result_snv <- filtered_data$snv
   result_sv <- filtered_data$sv
-  if (verbose) message(sprintf("[pipeline] SNV filtered rows: %s/%s", nrow(result_snv), nrow(snv_data)))
-  if (verbose) message(sprintf("[pipeline] SV filtered rows: %s/%s", nrow(result_sv), nrow(sv_data)))
+  if (verbose && !is.null(snv_data) && !is.null(result_snv)) message(sprintf("[pipeline] SNV filtered rows: %s/%s", nrow(result_snv), nrow(snv_data)))
+  if (verbose && !is.null(sv_data) && !is.null(result_sv)) message(sprintf("[pipeline] SV filtered rows: %s/%s", nrow(result_sv), nrow(sv_data)))
   # cat("colnames SNV:", paste(colnames(result_snv), collapse = ", "), "\n")
   out_snv <- file.path(output_dir, "filtered_snv.tsv")
   write.table(result_snv, file = out_snv, sep = "\t", row.names = FALSE, quote = FALSE)

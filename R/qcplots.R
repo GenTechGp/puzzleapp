@@ -61,9 +61,10 @@ qcPlotsServer <- function(id, shared_store, shared_rx) {
       ## Coverage
       if (!is.null(shared_store$html$coverage_path) &&
           shared_store$html$coverage_path != "") {
-
-        ts_coverage <- if (file.exists(shared_store$html$coverage_path)) {
-          as.integer(file.info(shared_store$html$coverage_path)$mtime)
+        
+        orig <- shared_store$html$coverage_path_original
+        ts_coverage <- if (!is.null(orig) && nzchar(orig) && file.exists(orig)) {
+          as.integer(file.info(orig)$mtime)
         } else {
           as.integer(Sys.time())
         }
@@ -97,14 +98,14 @@ qcPlotsServer <- function(id, shared_store, shared_rx) {
       if (!is.null(shared_store$html$somalier_path) &&
           shared_store$html$somalier_path != "") {
 
-        ts_somalier <- if (file.exists(shared_store$html$somalier_path)) {
-          as.integer(file.info(shared_store$html$somalier_path)$mtime)
+        orig <- shared_store$html$somalier_path_original
+        ts_somalier <- if (!is.null(orig) && nzchar(orig) && file.exists(orig)) {
+          as.integer(file.info(orig)$mtime)
         } else {
           as.integer(Sys.time())
         }
 
         cat("Somalier path:", shared_store$html$somalier_path, "\n")
-
         session$sendCustomMessage(
           "updateIframe",
           list(

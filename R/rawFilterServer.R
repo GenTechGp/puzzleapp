@@ -61,7 +61,10 @@ rawFilterServer <- function(id, shared_store, shared_rx) {
       # Apply queued edits
       for (e in dt_edits()) {
         # coerce to the correct type of the target cell
-        df[e$row, e$col] <- DT::coerceValue(e$value, df[e$row, e$col])
+        # df[e$row, e$col] <- DT::coerceValue(e$value, df[e$row, e$col])
+        original_value <- df[[e$col]][e$row]
+        coerced_value  <- DT::coerceValue(e$value, original_value)
+        df[e$row, e$col] <- coerced_value
       }
 
       # cat("=== Applied filters (from DT input) ===\n"); print(df)

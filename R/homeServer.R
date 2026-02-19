@@ -247,28 +247,43 @@ home_server <- function(id, shared_store, shared_rx) {
       selected_pref_sv_cols <- resolve_colnames(input$sv_preferences, svs_cols)
       cat("Selected SNV columns based on preferences:", selected_pref_snv_cols, "\n")
       cat("Selected SV columns based on preferences:", selected_pref_sv_cols, "\n")
-      # shared_data$pref$variants <- selected_pref_variant_cols
-      # shared_data$pref$panelapp <- input$panelapp_preferences
-      # shared_data$pref$phenotype <- input$phenotype_preferences
 
       shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
       shared_store$preferred_cols[["panel_app"]] <- input$panelapp_preferences
       shared_store$preferred_cols[["Phenotype"]] <- input$phenotype_preferences
       
-      if (paths$coverage_vaf_html %||% "" != ""){
-        coverage_vaf_html_path <- paths$coverage_vaf_html
-        coverage_html_dir <- dirname(coverage_vaf_html_path %||% "")
-        addResourcePath("coverage_html", coverage_html_dir)
-        coverage_html_name <- basename(coverage_vaf_html_path %||% "")
-        shared_store$html$coverage_path <- file.path("/coverage_html", coverage_html_name)
+      if (paths$coverage_vaf_html %||% "" != "") {
+        coverage_vaf_html_path <- normalizePath(paths$coverage_vaf_html %||% "", mustWork = FALSE)
+        if (!is.na(coverage_vaf_html_path) && nzchar(coverage_vaf_html_path) && file.exists(coverage_vaf_html_path)) {
+          coverage_html_safe_dir <- file.path(tempdir(), "coverage_html")
+          cat("Copying coverage VAF HTML to safe directory:", coverage_html_safe_dir, "\n")
+          if (!dir.exists(coverage_html_safe_dir)) {
+            dir.create(coverage_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
+          }
+          coverage_html_name <- basename(coverage_vaf_html_path)
+          coverage_html_safe_path <- file.path(coverage_html_safe_dir, coverage_html_name)
+          file.copy(coverage_vaf_html_path, coverage_html_safe_path, overwrite = TRUE)
+          addResourcePath("coverage_html", coverage_html_safe_dir)
+          shared_store$html$coverage_path <- file.path("coverage_html", coverage_html_name)
+          shared_store$html$coverage_path_original <- coverage_html_safe_path
+        }
       }
-      if (paths$somalier_html %||% "" != ""){
-        somalier_html_path <- paths$somalier_html
-        somalier_html_dir <- dirname(somalier_html_path %||% "")
-        addResourcePath("somalier_html", somalier_html_dir)
-        somalier_html_name <- basename(somalier_html_path %||% "")
-        shared_store$html$somalier_path <- file.path("/somalier_html", somalier_html_name)
+      if (paths$somalier_html %||% "" != "") {
+        somalier_html_path <- normalizePath(paths$somalier_html %||% "", mustWork = FALSE)
+        if (!is.na(somalier_html_path) && nzchar(somalier_html_path) && file.exists(somalier_html_path)) {
+          somalier_html_safe_dir <- file.path(tempdir(), "somalier_html")
+          cat("Copying Somalier HTML to safe directory:", somalier_html_safe_dir, "\n")
+          if (!dir.exists(somalier_html_safe_dir)) {
+            dir.create(somalier_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
+          }
+          somalier_html_name <- basename(somalier_html_path)
+          somalier_html_safe_path <- file.path(somalier_html_safe_dir, somalier_html_name)
+          file.copy(somalier_html_path, somalier_html_safe_path, overwrite = TRUE)
+          addResourcePath("somalier_html", somalier_html_safe_dir)
+          shared_store$html$somalier_path <- file.path("somalier_html", somalier_html_name)
+          shared_store$html$somalier_path_original <- somalier_html_safe_path
+        }
       }
 
       bump_version(version_type = "data", shared_rx = shared_rx)
