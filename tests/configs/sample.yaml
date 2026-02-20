@@ -35,8 +35,8 @@ paths:
   svs_vcf: "/g/data/SAMPLE_ID.hg38.sniffles.sv.phased.annotated.vcf.gz"
   svs_tsv: "/g/data/SAMPLE_ID.hg38.sniffles.sv.phased.annotated.tsv"
   somalier_html: "path1/somalier.html"
-  coverage_html: "path2/coverage.html"
-  vaf_html: "path3/vaf.html"
+  coverage_vaf_html: "path2/coverage.html"
+  work_dir: "/home/user/"
 
 dependencies:
   panel_app: "/g/data/all_panel_app.tsv"

@@ -133,6 +133,9 @@ home_server <- function(id, shared_store, shared_rx) {
         if (!is.null(config$dependencies$phenotype_data)) {
           shiny::updateTextInput(session, "phenotype_data", value = config$dependencies$phenotype_data)
         }
+        if (!is.null(config$paths$work_dir) && nzchar(config$paths$work_dir)) {
+          shiny::updateTextInput(session, "work_dir", value = config$paths$work_dir)
+        }
         # Set number of Individuals based on YAML
         shiny::updateNumericInput(session, "num_individuals", value = length(config$samples))
       } else {
