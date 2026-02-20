@@ -5,24 +5,17 @@
 #PBS -l walltime=01:00:00
 #PBS -l ncpus=1
 #PBS -l mem=16GB
-#PBS -l storage=gdata/kr68+gdata/if89
+#PBS -l storage=gdata/if89+gdata/project
 #PBS -l wd
 #PBS -W umask=0022
 
 set -euo pipefail
 
-# change these to if89 places later
-APP_DIR="/g/data/if89/testdir/puzzleapp/app/27112025/puzzleapp_repo/"
-RLIBS="/g/data/if89/testdir/puzzleapp/app/27112025/Rlib"
-
 # Pick a port (override at submit time: qsub -v PORT=8895 ...)
 PORT="${PORT:-8895}"
 NODE="$(hostname -s)"
-INFO_DIR="/g/data/$PROJECT/$(whoami)/puzzleapp_sessions"
-# INFO_DIR="/g/data/kr68/puzzleapp/Scripts/shiny_sessions"
-mkdir -p "${INFO_DIR}"
 
-INFO_FILE="${INFO_DIR}/in_${PBS_JOBID}.txt"
+INFO_FILE="ssh_connect_${PBS_JOBID}.txt"
 
 cat > "${INFO_FILE}" <<EOF
 ============================================================
@@ -65,15 +58,12 @@ module load R/4.5.0
 
 # --- Write R runner script ---
 cat > run_puzzleapp.R <<EOF
-app_dir <- "$APP_DIR"
-rlibs <- "$RLIBS"
-setwd(app_dir)
-.libPaths(c(rlibs, .libPaths()))
-devtools::load_all(); run_app(port=${PORT})
+dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
+d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
+cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
+.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = ${PORT})
 EOF
 
 # --- Run the app ---
 echo "Starting PuzzleApp at remoteport ${PORT}"
 Rscript --vanilla run_puzzleapp.R
-
-
