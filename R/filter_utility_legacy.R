@@ -537,18 +537,20 @@ load_session_data <- function(input, session_name, sessions_dir, snvs_data, svs_
     showNotification("filters.tsv file does not exist in session directory", type = "error")
     return(NULL)
   }
-  snv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_snvs_data.tsv")
-  sv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_svs_data.tsv")
-  snv_flagged_rows_exists <- file.exists(snv_flagged_rows_file)
-  sv_flagged_rows_exists <- file.exists(sv_flagged_rows_file)
-
   filters_df <- read.delim(filters_file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
   filters_df <- setNames(as.list(filters_df$Value), filters_df$Key)
 
-  log_info("[filtServer][filter_dataset] Updating flagged rows for SNV data")
-  snvs_data <- update_flagged_rows(snvs_data, snv_flagged_rows_file)
-  log_info("[filtServer][filter_dataset] Updating flagged rows for SV data")
-  svs_data <- update_flagged_rows(svs_data, sv_flagged_rows_file)
+  snv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_snvs_data.tsv")
+  if (file.exists(snv_flagged_rows_file)) {
+    log_info("[filtServer][filter_dataset] Updating flagged rows for SNV data")
+    snvs_data <- update_flagged_rows(snvs_data, snv_flagged_rows_file)
+  }
+
+  sv_flagged_rows_file <- file.path(session_to_load, "flagged_rows_svs_data.tsv")
+  if (file.exists(sv_flagged_rows_file)) {
+    log_info("[filtServer][filter_dataset] Updating flagged rows for SV data")
+    svs_data <- update_flagged_rows(svs_data, sv_flagged_rows_file)
+  }
   return(list(filters=filters_df, snvs_data=snvs_data, svs_data=svs_data))
 
 }

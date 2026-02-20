@@ -4,15 +4,15 @@ add_extra_columns <- function(dt) {
 
   # Define extra columns with their default types
   extra_columns <- list(
-    PRIORITY = 0L,            # integer
     NOTES = NA_character_,
+    PRIORITY = 0L,            # integer
+    HPO_COUNT = 0L,        # numeric
+    HPO_ID = NA_character_,
     INHERITANCE = NA_character_,
     PANEL_APP = NA_character_,
-    HPO_ID = NA_character_,
-    HPO_COUNT = 0L,        # numeric
-    spliceai_override = FALSE,      # logical
+    PRIORITYFlag = as.logical(NA),           # logical later
     clinvar_override = FALSE,       # logical
-    PRIORITYFlag = as.logical(NA)           # logical later
+    spliceai_override = FALSE      # logical
   )
   # Add any missing columns
   for (col in names(extra_columns)) {
@@ -107,15 +107,15 @@ check_data <- function(label, data, table_schema) {
 treat_svlog <- function(data, svlog_db) {
   # add dummy rows for ClinVar, InternalCohort, ONT1000G, gnomAD, gnomAD_AF_max, ONT1000G_carriers_max, Internal_carriers_max, Internal_families_max, ClinVar_CLASS
   sv_extra_cols <- list(
-    gnomAD = NA_character_,
-    ONT1000G = NA_character_,
-    InternalCohort = NA_character_,
     ClinVar = NA_character_,
+    ClinVar_CLASS = NA_character_,
+    gnomAD = NA_character_,
     gnomAD_AF_max = NA_real_,
-    ONT1000G_carriers_max = NA_integer_,
+    InternalCohort = NA_character_,
     Internal_carriers_max = NA_integer_,
     Internal_families_max = NA_integer_,
-    ClinVar_CLASS = NA_character_
+    ONT1000G = NA_character_,
+    ONT1000G_carriers_max = NA_integer_
   )
   for (col in names(sv_extra_cols)) {
     if (!(col %in% names(data))) {
@@ -197,7 +197,6 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
       table_schema <- fread(system.file("extdata", "db", "table_schema", "sv_colnames.tsv", package = "puzzleapp"), nThread = nthreads)
       data <- check_data("sv", data, table_schema)
     }
-    # print(colnames(data))
 
     data <- add_extra_columns(data)
 
@@ -235,8 +234,6 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
       data <- treat_svlog(data, svlog_db)
       
     }
-
-
     return(data)
 }
 
