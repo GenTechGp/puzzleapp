@@ -72,12 +72,12 @@ home_ui <- function(id) {
     shiny::fluidRow(
       shiny::column(12, shiny::checkboxInput(ns("load_local_db"), "Load PanelApp and HPO from local DB", value = TRUE))
     ),
-    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_db", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show database options", id="toggle_db_label")),
+    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_db", "+", style="padding:0 6px;min-width:50px;"), shiny::span("Show database options", id="toggle_db_label")),
     shiny::div(id="db_container", style="display:none;margin-top:10px;", dbOptsUI(ns)),
     shiny::tags$script(shiny::HTML("$('#toggle_db').on('click',function(){var c=$('#db_container');var b=$('#toggle_db');var l=$('#toggle_db_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide database options');}else{b.text('+');l.text('Show database options');}});")),
     shiny::br(),
 
-    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_pref", "+", style="padding:0 6px;min-width:30px;"), shiny::span("Show preferred column lists (add/remove/reorder)", id="toggle_pref_label")),
+    shiny::div(style="display:flex;align-items:center;gap:6px;", actionButton("toggle_pref", "+", style="padding:0 6px;min-width:50px;"), shiny::span("Show preferred column lists (add/remove/reorder)", id="toggle_pref_label")),
     shiny::div(id="pref_container", style="display:none;margin-top:10px;", prefOptsUI(ns)),
     shiny::tags$script(shiny::HTML("$('#toggle_pref').on('click',function(){var c=$('#pref_container');var b=$('#toggle_pref');var l=$('#toggle_pref_label');c.toggle();if(c.is(':visible')){b.text('-');l.text('Hide preferred column lists (add/remove/reorder)');}else{b.text('+');l.text('Show preferred column lists (add/remove/reorder)');}});")),
     shiny::br(),

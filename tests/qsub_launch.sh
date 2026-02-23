@@ -2,9 +2,9 @@
 #PBS -P project
 #PBS -N puzzleapp_test
 #PBS -q normal
-#PBS -l walltime=01:00:00
-#PBS -l ncpus=1
-#PBS -l mem=16GB
+#PBS -l walltime=02:00:00
+#PBS -l ncpus=4
+#PBS -l mem=64GB
 #PBS -l storage=gdata/if89+gdata/project
 #PBS -l wd
 #PBS -W umask=0022
