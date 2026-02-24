@@ -1,0 +1,81 @@
+name	description	example_value	value_range	source	note	default_type	data_type	factor	has_suffix	created_at_runtime
+CHROM	Chromosome name used for coordinates and HGVSg (chr-prefixed).	chr5	chr1–chr22, chrX, chrY, chrM (consistent “chr”-prefixed naming)	Variant caller		string	string	Yes	0	0
+POS	1-based genomic position of the SV breakpoint (usually leftmost coordinate).	11151	integer ≥ 0	Variant caller		integer	integer		0	0
+ID	Unique structural variant identifier for the row.	Sniffles2.DEL.0S26	any non-empty string	Variant caller		string	string		0	0
+REF	Reference allele or anchor base (may be symbolic for SVs).	gaaggttcaactctgtgagttgaatgcacacgtcacaaggaagtttctga	[ACGTN]+	Variant caller		string	string (DNA)		0	0
+ALT	Alternate allele representation of the SV (symbolic or sequence, e.g. <DEL>, <INS>, inserted sequence).	g	[ACGTN]+	Variant caller		string	string		0	0
+VAR_TYPE	Specific SV class (e.g. DEL, INS, DUP, INV, BND or TRA).	DEL	DEL, INS, DUP, INV	Variant caller		string	string	Yes	0	0
+VAR_LENGTH	Length of the structural variant in bp.	171	integer > 0	Variant caller		integer	integer		0	0
+QUAL	Variant quality score summarising SV call confidence.	60	integer ≥ 0 (phred-scaled)	Variant caller		integer	integer		0	0
+FILTER	VCF FILTER status for the SV call (PASS or filter labels).	GT	PASS or semicolon-separated filter labels	Variant caller		string	string		0	0
+GT_n	Sample genotype for the SV (e.g. 0/1, 1/1, phased forms 0|1).	0|1	0/0, 0/1, 1/1, 1/2, … and/or phased forms 0|1, 1|0	Variant caller		string	string (genotype)	Yes	1	0
+GQ_n	Genotype quality for sample n (phred-scaled).	20	integer ≥ 0	Variant caller		integer	integer		1	0
+DP_n	Total read depth for sample n at the SV locus.		integer ≥ 0	Variant caller		integer	integer		1	0
+AD_n	Alternate-allele read depth for sample n (supporting reads for the SV).		integer ≥ 0	Variant caller		integer	integer		1	0
+VAF_n	Variant allele fraction for sample n (supporting reads / total reads).		0-1	Variant caller		float	numeric (float)		1	0
+GENE_SYMBOL	HGNC gene symbol for the annotated gene.	TWNK	HGNC gene symbol	VEP		string	string	Yes	0	0
+GENE_ID	Ensembl gene ID associated with the annotation	ENSG00000107815	ENSG[0-9]+	VEP		string	string	Yes	0	0
+TRANSCRIPT	Transcript used for consequence annotation.	NM_001314050.5	any non-empty string	VEP		string	string		0	0
+VEP_CONSEQUENCE	Functional consequence(s) from VEP.	downstream_gene_variant	VEP consequence term(s); multiple terms joined by &	VEP		string	string	Yes	0	0
+HGVSc	Transcript-level HGVS annotation if derivable for the SV.	ENST00000646647.2:c.1601+423_1601+516del	valid transcript-level HGVS	VEP		string	string		0	0
+HGVSp	Protein-level HGVS annotation (if applicable).	ENSP00000480376.1:p.Met520_Glu600del	valid protein-level HGVS	VEP		string	string		0	0
+HGVSg	Genomic HGVS representation of the structural variant.	chr14:g.21427404_21427497del	valid genomic HGVS notation	VEP		string	string		0	0
+CATEGORY	High-level category indicating this table contains structural variants (e.g. SV).	SV	SV	PuzzleApp		string	string		0	0
+PRIORITY	User-defined numeric ranking used in PuzzleApp to visually flag variants. Values > 0 highlight the row in green (prioritised), while values ≤ 0 highlight the row in red (deprioritised or not prioritised).		integer ≥ 0  or integer > 0	PuzzleApp		integer	integer		0	1
+PRIORITYFlag	Internal prioritisation flag indicating variant was prioritised by the user	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
+INHERITANCE	Inheritance mode(s) recorded for the gene in PanelApp (e.g. monoallelic, biallelic). If the gene appears in multiple selected panels, all reported inheritance modes are listed.	MONOALLELIC, BIALLELIC, X-linked, etc.	Controlled vocabulary	PuzzleApp		string	string (comma-separated)	yes	0	1
+PANEL_APP	PanelApp gene panels selected by the user that include the gene. If the gene appears in multiple panels, all are listed.	PanelApp gene lists	PanelApp colour codes	PuzzleApp		string	string (comma-separated)	yes	0	1
+HPO_COUNT	Number of user-provided HPO terms that are associated with the gene.	3	≥0	PuzzleApp		integer	integer	no	0	1
+HPO_ID	List of user-provided HPO terms that are associated with the gene.	HP:0001250,HP:0004322	HPO IDs	PuzzleApp		string	string (comma-separated)	no	0	1
+clinvar_override	Flag indicating ClinVar evidence forces variant retention despite failing other filters	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
+alt_allele_count_n	Number of ALT alleles present in sample n (e.g. 0, 1, 2 for diploid).	1	0–2 (diploid); haploid/sex-chromosome counts may differ	PuzzleApp		integer	integer		1	0
+NOTES	Free-text annotation field for manual comments or curator notes within PuzzleApp.		any string	PuzzleApp		string	string		0	1
+PRIORITISED	Tiered prioritisation based on SVlog match strength (e.g. identical → equivalent → related). Higher tiers reflect stronger evidence of variant equivalence across datasets or logic rules.	2	1-3	SVlog		string	string		0	0
+KEEPING	Keeping tier (0–3) based on SVlog match strength (identical → equivalent → related)	2,3	0-3	SVlog		string	string		0	0
+KEEPING_EVIDENCE	SVlog predicates selected for explicitly keeping variants	prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod	prioritise_str_novel, prioritise_lof_any, prioritise_lof_any,prioritise_lof_mod, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod, prioritise_lof_any,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mod,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mendeliome, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_str_novel, prioritise_lof_any,prioritise_lof_high,prioritise_lof_mendeliome,prioritise_lof_mod	SVlog		string	string		0	0
+FILTERING_OUT	Filtering out tier (1–3) based on SVlog match strength (identical → equivalent → related)	1,2,3	1-3	SVlog		string	string		0	0
+FILTERING_OUT_EVIDENCE	SVlog predicates selected for explicitly filtering out variants	common_internal,ordinary_intergenic	common_1kg, common_gnomad, common_internal, ordinary_intergenic	SVlog		string	string		0	0
+SVLOG_ID	Identifier used within SVlog predicate space (may differ from VCF ID).	LRS00117-00-RF-06_7483_Sniffles2.DEL.100S2D	any non-empty string	SVlog		string	string		0	0
+SVLOG_CONSEQUENCE	Consequence assigned by SVlog logic rules (logic-derived functional annotation).	intergenic	any non-empty string	SVlog		string	string	Yes	0	0
+ClinVar	Best-match ClinVar annotation string including accession, clinical significance, overlap metrics/coords.	1801415|CLNSIG=Uncertain_significance|0.98/1.00|chr11:…	ClinVar_id | ClinVar Classification | query_overlap / target_overlap | coords	SVlog	for INS, ClinVar_id | ClinVar Classification | distance_between_insertions | delta_length | coords	string	structured string	no	0	1
+ClinVar_CLASS	Simplified ClinVar clinical significance classification	Uncertain_significance	Standard ClinVar labels	SVlog		string	string	yes	0	1
+gnomAD	Best-match gnomAD-SV record summary for this SV, including gnomAD-SV ID plus AF/het/hom and overlap metrics/coords.	gnomAD-SV_v3_DEL_chr10_9a8acdc0|AF=0.003235|het=386|hom=10|1.00/0.55|chr10:96521588-96521882	gnomAD_id | gnomAD_AF | num_HET | num_HOM | query_overlap / target_overlap | coords	SVlog	for INS, gnomAD_id | gnomAD_AF | num_HET | num_HOM | distance_between_insertions | delta_length | coords	string	string (compound)		0	1
+gnomAD_AF_max	Maximum allele frequency observed for the matched gnomAD-SV record (used for rarity filtering).	0.003235	0–1	SVlog		float	numeric (float)		0	1
+InternalCohort	Best-match internal cohort record summary for this SV, including carrier counts (hom/het), number of families, and overlap metrics/coords.	hom=1|het=0|num_fams=1|0.61/0.62|chr12:132776149-132776226	num_HOM | num_HET | num_fams | query_overlap / target_overlap | coords	SVlog	for INS, num_HOM | num_HET | num_fams | distance_between_insertions | delta_length | coords	string	string (compound)		0	1
+Internal_families_max	Maximum number of families in the internal cohort carrying the SV (for the best match).	1	integer ≥ 0	SVlog		integer	integer		0	1
+Internal_carriers_max	Maximum number of carriers observed in the internal cohort for the best match to this SV.	1	integer ≥ 0	SVlog		integer	integer		0	1
+ONT1000G	Best-match ONT1000G record summary for this SV, including carrier counts and overlap metrics/coords.	hom=0|het=1|0.51/0.51|chr19:1148933-1149005	num_HOM | num_HET | query_overlap / target_overlap | coords	SVlog	for INS, num_HOM | num_HET | distance_between_insertions | delta_length | coords	string	string (compound)		0	1
+ONT1000G_carriers_max	Maximum number of carriers observed in ONT1000G for the best match to this SV.	1	integer ≥ 0	SVlog		integer	integer		0	1
+INTRON_GENE_ID	Ensembl gene ID for intronic annotation.	CHD8	ENSG[0-9]+	SVlog		string	string		0	0
+INTRON_TX_CHOICE	Transcript used for intronic annotation.	MANE_Select	MANE_Select, Ensembl_canonical,MANE_Select, Ensembl_canonical	SVlog		string	string		0	0
+INTRON_ID	Identifier of the affected intron.	ENST00000646647.2:intron34	ENST[0-9]+ : intron index	SVlog		string	string		0	0
+INTRON_STRAND	Gene strand for intronic annotation (+/−).	-	"+" or "-"	SVlog		string	string		0	0
+INTRON_START	Genomic coordinate of intron start.	21426243	integer > 0	SVlog		integer	integer		0	0
+INTRON_END	Genomic coordinate of intron end.	21427868	integer ≥ 0	SVlog		integer	integer		0	0
+INTRON_LENGTH	Length of the intron (bp).	1626	integer > 0	SVlog		integer	integer		0	0
+INTRON_DIST_5P	Distance from SV to 5′ splice site within the intron.	423	integer ≥ 0	SVlog		integer	integer		0	0
+INTRON_DIST_3P	Distance from SV to 3′ splice site within the intron.	1109	integer ≥ 0	SVlog		integer	integer		0	0
+INTRON_MIN_DIST	Minimum distance to nearest splice boundary.	423	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_BOUNDARY_SPAN_TYPE	Classification of how the SV spans intergenic regulatory boundaries (intra or inter TAD boundary)	inter_boundary	inter_boundary, intra_boundary	SVlog		string	string		0	0
+INTERGENIC_OVERLAPPING_ENHANCER_COUNT	Number of enhancers overlapping the SV.	0	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_OVERLAPPING_ENHANCERS	IDs or coordinates of overlapping enhancers.	127828954|chr15:21112195-21112881	integer ≥ 0	SVlog		string	string		0	0
+INTERGENIC_NEAREST_UPSTREAM_ENH_COORD	Coordinates of nearest upstream enhancer.	127827169|chr14:19097592-19098521	enhancer_id | chrom:start-end	SVlog		string	string		0	0
+INTERGENIC_NEAREST_UPSTREAM_ENH_DIST	Distance to nearest upstream enhancer (bp).	71912	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_NEAREST_UPSTREAM_TAD_COORD	Coordinates of nearest upstream TAD boundary.	chr14:20920000-21000000	chrom:start-end	SVlog		string	string (coord)		0	0
+INTERGENIC_NEAREST_UPSTREAM_TAD_DIST	Distance to nearest upstream TAD boundary (bp).	67972	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_NEAREST_UPSTREAM_TAD_SIZE	Size of upstream TAD (bp).	80001	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_NEAREST_DOWNSTREAM_ENH_COORD	Coordinates of nearest downstream enhancer.	127894334|chr21:8764321-8764883	enhancer_id | chrom:start-end	SVlog		string	string		0	0
+INTERGENIC_NEAREST_DOWNSTREAM_ENH_DIST	Distance to nearest downstream enhancer (bp).	3536813	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_NEAREST_DOWNSTREAM_TAD_COORD	Coordinates of nearest downstream TAD boundary.	chr21:10840000-12960000	chrom:start-end	SVlog		string	string (coord)		0	0
+INTERGENIC_NEAREST_DOWNSTREAM_TAD_DIST	Distance to nearest downstream TAD boundary (bp).	5612492	integer ≥ 0	SVlog		integer	integer		0	0
+INTERGENIC_NEAREST_DOWNSTREAM_TAD_SIZE	Size of downstream TAD (bp).	2120001	integer ≥ 0	SVlog		integer	integer		0	0
+FINAL_CLASSIFICATION	Final SVscanner classification indicating whether SV is non-repetitive, a tandem repeat or mobile element.	Repetitive/Tandem/TR	DNA, HOMO, LINE, LTR, Retroposon, SINE, STR, TR, VNTR, NON_REPETITIVE	SVscanner		string	string		0	0
+CONSENSUS_REPEAT	Consensus sepeat sequence for tandem repeats.	AAAGGAAGGTTCAACTCTGTGAGTTGAATGCACACATCACAAAGAAG	any non-empty string	SVscanner		string	string		0	0
+RM_CLASSIFICATION	Repeat class(es) overlapping the SV: SINE, LINE, LTR, DNA, Retroposon, NON-REPETITIVE.	SINE	DNA, HOMO, LINE, LTR, Retroposon, SINE	SVscanner		string	string		0	0
+RM_RECIPROCAL	Overlap class for the dominant RepeatMasker class. Full if at least ~75% of the SV is covered and each overlapped repeat element is mostly covered (≥75%). Partial if ≥75% SV coverage but some <75%.	Partial	full, partial	SVscanner		string	string		0	0
+RM_TOTAL_SV_COVERAGE	Proportion of the SV covered by RepeatMasker hits, with overlaps merged so regions aren’t counted twice [0–1].	1	any non-empty string	SVscanner		string	string		0	0
+TRF_CLASSIFICATION	TRF repeat class(es) overlapping the SV: HOMO (homopolymer), STR, VNTR, TR, or NON-REPETITIVE.	TR	STR, TR, VNTR	SVscanner		string	string		0	0
+TRF_PERIOD_SIZE	Period size(s) in bp for each TRF hit.	171	any non-empty string	SVscanner		string	string		0	0
+TRF_COPY_NUMBER	Copy number(s) for each TRF hit.	21	any non-empty string	SVscanner		string	string		0	0
+TRF_SV_COVERAGE	For each TRF hit, fraction of SV length covered.	1	any non-empty string	SVscanner		string	string		0	0
+TRF_TOTAL_SV_COVERAGE	Proportion of the SV covered by TRF hits, with overlaps merged so regions aren’t counted twice [0–1].	1	any non-empty string	SVscanner		string	string		0	0

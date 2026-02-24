@@ -1,0 +1,51 @@
+name	description	example_value	value_range	source	note	default_type	data_type	factor	has_suffix	created_at_runtime
+CHROM	Chromosome name used for coordinates and HGVSg.	chr10	chr1–chr22, chrX, chrY, chrM (consistent “chr”-prefixed naming)	Variant caller		string	string	Yes	0	0
+POS	1-based genomic position on CHROM.	100984619	integer ≥ 1	Variant caller		integer	integer		0	0
+REF	Reference allele sequence matching the reference genome at CHROM:POS.	T	[ACGTN]+	Variant caller		string	string (DNA)		0	0
+ALT	Alternate allele sequence represented by this row.	C	[ACGTN]+	Variant caller		string	string (DNA)		0	0
+VAR_LENGTH	Event length in bp (1 for SNVs; for indels, the size of the event in bases).	1	integer ≥ 1	Variant caller		integer	integer		0	0
+QUAL	VCF QUAL score summarizing variant call confidence.	37.6	≥ 0 (phred-scaled)	Variant caller		float	numeric (float)		0	0
+FILTER	VCF FILTER status. PASS indicates the variant passed all caller filters.	PASS	PASS or semicolon-separated filter labels	Variant caller		string	string		0	0
+GT_n	Sample n genotype; phasing indicated by “|”, unphased by “/”.	0|1	0/0, 0/1, 1/1, 1/2, … and/or phased forms 0|1, 1|0	Variant caller	"./." means a no-call genotype, where the caller could not confidently assign 0/0, 0/1 or 1/1. This is different from 0/0, which indicates a confident homozygous reference call. With "./." the caller is essentially saying "I do not have enough reliable information to make a genotype call". There are several reasons a site becomes a no-call. The VCF FORMAT field RNC lists the cause: RNC: Reason for No Call . = n/a M = Missing data P = Partial data I = gVCF input site is non-called D = Insufficient depth - = Overlapping deletion L = Lost or unrepresentable allele U = Multiple unphased variants present O = Multiple overlapping variants present 1 = Monoallelic site If you view the variant in IGV and click on the sample that has "./." you can check the RNC value to see the specific reason. In most cases the site simply was not confidently called in the gVCF (which is used to merge/joint call samples), often because of low coverage or low quality 	string	string (genotype)	Yes	1	0
+GQ_n	Genotype quality for sample n.	38	integer ≥ 0 (phred-scaled)	Variant caller		integer	integer		1	0
+DP_n	Total read depth for sample n.	115	integer ≥ 0	Variant caller		integer	integer		1	0
+AD_n	Alternate-allele read depth for sample n.	56	integer ≥ 0	Variant caller		integer	integer		1	0
+VAF_n	Variant allele fraction for sample n (ALT reads / total).	0.49	0–1	Variant caller		float	numeric (float)		1	0
+GENE_SYMBOL	Gene symbol for the annotated gene.	TWNK	HGNC gene symbol	VEP		string	string	Yes	0	0
+GENE_ID	Ensembl gene ID associated with the annotation.	ENSG00000107815	ENSG[0-9]+	VEP	check gencode https://www.gencodegenes.org/human/	string	string	Yes	0	0
+TRANSCRIPT	Transcript used for c./p. annotations.	ENST00000311916	ENST[0-9]+	VEP		string	string		0	0
+VEP_CONSEQUENCE	Functional consequence(s) per VEP (or equivalent). Multiple terms are “&”-separated.	upstream_gene_variant	VEP consequence term(s); multiple terms joined by &	VEP		string	string	Yes	0	0
+HGVSc	Transcript-level HGVS coding annotation (if applicable).	ENST00000311916.8:c.1593-5C>T	valid transcript-level HGVS	VEP		string	string		0	0
+HGVSp	Protein-level HGVS annotation (if applicable).		valid protein-level HGVS	VEP		string	string		0	0
+HGVSg	Genomic HGVS representation of the variant.	chr10:g.100984619T>C	valid genomic HGVS notation	VEP		string	string		0	0
+CLINVAR	ClinVar clinical significance (if available).	benign	pathogenic, likely pathogenic, VUS, benign, likely benign, conflicting (typical terms)	VEP		string	string	Yes	0	0
+CLINVAR_ID	ClinVar Variation ID; may be stored as a raw ID or a clickable HTML anchor.	136589	numeric id or HTML anchor	VEP		string	string (ID or HTML)		0	0
+AF	Population allele frequency in gnomAD v4.	0.10945	0–1	VEP	That annotation comes straight from VEP, which pulls the values directly from the gnomAD VCF. There is a difference between variants where AF is 0 and variants where AF is blank. AF = 0 means gnomAD did evaluate the site and the alternate allele count ended up as zero after applying their quality filters. For example, variants tagged AC0 indicate that all alternate genotypes were filtered out (low GQ, low DP, poor allele balance). Sometimes you’ll also see AS_VSQR, meaning the variant failed allele-specific VQSR. Example: https://gnomad.broadinstitute.org/variant/12-102848605-T-C?dataset=gnomad_r4 AF blank means gnomAD has no usable data for that site – essentially the variant isn’t present in the callset. This appears for sites marked “No data” or “Not in exomes/genomes”. Example: https://gnomad.broadinstitute.org/variant/12-102868060-A-T?dataset=gnomad_r4 For mtDNA, I checked the gnomAD VCF we use for annotation and it doesn’t include mitochondrial variants, so those will always come through as blank. We’re implementing a dedicated mtDNA branch in the pipeline, so we’ll annotate these properly using the mitochondrial gnomAD dataset. 	float	numeric (float)		0	0
+gnomAD_ID	Identifier or link to the gnomAD variant page.	10-100984619-T-C	chrom-pos-ref-alt format string or HTML anchor	VEP		string	string (ID or HTML)		0	0
+REVEL	REVEL ensemble missense pathogenicity score.		0–1	VEP		float	numeric (float)		0	0
+CADD_PHRED	CADD PHRED-like scaled score. Higher suggests greater deleteriousness.	4.625	~0–60 (phred-scaled)	VEP		float	numeric (float)		0	0
+CADD_RAW	CADD raw score.	0.421284	unbounded (typically around −5 to +5)	VEP		float	numeric (float)		0	0
+SIFT	SIFT prediction; some pipelines provide a score and category.		score 0–1 and/or categories: deleterious, tolerated	VEP		string	string or numeric		0	0
+PolyPhen	PolyPhen-2 prediction; some pipelines provide a score and category.		score 0–1 and/or categories: benign, possibly_damaging, probably_damaging	VEP		string	string or numeric		0	0
+am_class	AlphaMissense classification.			VEP		string	string		0	0
+am_pathogenicity	AlphaMissense pathogenicity score.			VEP		string	string		0	0
+SpliceAI_pred	Composite/summary text for SpliceAI prediction (if present).	NA	free-text summary (if provided)	VEP		string	string		0	0
+Donor_Loss	SpliceAI delta score for donor-loss (DS_DL).	NA	0–1	VEP		float	numeric (float)		0	0
+Donor_Gain	SpliceAI delta score for donor-gain (DS_DG).	NA	0–1	VEP		float	numeric (float)		0	0
+Acceptor_Loss	SpliceAI delta score for acceptor-loss (DS_AL).	NA	0–1	VEP		float	numeric (float)		0	0
+Acceptor_Gain	SpliceAI delta score for acceptor-gain (DS_AG).	NA	0–1	VEP		float	numeric (float)		0	0
+ID	Unique variant identifier for the row (often composed of chrom, pos, and an internal record id).	chr10_100984619_28914	any non-empty string	PuzzleApp		string	string		0	0
+CATEGORY	High-level category indicating this table contains small variants (SNVs and indels).	SNV & Indel	typically: SNV & Indel	PuzzleApp		string	string		0	0
+VAR_TYPE	Specific variant class.	SNV	SNV, Insertion, Deletion, MNV	PuzzleApp		string	string (enum)	Yes	0	0
+PRIORITY	User-defined numeric ranking used in PuzzleApp to visually flag variants. Values > 0 highlight the row in green (prioritised), while values ≤ 0 highlight the row in red (deprioritised or not prioritised).		integer ≥ 0  or integer > 0	PuzzleApp		integer	integer		0	1
+PRIORITYFlag	Internal prioritisation flag indicating variant was prioritised by the user	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
+INHERITANCE	Inheritance mode(s) recorded for the gene in PanelApp (e.g. monoallelic, biallelic). If the gene appears in multiple selected panels, all reported inheritance modes are listed.	MONOALLELIC, BIALLELIC, X-linked, etc.	Controlled vocabulary	PuzzleApp		string	string (comma-separated)	yes	0	1
+PANEL_APP	PanelApp gene panels selected by the user that include the gene. If the gene appears in multiple panels, all are listed.	PanelApp gene lists	PanelApp colour codes	PuzzleApp		string	string (comma-separated)	yes	0	1
+HPO_COUNT	Number of user-provided HPO terms that are associated with the gene.	3	≥0	PuzzleApp		integer	integer	no	0	1
+HPO_ID	List of user-provided HPO terms that are associated with the gene.	HP:0001250,HP:0004322	HPO IDs	PuzzleApp		string	string (comma-separated)	no	0	1
+N_Cohort	Cohort size/denominator used for a cohort-derived frequency (if available).	NA	integer ≥ 0	PuzzleApp		integer	integer or NA		0	0
+N_HOM_ALT	Count of homozygous-alt individuals in gnomAD v4.	9824	integer ≥ 0	PuzzleApp		integer	integer		0	0
+alt_allele_count_n	Number of ALT alleles present in sample n (e.g., 0→0/0, 1→0/1, 2→1/1).	1	0–2 (diploid); haploid/sex-chromosome counts may differ	PuzzleApp		integer	integer		1	0
+clinvar_override	Flag indicating ClinVar evidence forces variant retention despite failing other filters	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
+spliceai_override	Flag indicating strong SpliceAI prediction overrides filtering thresholds	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
+NOTES	Free-text annotation field for manual comments or curator notes within PuzzleApp.		any string	PuzzleApp		string	string		0	1

@@ -1,0 +1,50 @@
+name	is_mandatory	description	default_value	example_value
+Inheritance	No	Inheritance model(s) applied for variant filtering (e.g. dominant, recessive, de novo)		Dominant/De Novo
+Custom_Allele_Counts	No	Custom allele counts		LRS00037-00-PB-03:;LRS00037-01-PB-03:0-1;LRS00037-02-PB-03:1-2
+PanelApp_Genes	No	Restrict analysis to genes defined in selected PanelApp lists		Additional findings_Adult;Alagille syndrome;Aminoacidopathy
+Custom_Genes	No	User-defined list of genes to include in filtering		SHOX2; SNTA1; SOD2; TCAP; TGFB3; TTL; UQCRFS1
+Treat_Negative	No	Reverse the filtering logic and exclude any variants in the genes lists selected by the user.	FALSE	TRUE
+Inheritance_PanelApp_Gene	No	Apply selected mode of inheritance to PanelApp genes	FALSE	TRUE
+Substract_PanelApp_Gene_Lists	No	PanelApp gene lists to be subtracted from the analysis		Achromatopsia;Alternating Hemiplegia and Hemiplegic Migraine;Bardet Biedl syndrome
+Substract_PanelApp_Genes	No	Individual PanelApp genes to exclude		SLC4A4; TBX20; TBX5; TNNI3K; TRIM63; VCL
+HPO_Terms	No	Human Phenotype Ontology (HPO) terms used for phenotype-driven prioritisation (annotation only, not used for filtering).		HP:0100022; HP:0100023
+SNV_Annotation	No	VEP functional annotation categories used for SNVs/Indels filtering		Stop lost;Splice variant;Missense variant;3'UTR variant
+SNV_Pathogenicity	No	ClinVar pathogenicity classification for SNVs/Indels		Likely pathogenic;Conflicting;Likely benign;Not available
+SNV_SpliceAI_score	No	Minimum SpliceAI score required for splice-impact SNVs/Indels	0	0.35
+SNV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SNVs/Indels	1	0.02
+SNV_Affected_only	No	Only apply quality filters for SNVs/Indels present in affected individuals for filtering	FALSE	TRUE
+SNV_Genotype_quality	No	Minimum genotype quality (GQ) threshold for SNVs/Indels	0	34
+SNV_Allele_balance	No	Minimum allele balance required for heterozygous SNVs/Indels	0	0.49
+SNV_REVEL	No	REVEL ensemble missense pathogenicity score.	0	0.15
+SNV_AlphaMissense	No	AlphaMissense score	0	0.25
+SNV_SIFT	No	SIFT prediction		Deleterious
+SNV_PolyPhen	No	PolyPhen-2 prediction		Possibly damaging
+SNV_Use_AF	No	Use SNV_gnomADv4_AF for clinvar and spliceAI override filters	FALSE	TRUE
+SV_Annotation	No	VEP functional or genomic annotation categories used for SV filtering		Stop gained;Stop lost;5'UTR variant;Intergenic variant
+SV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SVs derived from SVlog.	1	0.02
+SV_Affected_only	No	Only apply quality filters for SVs present in affected individuals	FALSE	TRUE
+SV_Genotype_quality	No	Minimum genotype quality (GQ) threshold for SVs	0	57
+SV_Allele_balance	No	Minimum allele balance required for heterozygous SVs	0	0.24
+SV_SV_type	No	Structural variant types to include (e.g. DEL, DUP, INV, INS)		Insertion;Duplication;Translocation
+SV_Min_SV_Length	No	Minimum SV length (bp) to retain	0	10
+SV_Max_SV_Length	No	Maximum SV length (bp) to retain	0	100
+SV_Pathogenicity	No	ClinVar pathogenicity classification for SVs derived from SVlog.		Pathogenic;Conflicting;Likely benign;Not available
+SV_SVlog_Annotation	No	SV annotation categories derived from SVlog		affects_tad_boundary;affects_utr;splice_altering
+SV_SVlog_min_recip_overlap	No	Minimum reciprocal overlap required for SVlog matches (applicable to DEL, INV, DUP)	0	0.49
+SV_SVlog_max_break_distance	No	Maximum breakpoint distance allowed for SVlog matching (applicable to INS)	0	4
+SV_SVlog_max_abs_dlen	No	Maximum absolute difference in SV length for SVlog matching (applicable to INS)	0	11
+SV_SVlog_internal_max_carriers	No	Maximum number of internal cohort carriers allowed		8
+SV_SVlog_internal_max_families	No	Maximum number of internal families carrying the SV		5
+SV_SVlog_1000G_max_carriers	No	Maximum number of carriers allowed in 1000 Genomes		7
+SV_SVlog_Advanced_Keeping	No	SVlog predicates selected for explicitly keeping variants		prioritise_lof_any;prioritise_lof_mendeliome;prioritise_lof_mod
+SV_SVlog_Advanced_Filtering_out	No	SVlog predicates selected for explicitly filtering out variants		common_1kg;common_gnomad;common_intergenic
+SV_Keeping	No	Keeping tier (0–3) based on SVlog match strength (identical → equivalent → related)		1;3
+SV_Filtering_out	No	Filtering out tier (1–3) based on SVlog match strength (identical → equivalent → related)		1;2;3
+SV_intronic_splice_max_dist	No	Maximum distance from splice junction for intronic SVs	0	7
+SV_intronic_min_len_intron_ratio	No	Minimum SV length relative to intron length	0	0.11
+SV_tad_max_dist	No	Maximum distance to topologically associating domain (TAD) boundary	0	6
+SV_enhancer_max_dist	No	Maximum distance to annotated enhancer regions	0	5
+SV_intra_tad_only	No	Restrict SVs to those occurring within a single TAD	FALSE	TRUE
+SV_inter_tad_only	No	Restrict SVs to those spanning multiple TADs	FALSE	TRUE
+SV_SVscanner_classification	No	SVScanner classification categories to include		sine;retroposon;homo
+SV_SVscanner_reciprocal	No	Mobile-element extent category from SVScanner: full (likely full transposition element) or partial (likely truncated/partial element)		partial

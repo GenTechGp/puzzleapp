@@ -70,7 +70,7 @@ ui <- fluidPage(
         tabPanel("Custom Annotation", customUI("custom_tab")),
         tabPanel("VEP Consequences", dataUI("vep_consequences")),
         tabPanel("Logs", log_viewer_ui("log")),
-        tabPanel("About", tags$head(tags$script(HTML("$(document).on('click', 'a', function(e) {$(this).attr('target', '_blank');});"))), includeMarkdown(system.file("extdata", "docs", "table_doc.md", package = "puzzleapp")))
+        tabPanel("About", aboutUI("about"))
       )
     )
   )
@@ -124,6 +124,7 @@ server <- function(input, output, session) {
   rawFilterServer("raw_filter", shared_store, shared_rx)
   customServer("custom_tab")
   qcPlotsServer("qc_plots", shared_store, shared_rx)
+  aboutServer("about")
   # log_debug("debug test")
   # log_info("info test")
   # log_warn("warning test")

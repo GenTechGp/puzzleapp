@@ -2,7 +2,7 @@
 % Please edit documentation in R/custom.R
 \name{customServer}
 \alias{customServer}
-\title{Raw Filter Tab Server}
+\title{Custom Tab Server}
 \usage{
 customServer(id)
 }
@@ -13,5 +13,5 @@ customServer(id)
 Shiny server module
 }
 \description{
-Raw Filter Tab Server
+Custom Tab Server
 }
