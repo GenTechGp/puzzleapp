@@ -50,6 +50,7 @@ home_server <- function(id, shared_store, shared_rx) {
 
     observeEvent(input$confirm_restart, ignoreInit = TRUE, {
       removeModal()
+      session$sendCustomMessage("set_leave_warning", list(enable = FALSE))
       session$reload()
     })
 
@@ -301,6 +302,11 @@ home_server <- function(id, shared_store, shared_rx) {
       cat("Data loaded into shared_store.\n")
 
       shinyjs::disable("load_yml")
+
+      # Only warn on leave in production
+      if (!isTRUE(getOption("puzzleapp.dev_mode"))) {
+        session$sendCustomMessage("set_leave_warning", list(enable = TRUE))
+      }
 
     })
 

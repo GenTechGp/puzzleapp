@@ -26,6 +26,21 @@ ui <- fluidPage(
       var cookieVal = getCookie('user_prefs');
       Shiny.setInputValue('home-cookie_prefs', cookieVal, {priority: 'event'});
     });
+    
+    // --- Unload warning (enable after data is loaded) ---
+    var _warnOnLeave = false;
+    function _beforeUnloadHandler(e) {
+      e.preventDefault();
+      e.returnValue = '';  // required for Chrome
+    }
+    Shiny.addCustomMessageHandler('set_leave_warning', function(message) {
+      _warnOnLeave = message.enable;
+      if (_warnOnLeave) {
+        window.addEventListener('beforeunload', _beforeUnloadHandler);
+      } else {
+        window.removeEventListener('beforeunload', _beforeUnloadHandler);
+      }
+    });
   ")),
     tags$head(tags$style(HTML("
     /* Group 1: Data tabs */
