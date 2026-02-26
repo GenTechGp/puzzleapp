@@ -177,7 +177,7 @@ PopulationUI_0 <- function(ns) {
     h4("Population Evidence"),
     selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices_similarity_criteria, selected = "None"),
     sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
-    numericInput(ns("sv_max_breakpoint_distance"), "Max breakpoint distance (bp) - INS:", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_breakpoint_distance"), "Max position distance (bp) - INS:", value = 0, min = 0, step = 1),
     numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = 0, min = 0, step = 1)
   )
 }
@@ -213,14 +213,12 @@ SVlog_conseqUI <- function(ns) {
 
 SVlogUI <- function(ns) {
   choices_keeping_tier <- c(
-    "None" = "",
     "0" = "0",
     "1" = "1",
     "2" = "2",
     "3" = "3"
   )
   choices_filtering_tier <- c(
-    "None" = "",
     "1" = "1",
     "2" = "2",
     "3" = "3"
