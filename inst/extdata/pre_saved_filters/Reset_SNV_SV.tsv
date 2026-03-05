@@ -7,6 +7,7 @@ SNV_gnomADv4_AF	1
 SNV_Affected_only	
 SNV_Genotype_quality	0
 SNV_Allele_balance	0
+SNV_Min_read_depth	
 SNV_REVEL	0
 SNV_AlphaMissense	0
 SNV_SIFT	
@@ -18,14 +19,15 @@ SV_gnomADv4_AF	1
 SV_Affected only	
 SV_Genotype_quality	0
 SV_Allele_balance	0
+SV_Min_read_depth	
 SV_SV_type	
-SV_Min_SV_Length	0
-SV_Max_SV_Length	0
+SV_Min_SV_Length	
+SV_Max_SV_Length	
 SV_Pathogenicity	
 SV_SVlog_Annotation	
 SV_SVlog_min_recip_overlap	0
-SV_SVlog_max_break_distance	0
-SV_SVlog_max_abs_dlen	0
+SV_SVlog_max_break_distance	
+SV_SVlog_max_abs_dlen	
 SV_SVlog_internal_max_carriers	
 SV_SVlog_internal_max_families	
 SV_SVlog_1000G_max_carriers	
@@ -33,10 +35,10 @@ SV_SVlog_Advanced_Keeping
 SV_SVlog_Advanced_Filtering_out	
 SV_Keeping	
 SV_Filtering_out	
-SV_intronic_splice_max_dist	0
-SV_intronic_min_len_intron_ratio	0
-SV_tad_max_dist	0
-SV_enhancer_max_dist	0
+SV_intronic_splice_max_dist	
+SV_intronic_min_len_intron_ratio	
+SV_tad_max_dist	
+SV_enhancer_max_dist	
 SV_intra_tad_only	
 SV_inter_tad_only	
 SV_SVscanner_classification	

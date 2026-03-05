@@ -72,8 +72,8 @@ QualityUI <- function(ns, id_prefix = "snv") {
     h4("Per-sample Call quality filters"),
     sliderInput(ns(paste0(id_prefix, "genotype_quality")), "Genotype quality:", 0, 100, 0, ticks = FALSE),
     sliderInput(ns(paste0(id_prefix, "allele_balance")), "Minimum Allele fraction:", 0, 1, 0, ticks = FALSE),
-    checkboxInput(ns(paste0(id_prefix, "affected_switch")), "Consider 'affected' samples only", value = FALSE),
-    numericInput(ns(paste0(id_prefix, "min_support_reads")), "Min. support reads:", value = 0, min = 0, step = 1)
+    numericInput(ns(paste0(id_prefix, "min_read_depth")), "Minimum read depth:", value = NULL, min = 0, step = 1),
+    checkboxInput(ns(paste0(id_prefix, "affected_switch")), "Consider 'affected' samples only", value = FALSE)
   )
 }
 
@@ -104,8 +104,8 @@ svFeatsUI <- function(ns) {
   tagList(
     h4("SV properties"),
     checkboxGroupInput(ns("sv_features_checkboxes"), "SV type", choices = sv_type_opts),
-    numericInput(ns("min_svlen"), "Min SV Length:", 0, NA, NA),
-    numericInput(ns("max_svlen"), "Max SV Length:", 0, NA, NA)
+    numericInput(ns("min_svlen"), "Min SV Length:", value = NULL, min = 0, step = 1),
+    numericInput(ns("max_svlen"), "Max SV Length:", value = NULL, min = 0, step = 1)
   )
 }
 
@@ -177,8 +177,8 @@ PopulationUI_0 <- function(ns) {
     h4("Population Evidence"),
     selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices_similarity_criteria, selected = "None"),
     sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
-    numericInput(ns("sv_max_breakpoint_distance"), "Max position distance (bp) - INS:", value = 0, min = 0, step = 1),
-    numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = 0, min = 0, step = 1)
+    numericInput(ns("sv_max_breakpoint_distance"), "Max position distance (bp) - INS:", value = NULL, min = 0, step = 1),
+    numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = NULL, min = 0, step = 1)
   )
 }
 PopulationUI_1 <- function(ns) {
@@ -190,10 +190,10 @@ PopulationUI_1 <- function(ns) {
   tagList(
     selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
     strong("ONT 1000 Genomes"),
-    h5("Max carriers (HOME + HET)"),
+    h5("Max carriers (HOM + HET)"),
     numericInput(ns("sv_max_carriers_1000"), label = NULL, value = NULL, min = 0, step = 1),
     strong("Internal Cohort"),
-    h5("Max carriers (HOME + HET)"),
+    h5("Max carriers (HOM + HET)"),
     numericInput(ns("sv_max_carriers_internal"), label = NULL, value = NULL, min = 0, step = 1),
     h5("Max families:"),
     numericInput(ns("sv_max_families"), label = NULL, value = NULL, min = 0, step = 1)
@@ -238,12 +238,12 @@ SVlogUI <- function(ns) {
 GenomicContextUI <- function(ns) {
   tagList(
     h4("Genomic Context"),
-    numericInput(ns("sv_max_distance_to_splice_site"), "Max distance to splice site (bp) - intronic:", value = 0, min = 0, step = 1),
-    numericInput(ns("sv_min_ratio_sv_length_intron_length"), "Min ratio SV length/intron length - intronic:", value = 0, min = 0, step = 0.01),
-    numericInput(ns("sv_max_distance_to_nearest_tad_boundary"), "Max distance to nearest TAD boundary (bp):", value = 0, min = 0, step = 1),
+    numericInput(ns("sv_max_distance_to_splice_site"), "Max distance to splice site (bp) - intronic:", value = NULL, min = 0, step = 1),
+    numericInput(ns("sv_min_ratio_sv_length_intron_length"), "Min ratio SV length/intron length - intronic:", value = NULL, min = 0, step = 0.01),
+    numericInput(ns("sv_max_distance_to_nearest_tad_boundary"), "Max distance to nearest TAD boundary (bp):", value = NULL, min = 0, step = 1),
     checkboxInput(ns("sv_intra_tad_boundary"), "Intra TAD boundary", value = FALSE),
     checkboxInput(ns("sv_inter_tad_boundary"), "Inter TAD boundary", value = FALSE),
-    numericInput(ns("sv_max_distance_to_nearest_enhancer"), "Max distance to nearest enhancer (bp):", value = 0, min = 0, step = 1)
+    numericInput(ns("sv_max_distance_to_nearest_enhancer"), "Max distance to nearest enhancer (bp):", value = NULL, min = 0, step = 1)
   )
 }
 
@@ -275,7 +275,7 @@ panelAppOptsUI <- function(ns) {
   tagList(
     selectizeInput(ns("panelapp"), "PanelApp Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
     selectizeInput(ns("substract_panelapp_gene_lists"), "Subtract gene lists from PanelApp Gene list:", choices = character(0), selected = "", multiple = TRUE, options = list(plugins = c("drag_drop")), width = "100%"),
-    textInput(ns("substract_panelapp_genes"), "Subtract genes from PanelApp Gene list (comma/semi-colon/tab/space-separated):", value = "", width = "100%"),
+    textInput(ns("substract_panelapp_genes"), "Subtract genes from PanelApp Gene list (semi-colon separated):", value = "", width = "100%"),
     br(),
     fluidRow(
       column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")),
@@ -284,7 +284,7 @@ panelAppOptsUI <- function(ns) {
     column(3, panelBox(ns("amber_genes"), "Amber genes:", "#FFBF00"))
     ),
     fluidRow(
-      column(12, textInput(ns("custom_genes"), "Custom genes (comma/semi-colon/tab/space-separated):", value = "", width = "100%"))
+      column(12, textInput(ns("custom_genes"), "Custom genes (semi-colon separated):", value = "", width = "100%"))
     ),
     fluidRow(
       column(6, checkboxInput(ns("treat_negative"), "Consider PanelApp genes and Custom genes as negative", value = FALSE, width = "100%")),

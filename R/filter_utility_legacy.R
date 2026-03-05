@@ -75,6 +75,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "Affected_only" = input$affected_switch,
     "Allele_balance" = input$allele_balance,
     "Genotype_quality" = input$genotype_quality,
+    "Min_read_depth" = input$min_read_depth,
     "Use_AF" = input$use_af
   )
 
@@ -89,6 +90,7 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "Affected_only" = input$sv_affected_switch,
     "Allele_balance" = input$sv_allele_balance,
     "Genotype_quality" = input$sv_genotype_quality,
+    "Min_read_depth" = input$sv_min_read_depth,
     "SVlog_Annotation" = if (!is.null(input$svlog_conseq_checkboxes)) paste(input$svlog_conseq_checkboxes, collapse = ";") else "",
     "SVlog_min_recip_overlap" = input$sv_reciprocal_overlap_fraction,
     "SVlog_max_break_distance" = input$sv_max_breakpoint_distance,
@@ -242,6 +244,10 @@ update_filters_params <- function(search_params, session) {
     "Genotype_quality" = list(
       snv = list(func = updateSliderInput, id = "genotype_quality", value = TRUE, as_numeric = TRUE),
       sv  = list(func = updateSliderInput, id = "sv_genotype_quality", value = TRUE, as_numeric = TRUE)
+    ),
+    "Min_read_depth" = list(
+      snv = list(func = updateNumericInput, id = "min_read_depth", value = TRUE, as_numeric = TRUE),
+      sv  = list(func = updateNumericInput, id = "sv_min_read_depth", value = TRUE, as_numeric = TRUE)
     ),
     "Inheritance" = list(
       shared = list(func = updateRadioButtons, id = "inher", selected = TRUE)

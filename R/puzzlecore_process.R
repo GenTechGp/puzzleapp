@@ -521,6 +521,7 @@ puzzlecore_parse_filter_table <- function(path) {
     spliceai_filter        = as_num_any(c("SNV_SpliceAI score", "SNV_SpliceAI_score")),
     genotype_quality_value = as_num_any(c("SNV_Genotype quality", "SNV_Genotype_quality")),
     allele_balance_value   = as_num_any(c("SNV_Allele balance", "SNV_Allele_balance")),
+    min_read_depth         = as_num("SNV_Min_read_depth"),
 
     # Scalars (strings) guarded by nzchar() downstream
     sift_filter           = as_scalar_str("SNV_SIFT"),
@@ -551,6 +552,7 @@ puzzlecore_parse_filter_table <- function(path) {
     genotype_quality_value   = as_num_any(c("SV_Genotype quality", "SV_Genotype_quality")),
     allele_balance_value     = as_num_any(c("SV_Allele balance", "SV_Allele_balance")),
     af_value                 = as_num("SV_SVlog_gnomAD_AF"),
+    min_read_depth           = as_num("SV_Min_read_depth"),
     
     # ------------------------------------------------------------------
     # SV type/size + labels

@@ -67,17 +67,19 @@ text_filter <- function(column, values) {
 # Helper function: Handle frequency and quality filters
 quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
-  if (!is.null(filters$af_value) && filters$af_value < 1) 
+  # if (!is.null(filters$af_value) && filters$af_value < 1) 
     #conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
 
   # check if pedigree samples have status "affected" if so get their codes
   gq_vars <- grep("^GQ_", colnames(data), value = TRUE)
   vaf_vars <- grep("^VAF_", colnames(data), value = TRUE)
+  depth_vars <- grep("^DP_", colnames(data), value = TRUE)
   if (isTRUE(filters$affected_only)) {
     affected_codes <- pedigree$code[pedigree$status == "affected"]
     log_info(sprintf("Affected codes: %s", affected_codes))
     gq_vars <- paste0("GQ_", affected_codes)
     vaf_vars <- paste0("VAF_", affected_codes)
+    depth_vars <- paste0("DP_", affected_codes)
   }
 
   if (!is.null(filters$genotype_quality_value) && filters$genotype_quality_value > 0 && length(gq_vars) > 0) {
@@ -88,13 +90,19 @@ quality_filters <- function(filters, data, pedigree) {
     conditions <- c(conditions, paste(sprintf("as.numeric(get('%s')) >= %f", vaf_vars, filters$allele_balance_value), collapse = " & "))
   }
 
+  if (!is.null(filters$min_read_depth) && filters$min_read_depth > 0 && length(depth_vars) > 0) {
+    conditions <- c(conditions, paste(sprintf("as.numeric(get('%s')) >= %d", depth_vars, filters$min_read_depth), collapse = " & "))
+  }
+
   return(paste(conditions, collapse = " & "))
 }
 
 # Helper: parse and normalize user-entered gene lists
 parse_gene_list <- function(x) {
   if (is.null(x) || !nzchar(trimws(x))) return(character(0))
-  y <- unlist(strsplit(x, "[,;[:space:]]+"))
+  # y <- unlist(strsplit(x, "[,;[:space:]]+"))
+  # semi-colon only 
+  y <- unlist(strsplit(x, "[;]+"))
   y <- trimws(y)
   y <- y[nzchar(y)]
   unique(toupper(y))
@@ -671,44 +679,24 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       "svlog_gnomad_af",
       "svlog_1000g_max_carriers",
       "svlog_internal_max_carriers",
+      "svlog_internal_max_families",
       "clinvar_filter"
     )
 
-    present <- intersect(svlog_filter_fields, names(filters))
+    has_svlog_filters <- any(vapply(
+      svlog_filter_fields,
+      function(f) {
+        x <- filters[[f]]
+        !is.null(x) &&
+          length(x) > 0 &&
+          !all(is.na(x)) &&
+          any(nzchar(as.character(x))) &&
+          (is.character(x) || any(as.numeric(x[!is.na(x)]) > 0))
+      },
+      logical(1)
+    ))
 
-    has_svlog_filters <- length(present) > 0 && any(
-      vapply(
-        filters[present],
-        function(x) {
-          !is.null(x) &&
-            length(x) > 0 &&
-            !any(is.na(x)) &&
-            any(nzchar(as.character(x)))
-        },
-        logical(1)
-      )
-    )
-
-    svlog_fields <- c(
-      "svlog_min_recip_overlap",
-      "svlog_max_break_distance",
-      "svlog_max_abs_dlen"
-    )
-
-    present_vals <- numeric(0)
-
-    for (f in svlog_fields) {
-      val <- filters[[f]]
-
-      if (!is.null(val) && !is.na(val)) {
-        present_vals <- c(present_vals, as.numeric(val))
-      }
-    }
-
-    flag_zero_check <- length(present_vals) > 0 && any(present_vals > 0)
-
-    if (!is.null(svlog_db) && nrow(svlog_db) > 0 && has_svlog_filters && flag_zero_check) {
-          
+    if (!is.null(svlog_db) && nrow(svlog_db) > 0 && has_svlog_filters) {
       log_info("[filtServer][filter_dataset] Applying SVlog database filters (gnomAD, ClinVar, ONT1000G, Internal Cohort)")
       # cat("svlog_min_recip_overlap:", filters$svlog_min_recip_overlap, "\n")
       # cat("svlog_max_break_distance:", filters$svlog_max_break_distance, "\n")
@@ -743,6 +731,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
       data <- data[svlog_summary[, .(ID)], on = "ID", nomatch = 0L]
       cols <- setdiff(intersect(names(data), names(svlog_summary)), "ID")
       data[svlog_summary, on = "ID", (cols) := mget(paste0("i.", cols))]
+      # cat("svlog_summary IDs:\n")
+      # print(svlog_summary$ID)
+      # check if 0_Sniffles2.DEL.410SE is in svlog_summary$ID
+      # if ("0_Sniffles2.DEL.410SE" %in% svlog_summary$ID) {
+      #   cat("0_Sniffles2.DEL.410SE is in svlog_summary$ID\n")
+      # }
 
       log_info(sprintf("[filtServer][filter_dataset] SVlog filter: %d variants with passing SVlog database evidence", nrow(data)))
       # rescue variants that had no SVlog record at all
@@ -1078,10 +1072,19 @@ filter_svlog_to_wide <- function(svlog_db, sv_filters) {
   #       (used_internal & internal_pass) |
   #       (used_clinvar  & clinvar_pass)]
   
+  # agg[, pass_svlog :=
+  #       (used_gnomAD   & gnomAD_pass) |
+  #       (used_kg & ont1000g_pass & used_internal & internal_pass) |
+  #       (used_clinvar  & clinvar_pass)]
+
+  # AND logic: every configured filter must pass.
+  # If a filter is not configured (pass = NA) or has no data (used = FALSE), treat as pass.
+  # One failure vetoes the whole svlog_id.
   agg[, pass_svlog :=
-        (used_gnomAD   & gnomAD_pass) |
-        (used_kg & ont1000g_pass & used_internal & internal_pass) |
-        (used_clinvar  & clinvar_pass)]
+        (is.na(gnomAD_pass)   | gnomAD_pass)   &
+        (is.na(ont1000g_pass) | ont1000g_pass)  &
+        internal_pass                           &
+        clinvar_pass]
   
   # No evidence from any DB → do not filter on SVlog
   no_evidence <- !(used_gnomAD | used_kg | used_internal | used_clinvar)
@@ -1098,7 +1101,7 @@ make_svlog_wide_summary <- function(dt, agg) {
   keep_ids <- agg[pass_svlog == TRUE, svlog_id]
   dt_pass  <- dt[svlog_id %in% keep_ids]
   if (!nrow(dt_pass)) return(data.table::data.table())
-  
+
   # ---------- 4) long → wide: id = (svlog_id, ID), columns = SRC, value = STRING ----------
   # collapse multiple STRINGs per (svlog_id, ID, SRC)
   collapsed <- dt_pass[
