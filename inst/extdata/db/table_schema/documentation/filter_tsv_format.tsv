@@ -15,6 +15,7 @@ SNV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SNVs/Indels	1	
 SNV_Affected_only	No	Only apply quality filters for SNVs/Indels present in affected individuals for filtering	FALSE	TRUE
 SNV_Genotype_quality	No	Minimum genotype quality (GQ) threshold for SNVs/Indels	0	34
 SNV_Allele_balance	No	Minimum allele balance required for heterozygous SNVs/Indels	0	0.49
+SNV_Min_read_depth	No	Minimum read depth threshold	0	15
 SNV_REVEL	No	REVEL ensemble missense pathogenicity score.	0	0.15
 SNV_AlphaMissense	No	AlphaMissense score	0	0.25
 SNV_SIFT	No	SIFT prediction		Deleterious
@@ -25,6 +26,7 @@ SV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SVs derived fro
 SV_Affected_only	No	Only apply quality filters for SVs present in affected individuals	FALSE	TRUE
 SV_Genotype_quality	No	Minimum genotype quality (GQ) threshold for SVs	0	57
 SV_Allele_balance	No	Minimum allele balance required for heterozygous SVs	0	0.24
+SV_Min_read_depth	No	Minimum read depth threshold	0	15
 SV_SV_type	No	Structural variant types to include (e.g. DEL, DUP, INV, INS)		Insertion;Duplication;Translocation
 SV_Min_SV_Length	No	Minimum SV length (bp) to retain	0	10
 SV_Max_SV_Length	No	Maximum SV length (bp) to retain	0	100

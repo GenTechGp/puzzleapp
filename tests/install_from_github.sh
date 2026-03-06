@@ -56,6 +56,8 @@ VERSION=""
 DEST=""
 OLDR=false
 
+echo "Using TMPDIR: $TMPDIR"
+
 # --- Parse arguments ---
 while [[ $# -gt 0 ]]; do
   case $1 in
@@ -84,6 +86,7 @@ if [[ -n "$DEST" ]]; then
   tmp_root="$DEST"
   echo "Installing persistently into: $DEST"
 else
+  echo "No --dest specified, using temporary directory for installation."
   tmp_root="$(mktemp -d)"
   echo "Using temporary working root: $tmp_root"
   cleanup() {
@@ -134,6 +137,8 @@ if (!dir.exists(local_lib)) dir.create(local_lib, recursive = TRUE, showWarnings
 .libPaths(c(local_lib, .libPaths()))
 options(repos = c(CRAN = "https://cloud.r-project.org"))
 options(Ncpus = max(1L, parallel::detectCores(logical = TRUE) - 1L))
+#options(Ncpus = 1L)
+options(timeout = 300)  # 5 min download timeout (default is 60s)
 
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
 if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
