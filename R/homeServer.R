@@ -55,6 +55,7 @@ home_server <- function(id, shared_store, shared_rx) {
     })
 
     output$status <- shiny::renderText({
+      log_info(paste("[HomeServer] Updating status text to:", status_text()))
       status_text()
     })
 
@@ -298,9 +299,12 @@ home_server <- function(id, shared_store, shared_rx) {
       msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
       msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
 
+      cat("[DEBUG] About to set status_text to:", paste(msgs, collapse = " | "), "\n")
       status_text(paste(msgs, collapse = "\n"))
       log_info("[HomeServer] Data loading complete:")
       log_info(paste(msgs, collapse = "\n"))
+      cat("[DEBUG] status_text is now:", status_text(), "\n")
+
 
       shinyjs::disable("load_yml")
 
