@@ -1,0 +1,173 @@
+predicate name	description	comments
+identical_insertions	"Two SVs have INS type; AND
+Same SV classification; AND
+Left breakpoints within ∓ 3bp; AND
+Length of smaller INS is >95% of larger INS;"	
+identical_str_vntr	"Two SVs are INS-INS or DEL-DEL; AND
+SV classification is ‘tandem repeat’ with STR or VNTR subclass (for both); AND
+Left breakpoints are within or adjacent to (within 50bp) the same genomic tandem repeat element; AND
+Length of smaller SV is >95% of larger SV"	Filtering against identical_str_vntr should identify expansions or contractions with unique size or repeat motif, compared to common alleles at a given repeat site
+identical_breakends	"Two SVs have BND type; AND
+the two REFs are within ∓ 3 bp; AND
+the two ALTs are within ∓ 3 bp"	
+identical_variants	"identical_insertions; OR
+identical_str_vntr; OR
+identical_breakends; OR
+Two SVs have same SV type; AND
+SV type is DEL, DUP or INV; AND
+Share two breakpoints that are both within ∓ 3 bp"	Used for filter_identical (filtering_out1)
+equivalent_insertions	"Two SVs have INS type; AND
+Same SV classification; AND
+Distance between their left breakpoints is <20% length of smaller INS; AND
+Length of smaller INS is >80% of larger INS"	should include identical_insertions by design
+equivalent_str_vntr	"Two SVs are INS-INS or DEL-DEL; AND
+SV classification is ‘tandem repeat’ with STR or VNTR subclass (for both); AND
+Left breakpoints are within or adjacent to (within 50bp) the same genomic tandem repeat element; AND
+Length of smaller SV is >80% of larger SV"	Filtering against equivalent_str_vntr should identify significant outliers in size compared to common alleles at a given repeat site
+equivalent_breakends	"Two SVs have BND type; AND
+their REFs as well as their ALTs are within their respective element-level neighbourhoods (i.e. there are no important genomic elements that start and/or end between the two BNDs - this is similar to the checks in equivalent_variants)."	should include identical_breakends by design
+equivalent_variants	"identical_variants; OR
+equivalent_insertions; OR
+equivalent_str_vntr; OR
+equivalent_breakends; OR
+""Two SVs have same SV type; AND
+SV type is DEL, DUP or INV; AND
+Share genome coordinates with >80% reciprocal overlap; AND
+Have no conflicts in gene impact prediction (structural effects)."""	"Conflicting structural effects arise whenever there is an ""event"" taking place inside either one of such sequences. If there is an important genomic element which has either its START or END inside either of the two sequences, that constitutes an ""event"". If the element starts inside the sequence, we don't care where it ends; if it ends inside the sequence, we don't care where it starts. That is, there is no event if and only if the sequence is entirely inside (contained by) the element. In the most general sense, ""elements"" constitute everything that is not a variant.
+
+Used for filter_equivalent (filtering_out2)"
+related_insertions	"Two SVs have INS type; AND
+Distance between their left breakpoints <50% length of smaller INS; AND
+Length of smaller INS is >50% of larger INS"	should include equivalent_insertions and identical_insertions by design
+related_breakends	"Two SVs have BND type; AND
+Their REF positions are within a 10000bp window (regardless of where their ALTs are pointing);"	(should include equivalent_breakends and identical_breakends)
+related_variants	"equivalent_variants; OR
+related_insertions; OR
+related_breakends; OR
+""Two SVs have same SV type; AND
+SV type is DEL, DUP or INV; AND
+Share genome coordinates with >50% reciprocal overlap; AND
+Have no conflicts in gene impact prediction (structural effects)."""	"Conflicting structural effects arise whenever there is an ""event"" taking place inside either one of such sequences. If there is a genomic element which has either its START or END inside either of the two sequences, that constitutes an ""event"". If the element starts inside the sequence, we don't care where it ends; if it ends inside the sequence, we don't care where it starts. That is, there is no event if and only if the sequence is entirely inside (contained by) the element. In the most general sense, ""elements"" constitute everything that is not a variant.
+ 
+Used for filter_related (filtering_out3)"
+common_gnomad *	SV in gnomAD with AF > 0.01	
+common_1kg *	SV in 1KG-ONT in >=3 individuals	
+common_internal *	SV in our internal study cohort in >=3 families	
+clinvar_benign #	"SV from ClinVar with classification of ‘Benign’ - criteria provided, multiple submitters, no conflicts
+(high confidence)"	
+clinvar_pathogenic #	"SV from ClinVar with classification of ‘P’, ‘LP’, ‘P/LP’ - reviewed by expert panel, single submitter (with criteria provided), or multiple submitters (with criteria provided and no conflicts in interpretation)
+(medium confidence)"	
+clinvar_vus #	SV from ClinVar with classification of ‘Uncertain significance’	
+intergenic	SV is not nonintergenic, i.e. does not overlap any genes ("transcript" elements, which do not include the promoter region)	
+nonintergenic	NOT intergenic	
+ordinary_intergenic	"SV does not overlap any protein coding genes (hence NOT affects_cds) or promoters; AND
+is NOT affects_tad_boundary; AND
+does not delete or duplicate any intra-TAD enhancers"	
+affects_cds	SV affects (i.e. overlaps) any part of a CDS region. Just like with all other affects/overlaps predicates, the overlaps can be produced by any SV (deletions, insertions, inversions, duplications, BNDs).	
+predicted_splice_altering	SV is annotated as either "SO:0001574|splice_acceptor_variant" or "SO:0001575|splice_donor_variant" (in ClinVar)	
+splice_altering	SV is intronic (hence NOT affects_cds) and affects a splice donor or splice acceptor site (2 bp before/after an exon)	
+intronic	SV is fully within an intron (hence NOT affects_cds)	
+affects_utr	"SV affects (i.e. overlaps) a UTR region; AND
+NOT affects_cds"	such a variant will affect one of the UTRs - and also possibly promoter/enhancers - but nothing within the ORF
+overlaps_promoter	SV overlaps the promoter of a gene	
+affects_only_promoter	SV affects (i.e. overlaps) the promoter of a gene, but not the gene itself ("transcript" element)	(note: enhancers or other elements related to the gene may also be affected)
+affects_tad_boundary	SV affects (i.e. overlaps) a TAD boundary (region between two TADs that are within 100kb from each other; if they are more than 100kb apart, the boundary is considered "highly extended", which there are only ~30% of).	https://doi.org/10.1073/pnas.2413112122
+affects_noncoding_rna1	Affects (i.e. overlaps) a very important ncRNA gene (seqr known disease snRNA list)	
+affects_noncoding_rna2	Affects (i.e. overlaps) a somewhat important ncRNA gene (seqr permissive snRNA list)	
+affects_noncoding_rna3	Affects (i.e. overlaps) some ncRNA gene (any ncRNA gene from GENCODE)	
+lof_strong	"Query SV is nonintergenic; AND 
+affects_cds or splice_altering or lof_translocation (i.e. has to be within a gene)"	
+lof_moderate	Query SV is lof_prom_utr or lof_intron or lof_mobile_ins or lof_translocation (i.e. can be within a gene or next to it)	
+lof_prom_utr	Query SV affects_only_promoter or affects_utr in a gene	
+lof_intron	"Query SV is intronic; AND
+""SV length is >50% of the length of the intron size it is contained within; OR
+The distance to the nearest splice site is <1kb"""	
+lof_mobile_ins	"Query SV has INS or DEL type; AND
+Query SV is intronic OR affects_utr OR affects_only_promoter; AND
+SV classification is 'mobile element' (i.e. ""DNA"", ""LINE"", ""SINE"", ""LTR"" and ""Retroposon"" types) with ‘transposition’ status (RM_RECIPROCAL=Full)"	
+lof_translocation	"Query SV has BND type; AND
+REF position is anywhere within a gene (i.e. nonintergenic or affects_only_promoter); OR 
+REF position is within 25kb of the TSS (strand-dependent)"	
+copy_gain	Query SV has a copy-gain effect on a gene.	"This is a re-implementation of the ""PREDICTED_COPY_GAIN"" annotation from SVAnnotate:
+""Gene(s) on which the SV is predicted to have a copy-gain effect. This occurs when a duplication spans the entire transcript, from the first base of the 5' UTR to the last base of the 3' UTR."""
+gene_inversion	Query SV has a gene-inversion effect on a gene.	"This is a re-implementation of the ""PREDICTED_INV_SPAN"" annotation from SVAnnotate:
+""Gene(s) which are entirely spanned by an SV's inversion. A whole-gene inversion occurs when an inversion spans the entire transcript, from the first base of the 5' UTR to the last base of the 3' UTR."""
+dup_partial	This is a re-implementation of the "PREDICTED_DUP_PARTIAL" annotation from SVAnnotate: "Gene(s) which are partially overlapped by an SV's duplication, but the transcription start site is not duplicated. The partial duplication occurs when a duplication has one breakpoint within the transcript and one breakpoint after the end of the transcript. When the duplication is in tandem, the result is that there is one intact copy of the full endogenous gene."	
+genes_affected	If query SV affects at least one element that's associated with a gene, that gene is considered to by affected by the SV (for enhancers, if the associated gene information is available, it's sufficient for an SV to affect just that enhancer for it to "affect" the corresponding gene)	
+filtering_out1	"Query SV is ordinary_intergenic; OR
+When compared using identical_variants the query matches an SV that is common_gnomad; OR
+common_1kg; OR
+common_internal; OR
+clinvar_benign"	filter_identical provides strong evidence that the query SV is not pathogenic, because an identical SV(s) that is common/benign was identified (tier 1)
+filtering_out2	"Query SV is ordinary_intergenic; OR
+When compared using equivalent_variants the query matches an SV that is common_gnomad; OR
+common_1kg; OR
+common_internal; OR
+clinvar_benign"	filter_equivalent provides strong+moderate evidence that the query SV is not pathogenic, because an equivalent SV(s) that is common/benign was identified (tier 2)
+filtering_out3	"Query SV is ordinary_intergenic; OR
+When compared using related_variants the query matches an SV that is common_gnomad; OR
+common_1kg; OR
+common_internal; OR
+clinvar_benign"	filter_related provides strong+moderate+some evidence that the query SV is not pathogenic, because a related SV(s) that is common/benign was identified (tier 3)
+		
+prioritise_clinvar_path	When compared using identical_variants the query matches a variant that is clinvar_pathogenic	
+prioritise_clinvar_path_equivalent	When compared using equivalent_variants the query matches a variant that is clinvar_pathogenic	
+prioritise_clinvar_path_related	When compared using related_variants the query matches a variant that is clinvar_pathogenic	
+prioritise_lof_high	Query SV is lof_strong in a gene that is highly constrained (LOEUF top 20%)	
+prioritise_lof_mod	Query SV is lof_moderate or lof_strong in a gene that is moderately constrained (LOEUF top 50%)	
+prioritise_lof_mendeliome	Query SV is lof_moderate or lof_strong in a gene that is green on the mendeliome panel in panelApp	
+prioritise_lof_my_panel	Query SV is lof_moderate or lof_strong in a gene on the <user provided panel> in panelApp	
+prioritise_lof_any	Query SV is lof_moderate or lof_strong in any gene	
+prioritise_str_path	"Query SV type is INS; AND
+SV classification is ‘tandem repeat’ with STR or VNTR subclass; AND
+Left breakpoint is within or adjacent to (within 50bp) a genomic tandem repeat element that is a known pathogenic STR site; AND
+SV length is >50% size of the underlying STR site"	
+prioritise_str_novel	"Query SV type is INS; AND
+SV classification is ‘tandem repeat’ with STR or VNTR subclass; AND
+Query SV is within a gene (any part of the gene including the promoter and UTR - i.e. nonintergenic OR affects_only_promoter); AND
+""SV length is >50% larger than the genomic tandem repeat element the SV breakpoint is within or adjacent to (within 50bp); OR SV breakpoint is not within or adjacent to a genomic tandem repeat element""f"	
+interesting_gene		Mendeliome and OMIM, for now
+		
+homozygous	SV has genotype "1/1"	
+denovo	Proband's SV has no identical_variants among their parents' SVs, but data from both parents is available	
+possible_denovo	like denovo but not denovo because only one parent is available	
+recessive	"Proband's SV is
+homozygous, AND
+identical_variants with an SV from their mother, AND 
+identical_variants with an SV from their father."	
+		
+keeping0	"prioritise_clinvar_path
+prioritise_str_path"	
+keeping1	"prioritise_clinvar_path
+OR
+prioritise_lof_high
+OR
+prioritise_str_path
+OR
+prioritise_lof_my_panel
+OR
+affects_noncoding_rna1"	prioritse_tier1 (Strong evidence of pathogenicity)
+keeping2	"prioritise_clinvar_path_equivalent
+OR
+prioritise_lof_mod
+OR
+prioritise_lof_mendeliome
+OR
+prioritise_str_path
+OR
+prioritise_str_novel
+OR
+affects_noncoding_rna2"	prioritse_tier2 (Moderate evidence of pathogenicity)
+keeping3	"prioritise_clinvar_path_related
+OR
+prioritise_lof_any
+OR
+prioritise_str_path
+OR
+prioritise_str_novel
+OR
+affects_noncoding_rna2"	prioritse_tier3 (Some evidence of pathogenicity)
+		
+prioritised1	keeping1 AND NOT filtering_out1	tier 1 prioritisation
+prioritised2	keeping2 AND NOT filtering_out2	tier 2 prioritisation
+prioritised3	keeping3 AND NOT filtering_out3	tier 3 prioritisation

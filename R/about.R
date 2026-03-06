@@ -17,7 +17,8 @@ aboutUI <- function(id) {
         tabPanel("Config YAML", DT::dataTableOutput(ns("config_yaml_format"))),
         tabPanel("Filter TSV", DT::dataTableOutput(ns("filter_tsv_format"))),
         tabPanel("SNV TSV", DT::dataTableOutput(ns("snv_tsv_format"))),
-        tabPanel("SV TSV", DT::dataTableOutput(ns("sv_tsv_format")))
+        tabPanel("SV TSV", DT::dataTableOutput(ns("sv_tsv_format"))),
+        tabPanel("SVlog predicates", DT::dataTableOutput(ns("svlog_predicates_format")))
       )
     )
   )
@@ -49,6 +50,11 @@ aboutServer <- function(id) {
       })
       output$sv_tsv_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "sv_tsv_format.tsv", package = "puzzleapp")
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
+      })
+      output$svlog_predicates_format <- DT::renderDataTable({
+        doc_path <- system.file("extdata", "db", "table_schema", "documentation", "svlog_predicates_format.tsv", package = "puzzleapp")
         doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })

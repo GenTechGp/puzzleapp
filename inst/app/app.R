@@ -131,7 +131,7 @@ server <- function(input, output, session) {
   dataServer("sv_variants", shared_store, shared_rx, "SV", "SV")
   igv_server("igv", shared_store, shared_rx)
   dataServer("panel_app", shared_store, shared_rx, "panel_app", "panel_app")
-  dataServer("phenotype", shared_store, shared_rx, "phenotype", "phenotype", 1000000)
+  dataServer("phenotype", shared_store, shared_rx, "phenotype", "phenotype", 2000000)
   dataServer("vep_consequences", shared_store, shared_rx, "vep_consequences", "vep_consequences")
 
   # Expose the current session's log to viewer as default selection
