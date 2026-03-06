@@ -85,11 +85,12 @@ home_ui <- function(id) {
     shiny::fluidRow(
       shiny::column(2, shiny::actionButton(ns("clear_inputs"), "Clear inputs and delete loaded data", class = "btn-danger")),
       shiny::column(2, shiny::actionButton(ns("load_data"), "Load Data", class = "btn-primary")),
-      shiny::column(8)  # empty space
+      # shiny::column(8)  # empty space
+      shiny::column(8, shiny::textOutput(ns("status")))
     ),
     shiny::br(),
     # Feedback text
-    shiny::textOutput(ns("status")),
+    # shiny::textOutput(ns("status")),
 
 
     shiny::tags$script(shiny::HTML(sprintf("
