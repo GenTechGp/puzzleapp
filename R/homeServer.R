@@ -249,8 +249,8 @@ home_server <- function(id, shared_store, shared_rx) {
       available_cols <- sort(unique(c(snvs_cols, svs_cols)))
       selected_pref_snv_cols <- resolve_colnames(input$snv_preferences, snvs_cols)
       selected_pref_sv_cols <- resolve_colnames(input$sv_preferences, svs_cols)
-      cat("Selected SNV columns based on preferences:", selected_pref_snv_cols, "\n")
-      cat("Selected SV columns based on preferences:", selected_pref_sv_cols, "\n")
+      log_info(paste("Selected SNV columns based on preferences:", paste(selected_pref_snv_cols, collapse = ", ")))
+      log_info(paste("Selected SV columns based on preferences:", paste(selected_pref_sv_cols, collapse = ", ")))
 
       shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
@@ -261,7 +261,7 @@ home_server <- function(id, shared_store, shared_rx) {
         coverage_vaf_html_path <- normalizePath(paths$coverage_vaf_html %||% "", mustWork = FALSE)
         if (!is.na(coverage_vaf_html_path) && nzchar(coverage_vaf_html_path) && file.exists(coverage_vaf_html_path)) {
           coverage_html_safe_dir <- file.path(tempdir(), "coverage_html")
-          cat("Copying coverage VAF HTML to safe directory:", coverage_html_safe_dir, "\n")
+          log_info(paste("Copying coverage VAF HTML to safe directory:", coverage_html_safe_dir))
           if (!dir.exists(coverage_html_safe_dir)) {
             dir.create(coverage_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
           }
@@ -277,7 +277,7 @@ home_server <- function(id, shared_store, shared_rx) {
         somalier_html_path <- normalizePath(paths$somalier_html %||% "", mustWork = FALSE)
         if (!is.na(somalier_html_path) && nzchar(somalier_html_path) && file.exists(somalier_html_path)) {
           somalier_html_safe_dir <- file.path(tempdir(), "somalier_html")
-          cat("Copying Somalier HTML to safe directory:", somalier_html_safe_dir, "\n")
+          log_info(paste("Copying Somalier HTML to safe directory:", somalier_html_safe_dir))
           if (!dir.exists(somalier_html_safe_dir)) {
             dir.create(somalier_html_safe_dir, recursive = TRUE, showWarnings = FALSE)
           }
@@ -299,7 +299,8 @@ home_server <- function(id, shared_store, shared_rx) {
       msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
 
       status_text(paste(msgs, collapse = "\n"))
-      cat("Data loaded into shared_store.\n")
+      log_info("[HomeServer] Data loading complete:")
+      log_info(paste(msgs, collapse = "\n"))
 
       shinyjs::disable("load_yml")
 
@@ -378,14 +379,12 @@ home_server <- function(id, shared_store, shared_rx) {
 
       # pick either cookie values or defaults
       selected_values <- if (!is.null(cookie) && !is.null(cookie[[table_name]])) {
-        cat("[HomeServer] Loaded preferences from cookie for", table_name, ":", cookie[[table_name]], "\n")
-        cookie[[table_name]]
+        log_info(paste("[HomeServer] Loaded preferences from cookie for", table_name, ":", paste(cookie[[table_name]], collapse = ", ")))
       } else {
-        cat("[HomeServer] Using defaults for", table_name, "\n")
-        defaults
+        log_info(paste("[HomeServer] No cookie preferences found for", table_name, "- using defaults:", paste(defaults, collapse = ", ")))
       }
       # update UI
-      cat("[HomeServer] Updating", input_id, "with selected values:", selected_values, "\n")
+      log_info(paste("[HomeServer] Updating", input_id, "with selected values:", paste(selected_values, collapse = ", ")))
       updateSelectizeInput(session, input_id, choices = c("", colnames_vector), selected = selected_values)
     }
 
@@ -399,13 +398,13 @@ home_server <- function(id, shared_store, shared_rx) {
 
     # --- If cookie arrives, override defaults ---
     observeEvent(input$cookie_prefs, {
-      cat("[HomeServer] cookie_prefs received:", "\n")
+      log_info("[HomeServer] Received cookie_prefs from client.")
       # print(input$cookie_prefs)   # prints the full list in readable format
       # Flatten the list of lists into list of character vectors
       prefs <- lapply(input$cookie_prefs, function(x) unlist(x))
-      cat("[HomeServer] Flattened cookie_prefs keys and lengths:\n")
+      log_info("[HomeServer] Flattened cookie_prefs:")
       for (nm in names(prefs)) {
-        cat(nm, ":", length(prefs[[nm]]), "items\n")
+        log_info(paste("  ", nm, ":", paste(prefs[[nm]], collapse = ", ")))
       }
       update_pref_dropdown(session, "SNV",  "snv_preferences",  snv_default, prefs)
       update_pref_dropdown(session, "SV",       "sv_preferences",       sv_default, prefs)
@@ -421,7 +420,7 @@ home_server <- function(id, shared_store, shared_rx) {
         PanelApp  = input$panelapp_preferences,
         Phenotype = input$phenotype_preferences
       )
-      cat("[HomeServer] Saving preferences to cookie\n")
+      log_info("[HomeServer] User clicked Save Preferences.")
       session$sendCustomMessage("set_cookie", list(
         name = "user_prefs",
         value = prefs
