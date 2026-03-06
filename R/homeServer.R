@@ -380,8 +380,10 @@ home_server <- function(id, shared_store, shared_rx) {
       # pick either cookie values or defaults
       selected_values <- if (!is.null(cookie) && !is.null(cookie[[table_name]])) {
         log_info(paste("[HomeServer] Loaded preferences from cookie for", table_name, ":", paste(cookie[[table_name]], collapse = ", ")))
+        cookie[[table_name]]
       } else {
         log_info(paste("[HomeServer] No cookie preferences found for", table_name, "- using defaults:", paste(defaults, collapse = ", ")))
+        defaults
       }
       # update UI
       log_info(paste("[HomeServer] Updating", input_id, "with selected values:", paste(selected_values, collapse = ", ")))
