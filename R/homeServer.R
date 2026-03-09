@@ -291,9 +291,7 @@ home_server <- function(id, shared_store, shared_rx) {
         }
       }
 
-      bump_version(version_type = "data", shared_rx = shared_rx)
-      bump_version(version_type = "panelapp", shared_rx = shared_rx)
-      bump_version(version_type = "qcplot", shared_rx = shared_rx)
+
 
       msgs <- c()
       msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
@@ -314,6 +312,10 @@ home_server <- function(id, shared_store, shared_rx) {
       if (!isTRUE(getOption("puzzleapp.dev_mode"))) {
         session$sendCustomMessage("set_leave_warning", list(enable = TRUE))
       }
+
+      bump_version(version_type = "data", shared_rx = shared_rx)
+      bump_version(version_type = "panelapp", shared_rx = shared_rx)
+      bump_version(version_type = "qcplot", shared_rx = shared_rx)
 
     })
 
