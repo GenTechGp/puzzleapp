@@ -147,7 +147,7 @@ home_server <- function(id, shared_store, shared_rx) {
 
     shiny::observeEvent(input$load_data, {
       # disable load button to prevent multiple clicks
-      status_text("Loading data...")
+      # status_text("Loading data...")
       shinyjs::disable("load_data")
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
