@@ -9,7 +9,7 @@
 home_server <- function(id, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    status_text <- shiny::reactiveVal("No data loaded yet.")
+    # status_text <- shiny::reactiveVal("No data loaded yet.")
     # observe({
     #   cat("[DEBUG] All input names:", names(reactiveValuesToList(input)), "\n")
     # })
@@ -54,9 +54,18 @@ home_server <- function(id, shared_store, shared_rx) {
       session$reload()
     })
 
-    output$status <- shiny::renderText({
-      log_info(paste("[HomeServer] Updating status text to:", status_text()))
-      status_text()
+    # output$status <- shiny::renderText({
+    #   log_info(paste("[HomeServer] Updating status text to:", status_text()))
+    #   status_text()
+    # })
+    observeEvent(shared_rx$data_version(), {
+      log_info(paste("[HomeServer] Data version changed, updating status text. Current data version:", shared_rx$data_version()))
+      current_status <- ""
+      new_status <- paste(current_status, "(Data version:", shared_rx$data_version(), ")")
+      output$status <- shiny::renderText({
+        log_info(paste("[HomeServer] Rendering status text:", new_status))
+        new_status
+      })
     })
 
     shiny::observeEvent(input$load_yml, {
@@ -152,7 +161,6 @@ home_server <- function(id, shared_store, shared_rx) {
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
         shinyjs::enable("load_data")
-        status_text("No data loaded yet.")
         return()
       }
       clear_shared_store()
@@ -181,7 +189,6 @@ home_server <- function(id, shared_store, shared_rx) {
           shiny::showNotification(msg, type = "error")
         }
         shinyjs::enable("load_data")
-        status_text("No data loaded yet.")
         return()
       }
       vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
@@ -208,7 +215,6 @@ home_server <- function(id, shared_store, shared_rx) {
         if (is.null(custom_genome)) {
           shiny::showNotification("Custom genome is not properly configured in app.conf.", type = "error")
           shinyjs::enable("load_data")
-          status_text("No data loaded yet.")
           return()
         }
         igv_genome_name <- custom_genome$name
@@ -297,13 +303,13 @@ home_server <- function(id, shared_store, shared_rx) {
       msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
       msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
 
-      cat("[DEBUG] About to set status_text to:", paste(msgs, collapse = " | "), "\n")
+      # cat("[DEBUG] About to set status_text to:", paste(msgs, collapse = " | "), "\n")
       # debug msg message
-      msgs <- "Data loading complete."
-      status_text(msgs)
-      log_info("[HomeServer] Data loading complete:")
-      log_info(paste(msgs, collapse = "\n"))
-      cat("[DEBUG] status_text is now:", status_text(), "\n")
+      # msgs <- "Data loading complete."
+      # status_text(msgs)
+      # log_info("[HomeServer] Data loading complete:")
+      # log_info(paste(msgs, collapse = "\n"))
+      # cat("[DEBUG] status_text is now:", status_text(), "\n")
 
 
       shinyjs::disable("load_yml")
