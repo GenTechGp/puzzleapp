@@ -9,7 +9,6 @@
 home_server <- function(id, shared_store, shared_rx) {
   shiny::moduleServer(id, function(input, output, session) {
     ns <- session$ns
-    # status_text <- shiny::reactiveVal("No data loaded yet.")
     # observe({
     #   cat("[DEBUG] All input names:", names(reactiveValuesToList(input)), "\n")
     # })
@@ -52,20 +51,6 @@ home_server <- function(id, shared_store, shared_rx) {
       removeModal()
       session$sendCustomMessage("set_leave_warning", list(enable = FALSE))
       session$reload()
-    })
-
-    # output$status <- shiny::renderText({
-    #   log_info(paste("[HomeServer] Updating status text to:", status_text()))
-    #   status_text()
-    # })
-    observeEvent(shared_rx$data_version(), {
-      log_info(paste("[HomeServer] Data version changed, updating status text. Current data version:", shared_rx$data_version()))
-      current_status <- ""
-      new_status <- paste(current_status, "(Data version:", shared_rx$data_version(), ")")
-      output$status <- shiny::renderText({
-        log_info(paste("[HomeServer] Rendering status text:", new_status))
-        new_status
-      })
     })
 
     shiny::observeEvent(input$load_yml, {
@@ -156,7 +141,6 @@ home_server <- function(id, shared_store, shared_rx) {
 
     shiny::observeEvent(input$load_data, {
       # disable load button to prevent multiple clicks
-      # status_text("Loading data...")
       shinyjs::disable("load_data")
       if (nzchar(input$snvs_tsv) == 0 && nzchar(input$svs_tsv) == 0) {
         shiny::showNotification("No data files specified to load.", type = "error")
@@ -237,8 +221,6 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$data_for_data[["[vep_consequences]_Boundary"]] <- vep_consequences
       shared_store$data_for_data[["vep_consequences"]] <- vep_consequences
 
-
-
       stopifnot(
         !identical(
           lobstr::obj_addr(shared_store$data_for_data[["SNV"]]),
@@ -253,7 +235,6 @@ home_server <- function(id, shared_store, shared_rx) {
       }
       snvs_cols <- if (!is.null(shared_store$original_data[["SNV"]])) colnames(shared_store$original_data[["SNV"]]) else character(0)
       svs_cols  <- if (!is.null(shared_store$original_data[["SV"]])) colnames(shared_store$original_data[["SV"]]) else character(0)
-      available_cols <- sort(unique(c(snvs_cols, svs_cols)))
       selected_pref_snv_cols <- resolve_colnames(input$snv_preferences, snvs_cols)
       selected_pref_sv_cols <- resolve_colnames(input$sv_preferences, svs_cols)
       log_info(paste("Selected SNV columns based on preferences:", paste(selected_pref_snv_cols, collapse = ", ")))
@@ -297,20 +278,13 @@ home_server <- function(id, shared_store, shared_rx) {
         }
       }
 
-
-
       msgs <- c()
       msgs <- c(msgs, paste("SNVs & Indels TSV loaded with", nrow(shared_store$original_data[["SNV"]]), "rows and", ncol(shared_store$original_data[["SNV"]]), "columns."))
       msgs <- c(msgs, paste("SVs TSV loaded with", nrow(shared_store$original_data[["SV"]]), "rows and", ncol(shared_store$original_data[["SV"]]), "columns."))
 
-      # cat("[DEBUG] About to set status_text to:", paste(msgs, collapse = " | "), "\n")
-      # debug msg message
-      # msgs <- "Data loading complete."
-      # status_text(msgs)
-      # log_info("[HomeServer] Data loading complete:")
-      # log_info(paste(msgs, collapse = "\n"))
-      # cat("[DEBUG] status_text is now:", status_text(), "\n")
-
+      log_info(paste(msgs, collapse = "\n"))
+      showNotification(paste(msgs, collapse = "\n"), type = "message", duration = 30)
+      showNotification("Data loaded! You can now explore the Filter and Visualise tabs.", type = "message", duration = 20)
 
       shinyjs::disable("load_yml")
 
