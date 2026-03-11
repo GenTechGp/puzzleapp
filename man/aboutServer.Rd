@@ -4,10 +4,14 @@
 \alias{aboutServer}
 \title{About Tab Server}
 \usage{
-aboutServer(id)
+aboutServer(id, shared_store, shared_rx)
 }
 \arguments{
 \item{id}{Module ID}
+
+\item{shared_store}{Shared reactive store for app data}
+
+\item{shared_rx}{Shared reactive values for app state}
 }
 \value{
 Shiny server module

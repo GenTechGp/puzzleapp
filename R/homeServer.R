@@ -284,7 +284,7 @@ home_server <- function(id, shared_store, shared_rx) {
 
       log_info(paste(msgs, collapse = "\n"))
       showNotification(paste(msgs, collapse = "\n"), type = "message", duration = 30)
-      showNotification("Data loaded! You can now explore the Filter and Visualise tabs.", type = "message", duration = 20)
+      showNotification("Data loaded! Switch to Filter, SNV/Indel, SV tabs.", type = "message", duration = 20)
 
       shinyjs::disable("load_yml")
 

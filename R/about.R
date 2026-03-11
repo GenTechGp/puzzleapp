@@ -18,7 +18,8 @@ aboutUI <- function(id) {
         tabPanel("Filter TSV", DT::dataTableOutput(ns("filter_tsv_format"))),
         tabPanel("SNV TSV", DT::dataTableOutput(ns("snv_tsv_format"))),
         tabPanel("SV TSV", DT::dataTableOutput(ns("sv_tsv_format"))),
-        tabPanel("SVlog predicates", DT::dataTableOutput(ns("svlog_predicates_format")))
+        tabPanel("SVlog predicates", DT::dataTableOutput(ns("svlog_predicates_format"))),
+        tabPanel("VEP Consequences", DT::dataTableOutput(ns("vep_consequences_format")))
       )
     )
   )
@@ -26,9 +27,11 @@ aboutUI <- function(id) {
 
 #' About Tab Server
 #' @param id Module ID
+#' @param shared_store Shared reactive store for app data
+#' @param shared_rx Shared reactive values for app state
 #' @return Shiny server module
 #' @export
-aboutServer <- function(id) {
+aboutServer <- function(id, shared_store, shared_rx) {
   moduleServer(
     id,
     function(input, output, session) {
@@ -57,6 +60,15 @@ aboutServer <- function(id) {
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "svlog_predicates_format.tsv", package = "puzzleapp")
         doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
+      })
+      observeEvent(shared_rx$data_version(), {
+        log_debug("Data version updated, re-rendering VEP consequences documentation table")
+        # Trigger re-render of VEP consequences documentation when data version changes
+        output$vep_consequences_format <- DT::renderDataTable({
+          doc_data <- shared_store$data_for_data[["vep_consequences"]]
+          doc_data <- doc_data[, !".row_id", with = FALSE]
+          DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
+        })
       })
     }
   )
