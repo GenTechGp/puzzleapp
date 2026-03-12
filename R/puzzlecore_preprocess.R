@@ -82,7 +82,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
   #                                 sep = "\n", header = FALSE)
 
   out <- read_and_normalise_vcf(snvs_vcf)
-  snvs_data <- out$snvs_data
+  snvs_data <- out$vcf_data
   vcf_header <- out$vcf_header
 
   csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]
@@ -346,12 +346,16 @@ process_sv_data <- function(svs_vcf, pedigree_data,
       data.table::setnames(svlog_dt, "CONSEQUENCE", "SVLOG_CONSEQUENCE")
     }
   }
-  svs_data <- data.table::fread(cmd = paste("gunzip -c", svs_vcf),
-                                sep = "\t", skip = "#CHROM", header = TRUE)
-  svs_data[, ID := make.unique(as.character(ID), sep = ".")]
-  vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", svs_vcf),
-                                  sep = "\n", header = FALSE)
+  # svs_data <- data.table::fread(cmd = paste("gunzip -c", svs_vcf),
+  #                               sep = "\t", skip = "#CHROM", header = TRUE)
+  # vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", svs_vcf),
+  #                                 sep = "\n", header = FALSE)
 
+  out <- read_and_normalise_vcf(svs_vcf)
+  svs_data <- out$vcf_data
+  vcf_header <- out$vcf_header                                  
+
+  svs_data[, ID := make.unique(as.character(ID), sep = ".")]
   csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]
   if (!nrow(csq_format)) stop("CSQ format not found in VCF header.")
   csq_columns <- stringr::str_match(csq_format$V1, "Format: (.*)>")[, 2]
@@ -598,7 +602,7 @@ process_sv_data <- function(svs_vcf, pedigree_data,
 #'
 #' @param vcf_path Path to gzipped VCF (.vcf.gz)
 #' @return list with elements:
-#'   - snvs_data   : data.table of VCF body (variants)
+#'   - vcf_data   : data.table of VCF body (variants)
 #'   - vcf_header  : data.table of header lines (one per row, col V1)
 #' @keywords internal
 read_and_normalise_vcf <- function(vcf_path) {
@@ -607,7 +611,7 @@ read_and_normalise_vcf <- function(vcf_path) {
   }
 
   # 1) Read VCF body and header as in process_snv_data()
-  snvs_data <- data.table::fread(
+  vcf_data <- data.table::fread(
     cmd    = paste("gunzip -c", vcf_path),
     sep    = "\t",
     skip   = "#CHROM",
@@ -631,7 +635,7 @@ read_and_normalise_vcf <- function(vcf_path) {
   has_bcsq <- any(grepl("^##INFO=<ID=BCSQ\\b", vcf_header$V1))
 
   if (has_csq) {
-    return(list(snvs_data = snvs_data, vcf_header = vcf_header))
+    return(list(vcf_data = vcf_data, vcf_header = vcf_header))
   }
 
   # 3) Load canonical CSQ header + mapping table once
@@ -667,7 +671,7 @@ read_and_normalise_vcf <- function(vcf_path) {
          paste(missing_cols, collapse = ", "))
   }
 
-  if (!"INFO" %in% names(snvs_data)) {
+  if (!"INFO" %in% names(vcf_data)) {
     stop("VCF data does not contain an INFO column.")
   }
 
@@ -714,7 +718,7 @@ read_and_normalise_vcf <- function(vcf_path) {
   # 6) Build CSQ strings from the chosen tag, using generic normaliser
   cat("Normalising ", tag, " to CSQ for VCF: ", vcf_path, "\n", sep = "")
   csq_vec <- .build_csq_from_tag(
-    info_vec    = snvs_data$INFO,
+    info_vec    = vcf_data$INFO,
     tag         = tag,
     tag_columns = tag_columns,
     csq_columns = csq_columns,
@@ -724,14 +728,14 @@ read_and_normalise_vcf <- function(vcf_path) {
   cat("CSQ normalisation complete.\n")
 
   # 7) Inject CSQ into INFO
-  empty_info <- is.na(snvs_data$INFO) | snvs_data$INFO == ""
-  snvs_data[empty_info, INFO := ifelse(
+  empty_info <- is.na(vcf_data$INFO) | vcf_data$INFO == ""
+  vcf_data[empty_info, INFO := ifelse(
     is.na(csq_vec[empty_info]) | csq_vec[empty_info] == "",
     INFO,
     paste0("CSQ=", csq_vec[empty_info])
   )]
 
-  snvs_data[!empty_info & !is.na(csq_vec) & csq_vec != "",
+  vcf_data[!empty_info & !is.na(csq_vec) & csq_vec != "",
             INFO := paste0(INFO, ";CSQ=", csq_vec[!empty_info & !is.na(csq_vec) & csq_vec != ""])]
 
   # 8) Add canonical CSQ header line to vcf_header, if not present
@@ -753,7 +757,7 @@ read_and_normalise_vcf <- function(vcf_path) {
     }
   }
   list(
-    snvs_data  = snvs_data,
+    vcf_data  = vcf_data,
     vcf_header = vcf_header
   )
 }
