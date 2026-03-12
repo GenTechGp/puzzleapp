@@ -1,0 +1,18 @@
+VEP_CSQ_field	SnpEff_ANN_field	BCFtools_BCSQ_field
+Allele	Allele	
+Consequence	Annotation	Consequence
+IMPACT	Annotation_Impact	
+SYMBOL	Gene_Name	gene
+Gene	Gene_ID	gene
+Feature_type	Feature_Type	
+Feature	Feature_ID	transcript
+BIOTYPE	Transcript_BioType	biotype
+HGVSc	HGVS.c	dna_change
+HGVSp	HGVS.p	amino_acid_change
+cDNA_position	cDNA.pos / cDNA.length	
+CDS_position	CDS.pos / CDS.length	
+Protein_position	AA.pos / AA.length	
+DISTANCE	Distance	
+FLAGS	ERRORS / WARNINGS / INFO	
+		strand
+	Rank	
