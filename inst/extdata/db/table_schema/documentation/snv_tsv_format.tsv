@@ -45,7 +45,7 @@ HPO_COUNT	Number of user-provided HPO terms that are associated with the gene.	3
 HPO_ID	List of user-provided HPO terms that are associated with the gene.	HP:0001250,HP:0004322	HPO IDs	PuzzleApp		string	string (comma-separated)	no	0	1
 N_Cohort	Cohort size/denominator used for a cohort-derived frequency (if available).	NA	integer ≥ 0	PuzzleApp		integer	integer or NA		0	0
 N_HOM_ALT	Count of homozygous-alt individuals in gnomAD v4.	9824	integer ≥ 0	PuzzleApp		integer	integer		0	0
-alt_allele_count_n	Number of ALT alleles present in sample n (e.g., 0→0/0, 1→0/1, 2→1/1).	1	0–2 (diploid); haploid/sex-chromosome counts may differ	PuzzleApp		integer	integer		1	0
+alt_allele_count_n	Number of ALT alleles present in sample n (e.g., 0->0/0, 1->0/1, 2->1/1).	1	0–2 (diploid); haploid/sex-chromosome counts may differ	PuzzleApp		integer	integer		1	0
 clinvar_override	Flag indicating ClinVar evidence forces variant retention despite failing other filters	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
 spliceai_override	Flag indicating strong SpliceAI prediction overrides filtering thresholds	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
 NOTES	Free-text annotation field for manual comments or curator notes within PuzzleApp.		any string	PuzzleApp		string	string		0	1

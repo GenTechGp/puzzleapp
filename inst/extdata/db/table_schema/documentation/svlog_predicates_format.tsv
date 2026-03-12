@@ -1,21 +1,21 @@
 predicate name	description	comments
 identical_insertions	"Two SVs have INS type; AND
 Same SV classification; AND
-Left breakpoints within ∓ 3bp; AND
+Left breakpoints within ± 3bp; AND
 Length of smaller INS is >95% of larger INS;"	
 identical_str_vntr	"Two SVs are INS-INS or DEL-DEL; AND
 SV classification is ‘tandem repeat’ with STR or VNTR subclass (for both); AND
 Left breakpoints are within or adjacent to (within 50bp) the same genomic tandem repeat element; AND
 Length of smaller SV is >95% of larger SV"	Filtering against identical_str_vntr should identify expansions or contractions with unique size or repeat motif, compared to common alleles at a given repeat site
 identical_breakends	"Two SVs have BND type; AND
-the two REFs are within ∓ 3 bp; AND
-the two ALTs are within ∓ 3 bp"	
+the two REFs are within ± 3 bp; AND
+the two ALTs are within ± 3 bp"	
 identical_variants	"identical_insertions; OR
 identical_str_vntr; OR
 identical_breakends; OR
 Two SVs have same SV type; AND
 SV type is DEL, DUP or INV; AND
-Share two breakpoints that are both within ∓ 3 bp"	Used for filter_identical (filtering_out1)
+Share two breakpoints that are both within ± 3 bp"	Used for filter_identical (filtering_out1)
 equivalent_insertions	"Two SVs have INS type; AND
 Same SV classification; AND
 Distance between their left breakpoints is <20% length of smaller INS; AND

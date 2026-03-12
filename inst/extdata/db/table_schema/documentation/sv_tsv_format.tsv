@@ -30,10 +30,10 @@ HPO_ID	List of user-provided HPO terms that are associated with the gene.	HP:000
 clinvar_override	Flag indicating ClinVar evidence forces variant retention despite failing other filters	TRUE	TRUE/FALSE	PuzzleApp		boolean	logical	yes	0	1
 alt_allele_count_n	Number of ALT alleles present in sample n (e.g. 0, 1, 2 for diploid).	1	0–2 (diploid); haploid/sex-chromosome counts may differ	PuzzleApp		integer	integer		1	0
 NOTES	Free-text annotation field for manual comments or curator notes within PuzzleApp.		any string	PuzzleApp		string	string		0	1
-PRIORITISED	Tiered prioritisation based on SVlog match strength (e.g. identical → equivalent → related). Higher tiers reflect stronger evidence of variant equivalence across datasets or logic rules.	2	1-3	SVlog		string	string		0	0
-KEEPING	Keeping tier (0–3) based on SVlog match strength (identical → equivalent → related)	2,3	0-3	SVlog		string	string		0	0
+PRIORITISED	Tiered prioritisation based on SVlog match strength (e.g. identical -> equivalent -> related). Higher tiers reflect stronger evidence of variant equivalence across datasets or logic rules.	2	1-3	SVlog		string	string		0	0
+KEEPING	Keeping tier (0-3) based on SVlog match strength (identical -> equivalent -> related)	2,3	0-3	SVlog		string	string		0	0
 KEEPING_EVIDENCE	SVlog predicates selected for explicitly keeping variants	prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod	prioritise_str_novel, prioritise_lof_any, prioritise_lof_any,prioritise_lof_mod, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod, prioritise_lof_any,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mod,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_lof_mod,prioritise_str_novel, prioritise_lof_any,prioritise_lof_mendeliome, prioritise_lof_any,prioritise_lof_mendeliome,prioritise_str_novel, prioritise_lof_any,prioritise_lof_high,prioritise_lof_mendeliome,prioritise_lof_mod	SVlog		string	string		0	0
-FILTERING_OUT	Filtering out tier (1–3) based on SVlog match strength (identical → equivalent → related)	1,2,3	1-3	SVlog		string	string		0	0
+FILTERING_OUT	Filtering out tier (1-3) based on SVlog match strength (identical -> equivalent -> related)	1,2,3	1-3	SVlog		string	string		0	0
 FILTERING_OUT_EVIDENCE	SVlog predicates selected for explicitly filtering out variants	common_internal,ordinary_intergenic	common_1kg, common_gnomad, common_internal, ordinary_intergenic	SVlog		string	string		0	0
 SVLOG_ID	Identifier used within SVlog predicate space (may differ from VCF ID).	LRS00117-00-RF-06_7483_Sniffles2.DEL.100S2D	any non-empty string	SVlog		string	string		0	0
 SVLOG_CONSEQUENCE	Consequence assigned by SVlog logic rules (logic-derived functional annotation).	intergenic	any non-empty string	SVlog		string	string	Yes	0	0
@@ -73,9 +73,9 @@ FINAL_CLASSIFICATION	Final SVscanner classification indicating whether SV is non
 CONSENSUS_REPEAT	Consensus sepeat sequence for tandem repeats.	AAAGGAAGGTTCAACTCTGTGAGTTGAATGCACACATCACAAAGAAG	any non-empty string	SVscanner		string	string		0	0
 RM_CLASSIFICATION	Repeat class(es) overlapping the SV: SINE, LINE, LTR, DNA, Retroposon, NON-REPETITIVE.	SINE	DNA, HOMO, LINE, LTR, Retroposon, SINE	SVscanner		string	string		0	0
 RM_RECIPROCAL	Overlap class for the dominant RepeatMasker class. Full if at least ~75% of the SV is covered and each overlapped repeat element is mostly covered (≥75%). Partial if ≥75% SV coverage but some <75%.	Partial	full, partial	SVscanner		string	string		0	0
-RM_TOTAL_SV_COVERAGE	Proportion of the SV covered by RepeatMasker hits, with overlaps merged so regions aren’t counted twice [0–1].	1	any non-empty string	SVscanner		string	string		0	0
+RM_TOTAL_SV_COVERAGE	Proportion of the SV covered by RepeatMasker hits, with overlaps merged so regions aren’t counted twice [0-1].	1	any non-empty string	SVscanner		string	string		0	0
 TRF_CLASSIFICATION	TRF repeat class(es) overlapping the SV: HOMO (homopolymer), STR, VNTR, TR, or NON-REPETITIVE.	TR	STR, TR, VNTR	SVscanner		string	string		0	0
 TRF_PERIOD_SIZE	Period size(s) in bp for each TRF hit.	171	any non-empty string	SVscanner		string	string		0	0
 TRF_COPY_NUMBER	Copy number(s) for each TRF hit.	21	any non-empty string	SVscanner		string	string		0	0
 TRF_SV_COVERAGE	For each TRF hit, fraction of SV length covered.	1	any non-empty string	SVscanner		string	string		0	0
-TRF_TOTAL_SV_COVERAGE	Proportion of the SV covered by TRF hits, with overlaps merged so regions aren’t counted twice [0–1].	1	any non-empty string	SVscanner		string	string		0	0
+TRF_TOTAL_SV_COVERAGE	Proportion of the SV covered by TRF hits, with overlaps merged so regions aren’t counted twice [0-1].	1	any non-empty string	SVscanner		string	string		0	0

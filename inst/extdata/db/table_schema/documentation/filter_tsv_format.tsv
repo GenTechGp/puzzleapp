@@ -40,8 +40,8 @@ SV_SVlog_internal_max_families	No	Maximum number of internal families carrying t
 SV_SVlog_1000G_max_carriers	No	Maximum number of carriers allowed in 1000 Genomes		7
 SV_SVlog_Advanced_Keeping	No	SVlog predicates selected for explicitly keeping variants		prioritise_lof_any;prioritise_lof_mendeliome;prioritise_lof_mod
 SV_SVlog_Advanced_Filtering_out	No	SVlog predicates selected for explicitly filtering out variants		common_1kg;common_gnomad;common_intergenic
-SV_Keeping	No	Keeping tier (0–3) based on SVlog match strength (identical → equivalent → related)		1;3
-SV_Filtering_out	No	Filtering out tier (1–3) based on SVlog match strength (identical → equivalent → related)		1;2;3
+SV_Keeping	No	Keeping tier (0-3) based on SVlog match strength (identical -> equivalent -> related)		1;3
+SV_Filtering_out	No	Filtering out tier (1-3) based on SVlog match strength (identical -> equivalent -> related)		1;2;3
 SV_intronic_splice_max_dist	No	Maximum distance from splice junction for intronic SVs	0	7
 SV_intronic_min_len_intron_ratio	No	Minimum SV length relative to intron length	0	0.11
 SV_tad_max_dist	No	Maximum distance to topologically associating domain (TAD) boundary	0	6

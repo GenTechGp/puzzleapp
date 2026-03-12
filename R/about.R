@@ -38,27 +38,28 @@ aboutServer <- function(id, shared_store, shared_rx) {
       ns <- session$ns
       output$config_yaml_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "config_yaml_format.tsv", package = "puzzleapp")
-        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        # ensure the tsv is UTF-8 encoded to avoid issues with special characters
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
       output$filter_tsv_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "filter_tsv_format.tsv", package = "puzzleapp")
-        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
       output$snv_tsv_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "snv_tsv_format.tsv", package = "puzzleapp")
-        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
       output$sv_tsv_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "sv_tsv_format.tsv", package = "puzzleapp")
-        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
       output$svlog_predicates_format <- DT::renderDataTable({
         doc_path <- system.file("extdata", "db", "table_schema", "documentation", "svlog_predicates_format.tsv", package = "puzzleapp")
-        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE)
+        doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
       observeEvent(shared_rx$data_version(), {
@@ -66,6 +67,9 @@ aboutServer <- function(id, shared_store, shared_rx) {
         # Trigger re-render of VEP consequences documentation when data version changes
         output$vep_consequences_format <- DT::renderDataTable({
           doc_data <- shared_store$data_for_data[["vep_consequences"]]
+          if (is.null(doc_data)) {
+            return(NULL)
+          }
           doc_data <- doc_data[, !".row_id", with = FALSE]
           DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
         })
