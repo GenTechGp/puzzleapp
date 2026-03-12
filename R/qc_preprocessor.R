@@ -344,7 +344,10 @@ generate_qc_htmls_from_config <- function(config_path) {
     fread(cfg$paths$snvs_tsv) else NULL
 
   out <- cfg$paths$coverage_vaf_html
-  if (is.null(out) || !nzchar(out)) stop("paths.coverage_vaf_html not set")
+  if (is.null(out) || !nzchar(out)) {
+    cat("Warning: paths.coverage_vaf_html not set. No HTML file will be generated.\n")
+    return(invisible(NULL))
+  }
 
   generate_coverage_vaf_html(cov, snvs, ped, out)
   invisible(out)

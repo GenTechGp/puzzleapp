@@ -76,10 +76,14 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
   cat("Processing SNV VCF:", snvs_vcf, "\n")
   if (!file.exists(snvs_vcf)) stop("SNV VCF file not found: ", snvs_vcf)
 
-  snvs_data <- data.table::fread(cmd = paste("gunzip -c", snvs_vcf),
-                                 sep = "\t", skip = "#CHROM", header = TRUE)
-  vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", snvs_vcf),
-                                  sep = "\n", header = FALSE)
+  # snvs_data <- data.table::fread(cmd = paste("gunzip -c", snvs_vcf),
+  #                                sep = "\t", skip = "#CHROM", header = TRUE)
+  # vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", snvs_vcf),
+  #                                 sep = "\n", header = FALSE)
+
+  out <- read_and_normalise_vcf(snvs_vcf)
+  snvs_data <- out$snvs_data
+  vcf_header <- out$vcf_header
 
   csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]
   if (!nrow(csq_format)) stop("CSQ format not found in VCF header.")
@@ -108,7 +112,6 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
   snvs_data_melt <- data.table::melt(
     snvs_data, id.vars = id_vars, variable.name = "Sample", value.name = "Value"
   )
-
   if (!"FORMAT" %in% names(snvs_data_melt)) stop("FORMAT column missing.")
 
   snvs_data_melt[, num_fields := lengths(strsplit(FORMAT, ":"))]
@@ -164,11 +167,31 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
       round(as.integer(get(ad_vars[i])) / as.integer(get(dp_vars[i])), 2)]
   }
 
-  snvs_data_melt[, CSQ := stringr::str_extract(INFO, "CSQ=[^;]+")]
-  snvs_data_melt[, CSQ := sub("^CSQ=", "", CSQ)]
+  # snvs_data_melt[, CSQ := stringr::str_extract(INFO, "CSQ=[^;]+")]
+  # snvs_data_melt[, CSQ := sub("^CSQ=", "", CSQ)]
+  snvs_data_melt[, CSQ := ifelse(
+    grepl("(?:^|;)CSQ=", INFO),
+    sub(".*(?:^|;)CSQ=([^;]+).*", "\\1", INFO),
+    NA_character_
+  )]
   csq_split <- snvs_data_melt[, tstrsplit(CSQ, "|", fixed = TRUE)]
+  n_expected <- length(csq_columns)
+  n_actual   <- if (!is.null(csq_split)) ncol(csq_split) else 0L
+  if (n_actual == n_expected - 1L) {
+    # Special case: exactly one column short → treat as missing final field
+    # (e.g. last VEP field empty, "…||" case)
+    csq_split[, paste0("V", n_actual + 1L) := ""]
+    n_actual <- ncol(csq_split)
+  }
+  if (n_actual != n_expected) {
+    stop(
+      "CSQ column count mismatch after parsing. ",
+      "Expected ", n_expected, " fields per CSQ entry (from header), got ", n_actual, "."
+    )
+  }
   data.table::setnames(csq_split, csq_columns)
   snvs_data_melt <- cbind(snvs_data_melt, csq_split)
+  
 
   snvs_data_melt[, SpliceAI_pred := paste(
     SpliceAI_pred_SYMBOL, SpliceAI_pred_DS_DL, SpliceAI_pred_DS_DG,
@@ -554,4 +577,262 @@ process_sv_data <- function(svs_vcf, pedigree_data,
 
   cat("SV data processed.\n")
   return(unique(full))
+}
+
+
+#' Read VCF and normalise functional annotations to CSQ
+#'
+#' This helper reads a gzipped VCF and:
+#' - If a CSQ INFO header is present, returns the data and header unchanged.
+#' - Else, if an ANN INFO header is present, it builds a pseudo-CSQ INFO field
+#'   from ANN using CSQ_mapping.tsv.
+#' - Else, if a BCSQ INFO header is present, it builds a pseudo-CSQ INFO field
+#'   from BCSQ using CSQ_mapping.tsv.
+#' - Else, errors.
+#'
+#' It assumes:
+#' - A resource file "CSQ_ANN_BSQ_header.txt" containing at least the canonical
+#'   CSQ INFO header line (used to derive csq_columns).
+#' - A resource file "CSQ_mapping.tsv" with columns:
+#'     VEP_CSQ_field, SnpEff_ANN_field, BCFtools_BCSQ_field
+#'
+#' @param vcf_path Path to gzipped VCF (.vcf.gz)
+#' @return list with elements:
+#'   - snvs_data   : data.table of VCF body (variants)
+#'   - vcf_header  : data.table of header lines (one per row, col V1)
+#' @keywords internal
+read_and_normalise_vcf <- function(vcf_path) {
+  if (!file.exists(vcf_path)) {
+    stop("VCF file not found: ", vcf_path)
+  }
+
+  # 1) Read VCF body and header as in process_snv_data()
+  snvs_data <- data.table::fread(
+    cmd    = paste("gunzip -c", vcf_path),
+    sep    = "\t",
+    skip   = "#CHROM",
+    header = TRUE
+  )
+
+  vcf_header <- data.table::fread(
+    cmd    = paste("zgrep '^##' ", vcf_path),
+    sep    = "\n",
+    header = FALSE
+  )
+
+  # Ensure header column name is V1
+  if (!"V1" %in% names(vcf_header)) {
+    data.table::setnames(vcf_header, names(vcf_header), "V1")
+  }
+
+  # 2) If CSQ already present, just return as-is
+  has_csq  <- any(grepl("^##INFO=<ID=CSQ\\b",  vcf_header$V1))
+  has_ann  <- any(grepl("^##INFO=<ID=ANN\\b",  vcf_header$V1))
+  has_bcsq <- any(grepl("^##INFO=<ID=BCSQ\\b", vcf_header$V1))
+
+  if (has_csq) {
+    return(list(snvs_data = snvs_data, vcf_header = vcf_header))
+  }
+
+  # 3) Load canonical CSQ header + mapping table once
+  header_file <- system.file("extdata", "preprocess", "CSQ_ANN_BSQ_header.txt", package = "puzzleapp")
+  if (header_file == "") {
+    stop("Resource file 'CSQ_ANN_BSQ_header.txt' not found in extdata.")
+  }
+  hdr_lines <- readLines(header_file, warn = FALSE)
+
+  csq_header_line <- hdr_lines[grepl("^##INFO=<ID=CSQ\\b", hdr_lines)]
+  if (!length(csq_header_line)) {
+    stop("Canonical CSQ header line not found in CSQ_ANN_BSQ_header.txt.")
+  }
+
+  # Parse canonical CSQ column order from the header line
+  csq_format_str <- sub('.*Format: *([^"]*)".*', "\\1", csq_header_line)
+  csq_columns    <- strsplit(csq_format_str, "\\|")[[1]]
+  csq_columns    <- trimws(csq_columns)
+  if (!length(csq_columns)) {
+    stop("Failed to parse canonical CSQ columns from CSQ_ANN_BSQ_header.txt.")
+  }
+
+  mapping_file <- system.file("extdata", "preprocess", "CSQ_mapping.tsv", package = "puzzleapp")
+  if (mapping_file == "") {
+    stop("Resource file 'CSQ_mapping.tsv' not found in extdata.")
+  }
+
+  csq_map <- data.table::fread(mapping_file, sep = "\t", header = TRUE)
+  required_cols <- c("VEP_CSQ_field", "SnpEff_ANN_field", "BCFtools_BCSQ_field")
+  missing_cols  <- setdiff(required_cols, names(csq_map))
+  if (length(missing_cols)) {
+    stop("CSQ_mapping.tsv is missing required column(s): ",
+         paste(missing_cols, collapse = ", "))
+  }
+
+  if (!"INFO" %in% names(snvs_data)) {
+    stop("VCF data does not contain an INFO column.")
+  }
+
+  # 4) Decide which tag to normalise (ANN or BCSQ)
+  if (has_ann) {
+    tag         <- "ANN"
+    mapping_col <- "SnpEff_ANN_field"
+    tag_header_idx <- which(grepl("^##INFO=<ID=ANN\\b", vcf_header$V1))[1]
+  } else if (has_bcsq) {
+    tag         <- "BCSQ"
+    mapping_col <- "BCFtools_BCSQ_field"
+    tag_header_idx <- which(grepl("^##INFO=<ID=BCSQ\\b", vcf_header$V1))[1]
+  } else {
+    stop("Neither CSQ, ANN nor BCSQ INFO header found in VCF: ", vcf_path)
+  }
+
+  tag_header_raw <- vcf_header$V1[tag_header_idx]
+  tag_columns <- NULL
+  # 5) Parse tag-specific column order from its header using explicit patterns
+  if (tag == "ANN") {
+    # SnpEff ANN: "Functional annotations: 'Allele | Annotation | ...'"
+    if (!grepl("Functional annotations:", tag_header_raw)) {
+      stop("ANN INFO header does not contain 'Functional annotations:' text.")
+    }
+    tag_format_str <- sub(".*Functional annotations: *'([^']*)'.*", "\\1", tag_header_raw)
+    tag_columns <- strsplit(tag_format_str, "\\|")[[1]]
+    tag_columns <- trimws(tag_columns)
+  } else if (tag == "BCSQ") {
+    # BCFtools/csq BCSQ: "... Format: Consequence|gene|transcript|biotype|strand|amino_acid_change|dna_change"
+    if (!grepl("Format:", tag_header_raw)) {
+      stop("BCSQ INFO header does not contain 'Format:' text.")
+    }
+    tag_format_str <- sub('.*Format: *([^"]*)".*', "\\1", tag_header_raw)
+    tag_columns <- strsplit(tag_format_str, "\\|")[[1]]
+    tag_columns <- trimws(tag_columns)
+  } else {
+    stop("Unsupported tag '", tag, "' in read_and_normalise_vcf (expected ANN or BCSQ).")
+  }
+
+  if (!length(tag_columns)) {
+    stop("Failed to parse ", tag, " columns from INFO header.")
+  }
+
+  # 6) Build CSQ strings from the chosen tag, using generic normaliser
+  cat("Normalising ", tag, " to CSQ for VCF: ", vcf_path, "\n", sep = "")
+  csq_vec <- .build_csq_from_tag(
+    info_vec    = snvs_data$INFO,
+    tag         = tag,
+    tag_columns = tag_columns,
+    csq_columns = csq_columns,
+    csq_map     = csq_map,
+    mapping_col = mapping_col
+  )
+  cat("CSQ normalisation complete.\n")
+
+  # 7) Inject CSQ into INFO
+  empty_info <- is.na(snvs_data$INFO) | snvs_data$INFO == ""
+  snvs_data[empty_info, INFO := ifelse(
+    is.na(csq_vec[empty_info]) | csq_vec[empty_info] == "",
+    INFO,
+    paste0("CSQ=", csq_vec[empty_info])
+  )]
+
+  snvs_data[!empty_info & !is.na(csq_vec) & csq_vec != "",
+            INFO := paste0(INFO, ";CSQ=", csq_vec[!empty_info & !is.na(csq_vec) & csq_vec != ""])]
+
+  # 8) Add canonical CSQ header line to vcf_header, if not present
+  cat("Ensuring CSQ INFO header is present in VCF header.\n")
+  if (!any(grepl("^##INFO=<ID=CSQ\\b", vcf_header$V1))) {
+    info_idx <- grep("^##INFO=", vcf_header$V1)
+    if (length(info_idx)) {
+      insert_pos <- max(info_idx) + 1L
+      vcf_header <- data.table::rbindlist(list(
+        vcf_header[seq_len(insert_pos - 1L)],
+        data.table::data.table(V1 = csq_header_line),
+        vcf_header[seq(insert_pos, nrow(vcf_header))]
+      ), use.names = TRUE, fill = TRUE)
+    } else {
+      vcf_header <- data.table::rbindlist(
+        list(vcf_header, data.table::data.table(V1 = csq_header_line)),
+        use.names = TRUE, fill = TRUE
+      )
+    }
+  }
+  list(
+    snvs_data  = snvs_data,
+    vcf_header = vcf_header
+  )
+}
+
+# -------------------------------------------------------------------------
+# Generic tag -> CSQ normaliser
+# -------------------------------------------------------------------------
+
+#' Build CSQ strings from an annotation tag (ANN or BCSQ)
+#'
+#' @param info_vec    Character vector of INFO column values.
+#' @param tag         Tag name in INFO ("ANN" or "BCSQ").
+#' @param tag_columns Character vector: field order for the tag (from header).
+#' @param csq_columns Canonical CSQ schema (from CSQ header).
+#' @param csq_map     Mapping table (data.table) with VEP_CSQ_field + mapping cols.
+#' @param mapping_col Column name in csq_map to use ("SnpEff_ANN_field" or "BCFtools_BCSQ_field").
+#' @return Character vector of CSQ strings, one per element of info_vec.
+#' @keywords internal
+.build_csq_from_tag <- function(info_vec,
+                                tag,
+                                tag_columns,
+                                csq_columns,
+                                csq_map,
+                                mapping_col) {
+  # Extract TAG=... from INFO
+  tag_pattern <- paste0(tag, "=[^;]+")
+  tag_raw <- stringr::str_extract(info_vec, tag_pattern)
+  tag_val <- sub(paste0("^", tag, "="), "", tag_raw)
+  tag_val[is.na(tag_raw)] <- NA_character_
+
+  # Pre-filter mapping to rows where this tag's field is non-empty
+  if (!mapping_col %in% names(csq_map)) {
+    stop("Mapping column ", mapping_col, " not found in csq_map.")
+  }
+  map_subset <- csq_map[!is.na(get(mapping_col)) & get(mapping_col) != ""]
+
+  build_one <- function(one_val) {
+    if (is.na(one_val) || one_val == "") {
+      return(NA_character_)
+    }
+
+    # Multiple entries per record are comma-separated; pick the first for now
+    entries <- strsplit(one_val, ",", fixed = TRUE)[[1]]
+    entry   <- entries[1]
+
+    # Split entry into tag columns
+    fields <- strsplit(entry, "\\|")[[1]]
+    if (length(fields) < length(tag_columns)) {
+      fields <- c(fields, rep("", length(tag_columns) - length(fields)))
+    }
+    names(fields) <- tag_columns
+
+    # Construct CSQ columns in canonical order
+    csq_vals <- character(length(csq_columns))
+
+    for (j in seq_along(csq_columns)) {
+      csq_name <- csq_columns[j]
+      val <- ""
+
+      map_row <- map_subset[VEP_CSQ_field == csq_name]
+      if (nrow(map_row) == 1L) {
+        tag_name <- map_row[[mapping_col]]
+        if (!is.null(tag_name) && !is.na(tag_name) &&
+            nzchar(tag_name) && tag_name %in% names(fields)) {
+          val <- fields[[tag_name]]
+        }
+      }
+
+      csq_vals[j] <- ifelse(is.na(val), "", val)
+    }
+
+    out <- paste(csq_vals, collapse = "|")
+    # Debug: count pipes for BCSQ path
+    # if (tag == "BCSQ") {
+    #   pc <- nchar(out) - nchar(gsub("\\|", "", out))
+    #   message("DEBUG BCSQ->CSQ: ", out, "  [", pc, " pipes]")
+    # }
+    out
+  }
+
+  vapply(tag_val, build_one, character(1L))
 }
