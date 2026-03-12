@@ -1,0 +1,19 @@
+samples:
+  - sample_id: "PGXXSX240470"
+    kinship: "proband"
+    status: "affected"
+    sex:  ""
+    code: 1
+    bam: ""
+    coverage: ""
+
+paths:
+  snvs_vcf: "tests/preprocess/ont_singleton.vcf.gz"
+  snvs_tsv: "tests/preprocess/PGXXSX240470.wf_snp.tsv"
+  svs_vcf: ""
+  svs_tsv: ""
+  svlog_static: ""
+  svlog_db: ""
+  coverage_vaf_html: ""
+  somalier_html: ""
+  work_dir: "/home/561/hm4078"

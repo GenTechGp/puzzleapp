@@ -1,0 +1,37 @@
+samples:
+  - sample_id: "LRS00112-00-RF-01"
+    kinship: "proband"
+    status: "affected"
+    sex: "male"
+    code: 1
+    bam: ""
+    coverage: ""
+  - sample_id: "LRS00112-01-RF-01"
+    kinship: "mother"
+    status: "unaffected"
+    sex: "female"
+    code: 2
+    bam: ""
+    coverage: ""
+  - sample_id: "LRS00112-03-RF-01"
+    kinship: "brother"
+    status: "NA"
+    sex: "male"
+    code: 3
+    bam: ""
+    coverage: ""
+  - sample_id: "LRS00112-04-RF-01"
+    kinship: "uncle"
+    status: "NA"
+    sex: "male"
+    code: 4
+    bam: ""
+    coverage: ""
+paths:
+  snvs_vcf: "tests/preprocess/pipeface.vcf.gz"
+  snvs_tsv: "tests/preprocess/pipeface.snvs.tsv"
+  snvs_vcf_cohort: ""
+  svs_vcf: ""
+  svs_tsv: ""
+
+

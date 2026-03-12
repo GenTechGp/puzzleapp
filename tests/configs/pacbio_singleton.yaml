@@ -1,0 +1,19 @@
+samples:
+  - sample_id: "RGBX240039"
+    kinship: "proband"
+    status: "affected"
+    sex:  ""
+    code: 1
+    bam: ""
+    coverage: ""
+
+paths:
+  snvs_vcf: "tests/preprocess/pacbio.vcf.gz"
+  snvs_tsv: "tests/preprocess/RGBX240039.wf_snp.tsv"
+  svs_vcf: ""
+  svs_tsv: ""
+  svlog_static: ""
+  svlog_db: ""
+  coverage_vaf_html: ""
+  somalier_html: ""
+  work_dir: "/home/561/hm4078"
