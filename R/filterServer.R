@@ -15,7 +15,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     amber_genes <- reactiveVal()
     unclassified_genes <- reactiveVal()
     allele_table_ready <- reactiveVal(FALSE)
-    updating_filters <- reactiveVal(FALSE)
+    updating_filters_list <- reactiveVal(FALSE)
+    updating_filters_programmatically <- reactiveVal(FALSE)
 
     # Sessions
     sessions_dir <- reactive({
@@ -71,11 +72,13 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (!is.null(loaded)) {
         reset_params <- filters_state$all[['Reset_all']]
         update_filters_params(reset_params, session)
+        updating_filters_programmatically(TRUE)
         update_filters_params(loaded$filters, session)
+        shinyjs::delay(100, updating_filters_programmatically(FALSE))  # reset after updates
         phenos(c(loaded$filters[["HPO_Terms"]]))
-        
+
         # pre-saved filter
-        updating_filters(TRUE)  # start "isolated" mode
+        updating_filters_list(TRUE)  # start "isolated" mode
         choice <- loaded$filters[["PreSaved_Filter"]]
         choices <- c("", names(filters_state$all))
         # check if choice is in choices (choice can be empty)
@@ -84,7 +87,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         } else {
           updateSelectizeInput(session, "pre_saved_filters", selected = "")
         }
-        shinyjs::delay(100, updating_filters(FALSE))  # release after updates
+        shinyjs::delay(100, updating_filters_list(FALSE))  # release after updates
 
         # Wait 500 ms (enough time for UI to render) if loaded$filters$Inheritance is "Custom" then update custom alleles
         if (loaded$filters$Inheritance == "Custom") {
@@ -217,29 +220,65 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       bump_version(version_type = "data", shared_rx = shared_rx)
     })
 
+    # updateAnnotationSelection <- function(selected_option, checkbox_id, session) {
+    #   # annotation_map <- list(
+    #   #   "High impact" = c("Stop gained", "Start lost", "Stop lost", "Splice variant", "Frameshift variant"),
+    #   #   "Moderate to high impact" = c("Stop gained", "Start lost", "Stop lost", "Splice variant",
+    #   #                                 "Frameshift variant", "Missense variant", "In-frame variant")
+    #   # )
+
+    #   annotation_map <- list(
+    #     "HIGH" = c("transcript_ablation","splice_acceptor_variant","splice_donor_variant","stop_gained","frameshift_variant","stop_lost","start_lost","transcript_amplification","feature_elongation","feature_truncation"),
+    #     "MODERATE" = c("inframe_insertion","inframe_deletion","missense_variant","protein_altering_variant")
+    #   )
+    #   select <- annotation_map[[selected_option]]
+    #   if (is.null(select)) select <- character(0)
+    #   cat(sprintf("Updating checkboxes '%s' with selected annotations: %s\n", checkbox_id, paste(select, collapse = ", ")))
+    #   updateCheckboxGroupInput(session, checkbox_id, selected = select)
+    #   cat(sprintf("Available annotation options: %s\n", paste(names(annotation_map), collapse = ", ")))
+    #   cat(sprintf("Checkboxes '%s' updated.\n", checkbox_id))
+    # }
+
     updateAnnotationSelection <- function(selected_option, checkbox_id, session) {
       cat(sprintf("Annotation selection changed: %s\n", selected_option))
       annotation_map <- list(
-        "High impact" = c("Stop gained", "Start lost", "Stop lost", "Splice variant", "Frameshift variant"),
-        "Moderate to high impact" = c("Stop gained", "Start lost", "Stop lost", "Splice variant",
-                                      "Frameshift variant", "Missense variant", "In-frame variant")
+        "None" = character(0),
+        "HIGH" = c("frameshift_variant", "transcript_ablation", "transcript_amplification", "feature_elongation", "feature_truncation", "splice_acceptor_variant", "splice_donor_variant", "start_lost", "stop_gained", "stop_lost"),
+        "MODERATE" = c("inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant"),
+        "LOW" = c("incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant", "splice_donor_5th_base_variant", "splice_region_variant", "splice_donor_region_variant", "splice_polypyrimidine_tract_variant", "synonymous_variant"),
+        "MODIFIER" = c("3_prime_UTR_variant", "5_prime_UTR_variant", "intergenic_variant", "intron_variant", "coding_sequence_variant", "mature_miRNA_variant", "non_coding_transcript_exon_variant", "NMD_transcript_variant", "non_coding_transcript_variant", "coding_transcript_variant", "upstream_gene_variant", "downstream_gene_variant", "TFBS_ablation", "TFBS_amplification", "TF_binding_site_variant", "regulatory_region_ablation", "sequence_variant", "regulatory_region_amplification", "regulatory_region_variant")
       )
-      select <- annotation_map[[selected_option]]
-      if (is.null(select)) select <- character(0)
-      updateCheckboxGroupInput(session, checkbox_id, selected = select)
+
+      # treat NULL or empty selection as "None"
+      if (is.null(selected_option) || length(selected_option) == 0) {
+        selected_annotations <- character(0)
+      } else {
+        valid <- intersect(selected_option, names(annotation_map))
+        selected_annotations <- unique(unlist(annotation_map[valid]))
+      }
+      cat(sprintf("Mapped annotation selection: %s -> %s\n", selected_option, paste(selected_annotations, collapse = ", ")))
+      updateCheckboxGroupInput(session, checkbox_id, selected = selected_annotations)
     }
 
-    observeEvent(input$annotation, {
-      updateAnnotationSelection(input$annotation, "conseq_checkboxes", session)
-    })
+    observeEvent(input$consequence, {
+      if (updating_filters_programmatically()) return()
+      selected <- input$consequence %||% character(0)
+      tryCatch({
+        updateAnnotationSelection(selected, "conseq_checkboxes", session)
+      }, error = function(e) {
+        cat("Error:", e$message, "\n")
+      })
+    }, ignoreNULL = FALSE)
 
-    observeEvent(input$sv_annotation, {
-      updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
-    })
-
-    observeEvent(input$sv_annotation, {
-      updateAnnotationSelection(input$sv_annotation, "sv_conseq_checkboxes", session)
-    })
+    observeEvent(input$sv_consequence, {
+      if (updating_filters_programmatically()) return()
+      selected <- input$sv_consequence %||% character(0)
+      tryCatch({
+        updateAnnotationSelection(selected, "sv_conseq_checkboxes", session)
+      }, error = function(e) {
+        cat("Error:", e$message, "\n")
+      })
+    }, ignoreNULL = FALSE)
 
     updatePathogenicitySelection <- function(selected_option, checkbox_id, session) {
       cat(sprintf("Pathogenicity selection changed: %s\n", selected_option))
@@ -320,7 +359,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       },
       ignoreInit = FALSE
     )
-    
+
     # Render UI outputs for each gene category
     output$green_genes <- renderText({
       val <- green_genes()
@@ -380,8 +419,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     )
 
     update_filters_dropdowns <- function(session, shared_store, saved_filters) {
-      filters_state$all <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = TRUE)
-      filters_state$work_dir <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = FALSE)
+      filters_state$all <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = TRUE, vep_consequences = shared_store$vep_consequences)
+      filters_state$work_dir <- read_search_files(file.path(shared_store$work_dir, saved_filters), flag_all = FALSE, vep_consequences = shared_store$vep_consequences)
       choices <- c("", names(filters_state$all))
       cat("[filtServer] Updating pre_saved_filters choices:", paste(choices, collapse = ", "), "\n")
       updateSelectizeInput(session, "pre_saved_filters", choices = choices, selected = isolate(input$pre_saved_filters))
@@ -427,12 +466,14 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     })
 
     observeEvent(input$pre_saved_filters, {
-      if (updating_filters()) return()  # skip during isolated update
+      if (updating_filters_list()) return()  # skip during isolated update
       reset_params <- filters_state$all[['Reset_SNV_SV']]
-      update_filters_params(reset_params, session)
       selected_filter <- input$pre_saved_filters
       filter_params <- filters_state$all[[selected_filter]]
+      update_filters_params(reset_params, session)
+      updating_filters_programmatically(TRUE)
       update_filters_params(filter_params, session)
+      shinyjs::delay(100, updating_filters_programmatically(FALSE))  # reset after updates
       if (length(filter_params[["HPO_Terms"]]) > 0) {
         phenos(c(filter_params[["HPO_Terms"]]))
       }

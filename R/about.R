@@ -62,17 +62,9 @@ aboutServer <- function(id, shared_store, shared_rx) {
         doc_data <- read.delim(doc_path, header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
         DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
-      observeEvent(shared_rx$data_version(), {
-        log_debug("Data version updated, re-rendering VEP consequences documentation table")
-        # Trigger re-render of VEP consequences documentation when data version changes
-        output$vep_consequences_format <- DT::renderDataTable({
-          doc_data <- shared_store$data_for_data[["vep_consequences"]]
-          if (is.null(doc_data)) {
-            return(NULL)
-          }
-          doc_data <- doc_data[, !".row_id", with = FALSE]
-          DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
-        })
+      output$vep_consequences_format <- DT::renderDataTable({
+        doc_data <- shared_store$vep_consequences
+        DT::datatable(doc_data, options = list(pageLength = nrow(doc_data), scrollX = TRUE))
       })
     }
   )

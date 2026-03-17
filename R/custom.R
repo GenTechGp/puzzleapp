@@ -50,7 +50,6 @@ customServer <- function(id) {
         shared_store2$samples         <- NULL
         shared_store2$pedigree        <- NULL
         shared_store2$panel_app_data  <- NULL
-        shared_store2$vep_map         <- NULL
         shared_store2$phenotype_data  <- NULL
         shared_store2$vep_consequences<- NULL
         shared_store2$svlog_db        <- NULL

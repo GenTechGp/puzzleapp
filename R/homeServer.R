@@ -26,7 +26,6 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$samples <- NULL
       shared_store$pedigree <- NULL
       shared_store$panel_app_data <- NULL
-      shared_store$vep_map <- NULL
       shared_store$phenotype_data <- NULL
       shared_store$vep_consequences <- NULL
       shared_store$verbose_level <- 0L
@@ -147,7 +146,7 @@ home_server <- function(id, shared_store, shared_rx) {
         shinyjs::enable("load_data")
         return()
       }
-      clear_shared_store()
+      # clear_shared_store()
       if (nzchar(input$work_dir) == 0) {
         # shiny::showNotification("Please specify a working directory.", type = "error")
         # return()
@@ -175,9 +174,7 @@ home_server <- function(id, shared_store, shared_rx) {
         shinyjs::enable("load_data")
         return()
       }
-      vep_consequences_file <- load_local_db("vep_consequences", "vep_annotations.tsv")
-      vep_consequences <- puzzlecore_load_vep_consequences(file = vep_consequences_file)
-      vep_consequences$.row_id <- seq_len(nrow(vep_consequences))
+
 
       shared_store$data_for_data[["[SNV]_Boundary"]] <- collected$snv_default_dt
       shared_store$data_for_data[["[SV]_Boundary"]] <- collected$sv_default_dt
@@ -189,7 +186,6 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$samples <- collected$samples
       shared_store$pedigree <- collected$pedigree
       shared_store$panel_app_genes <- collected$panel_app_data
-      shared_store$vep_consequences <- vep_consequences
       shared_store$phenotype_data <- collected$phenotype_data
       custom_genome <- NULL
       igv_genome_name <- input$igv_genome
@@ -217,9 +213,6 @@ home_server <- function(id, shared_store, shared_rx) {
 
       shared_store$data_for_data[["[phenotype]_Boundary"]] <- collected$phenotype_default_dt
       shared_store$data_for_data[["phenotype"]] <- collected$phenotype_data
-
-      shared_store$data_for_data[["[vep_consequences]_Boundary"]] <- vep_consequences
-      shared_store$data_for_data[["vep_consequences"]] <- vep_consequences
 
       stopifnot(
         !identical(

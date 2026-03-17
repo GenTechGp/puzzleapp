@@ -351,9 +351,9 @@ process_sv_data <- function(svs_vcf, pedigree_data,
   # vcf_header <- data.table::fread(cmd = paste("zgrep '^##' ", svs_vcf),
   #                                 sep = "\n", header = FALSE)
 
-  out <- read_and_normalise_vcf(svs_vcf)
+  out <- read_and_normalise_vcf(svs_vcf) # CSQ header is different for SV vcfs. will that be a problem? todo:
   svs_data <- out$vcf_data
-  vcf_header <- out$vcf_header                                  
+  vcf_header <- out$vcf_header
 
   svs_data[, ID := make.unique(as.character(ID), sep = ".")]
   csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]

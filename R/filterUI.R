@@ -7,18 +7,47 @@ AnnotUI <- function(ns, id_prefix = "snv") {
   } else {
     id_prefix <- ""
   }
-  annotation_select_opts <- c("None", "High impact", "Moderate to high impact")
-  vep_conseq_opts <- c(
-    "Stop gained", "Start lost", "Stop lost", "Splice variant",
-    "Frameshift variant", "Missense variant", "In-frame variant",
-    "Synonymous variant", "5'UTR variant", "3'UTR variant",
-    "Intron variant", "Intergenic variant", "Regulatory variant", "Other"
-  )
-  ui_elements <- list(
+  # consequence_select_opts <- c("None", "High impact", "Moderate to high impact")
+  consequence_select_opts <- c("None", "HIGH", "MODERATE", "LOW", "MODIFIER")
+  # vep_conseq_opts <- c(
+  #   "Stop gained", "Start lost", "Stop lost", "Splice variant",
+  #   "Frameshift variant", "Missense variant", "In-frame variant",
+  #   "Synonymous variant", "5'UTR variant", "3'UTR variant",
+  #   "Intron variant", "Intergenic variant", "Regulatory variant", "Other"
+  # )
+  vep_conseq_opts <- c("frameshift_variant", "transcript_ablation", "transcript_amplification", "feature_elongation", "feature_truncation", "splice_acceptor_variant", "splice_donor_variant", "start_lost", "stop_gained", "stop_lost", 
+    "inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant", 
+    "incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant", "splice_donor_5th_base_variant", "splice_region_variant", "splice_donor_region_variant", "splice_polypyrimidine_tract_variant", "synonymous_variant", 
+    "3_prime_UTR_variant", "5_prime_UTR_variant", "intergenic_variant", "intron_variant", "coding_sequence_variant", "mature_miRNA_variant", "non_coding_transcript_exon_variant", "NMD_transcript_variant", "non_coding_transcript_variant", "coding_transcript_variant", "upstream_gene_variant", "downstream_gene_variant", "TFBS_ablation", "TFBS_amplification", "TF_binding_site_variant", "regulatory_region_ablation", "sequence_variant", "regulatory_region_amplification", "regulatory_region_variant")
+   ui_elements <- list(
+    tags$style(HTML("
+      .always-show-scrollbar {
+        overflow-y: scroll !important;
+      }
+      /* WebKit browsers (Chrome, Safari, Edge) */
+      .always-show-scrollbar::-webkit-scrollbar {
+        -webkit-appearance: none;
+        width: 8px;
+      }
+      .always-show-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(0, 0, 0, 0.4);
+        border-radius: 4px;
+      }
+      .always-show-scrollbar::-webkit-scrollbar-track {
+        background-color: rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+      }
+    ")),
     h4("Annotation"),
-    # todo change annotation to vep_consequence
-    selectInput(ns(paste0(id_prefix, "annotation")), "VEP Consequence:", choices = annotation_select_opts, selected = "None"),
-    checkboxGroupInput(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, choices = vep_conseq_opts)
+    selectInput(ns(paste0(id_prefix, "consequence")), "VEP Consequence:", choices = consequence_select_opts, selected = "", multiple = TRUE, ),
+    div(
+      class = "always-show-scrollbar",
+      style = "display: flex; flex-direction: column; gap: 5px; max-height: 400px; width: 80%;",
+      do.call(checkboxGroupInput, list(ns(paste0(id_prefix, "conseq_checkboxes")), NULL, choices = vep_conseq_opts))
+    ),
+    # breakline
+    br()
+    
   )
   if (is_snv) {
     ui_elements <- append(

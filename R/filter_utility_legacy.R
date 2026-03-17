@@ -1,4 +1,30 @@
-read_search_files <- function(directory, flag_all=TRUE) {
+check_for_vep_consequences <- function(file, df, vep_consequences) {
+  if (is.null(vep_consequences)) return(df)
+  if (!any(df$Key %in% c("SNV_Annotation", "SV_Annotation"))) {
+    return(df)
+  }
+  vep_general_terms <- vep_consequences$consequence
+  if ("SNV_Annotation" %in% df$Key) {
+    snv_annots <- unlist(strsplit(df$Value[df$Key == "SNV_Annotation"], ";"))
+    # if snv_annots is not empty and all values are in vep_general_terms then we can map them to the more user-friendly terms
+    if (all(snv_annots %in% vep_general_terms)) {
+      mapped_terms <- vep_consequences[consequence %in% snv_annots, term]
+      df$Value[df$Key == "SNV_Annotation"] <- paste(mapped_terms, collapse = ";")
+      log_info(sprintf("Mapped SNV_Annotation values in file %s from '%s' to '%s'", file, paste(snv_annots, collapse = ";"), paste(mapped_terms, collapse = ";")))
+    }
+  }
+  if ("SV_Annotation" %in% df$Key) {
+    sv_annots <- unlist(strsplit(df$Value[df$Key == "SV_Annotation"], ";"))
+    if (all(sv_annots %in% vep_general_terms)) {
+      mapped_terms <- vep_consequences[consequence %in% sv_annots, term]
+      df$Value[df$Key == "SV_Annotation"] <- paste(mapped_terms, collapse = ";")
+      log_info(sprintf("Mapped SV_Annotation values in file %s from '%s' to '%s'", file, paste(sv_annots, collapse = ";"), paste(mapped_terms, collapse = ";")))
+    }
+  }
+  return(df)
+}
+
+read_search_files <- function(directory, flag_all=TRUE, vep_consequences = NULL) {
   file_pattern <- ".*\\.tsv$"
   files_defaults <- character(0)
   files_work_dir <- character(0)
@@ -16,6 +42,7 @@ read_search_files <- function(directory, flag_all=TRUE) {
   for (file in files) {
     # Read the file into a dataframe
     df <- read.delim(file, header = FALSE, col.names = c("Key", "Value"), sep = "\t", quote = "", stringsAsFactors = FALSE)
+    df <- check_for_vep_consequences(file, df, vep_consequences)
     # Convert the data to a named list
     file_data <- setNames(as.list(df$Value), df$Key)
     # Extract the name of the file without extension to use as label
@@ -76,7 +103,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "Allele_balance" = input$allele_balance,
     "Genotype_quality" = input$genotype_quality,
     "Min_read_depth" = input$min_read_depth,
-    "Use_AF" = input$use_af
+    "Use_AF" = input$use_af,
+    "Consequence" = if (!is.null(input$consequence)) paste(input$consequence, collapse = ";") else ""
   )
 
   # SV filters (excluding shared)
@@ -109,7 +137,8 @@ capture_filters <- function(input, phenos, samples, flag_save_samples=FALSE, fla
     "intra_tad_only" = input$sv_intra_tad_boundary,
     "inter_tad_only" = input$sv_inter_tad_boundary,
     "SVscanner_classification" = if(!is.null(input$svscanner_class)) paste(input$svscanner_class, collapse = ";") else "",
-    "SVscanner_reciprocal" = if(!is.null(input$svscanner_reciprocal)) paste(input$svscanner_reciprocal, collapse = ";") else ""
+    "SVscanner_reciprocal" = if(!is.null(input$svscanner_reciprocal)) paste(input$svscanner_reciprocal, collapse = ";") else "",
+    "Consequence" = if (!is.null(input$sv_consequence)) paste(input$sv_consequence, collapse = ";") else ""
   )
   # Shared filters
   shared_filters <- list(
@@ -166,6 +195,10 @@ update_filters_params <- function(search_params, session) {
   # print(search_params)
   # Mapping table: for each base param, SNV and SV update info, and shared update info for 3 params
   param_mapping <- list(
+    "Consequence" = list(
+      snv = list(func = updateSelectInput, id = "consequence", selected = TRUE, split = TRUE),
+      sv = list(func = updateSelectInput, id = "sv_consequence", selected = TRUE, split = TRUE)
+    ),
     "Annotation" = list(
       snv = list(func = updateCheckboxGroupInput, id = "conseq_checkboxes", selected = TRUE, split = TRUE),
       sv  = list(func = updateCheckboxGroupInput, id = "sv_conseq_checkboxes", selected = TRUE, split = TRUE)

@@ -276,24 +276,26 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
 
   # Apply VEP Annotation filter (for both SNVs and SVs)
   log_info("[filtServer][filter_dataset] Applying VEP annotation filter")
-  if ("Other" %in% filters$annotation_filter) {
-    specific_list <- vep_consequences[consequence != "Other", term]
-    # remove other explicitly selected filters (besides "Other")
-    other_terms <- setdiff(filters$annotation_filter, "Other")
-    if (length(other_terms) > 0) {
-      mapped_other_terms <- vep_consequences[consequence %in% other_terms, term]
-      specific_list <- setdiff(specific_list, mapped_other_terms)
-    }
-    if (length(specific_list) > 0) {
-      negation_expr <- sprintf("!grepl('%s', VEP_CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
-      filter_expression <- add_filter_condition(filter_expression, negation_expr)
-    }
-  } else {
-    filter_expression <- add_filter_condition(
-      filter_expression,
-      text_filter("VEP_CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
-    )
-  }
+  # if ("Other" %in% filters$annotation_filter) {
+  #   specific_list <- vep_consequences[consequence != "Other", term]
+  #   # remove other explicitly selected filters (besides "Other")
+  #   other_terms <- setdiff(filters$annotation_filter, "Other")
+  #   if (length(other_terms) > 0) {
+  #     mapped_other_terms <- vep_consequences[consequence %in% other_terms, term]
+  #     specific_list <- setdiff(specific_list, mapped_other_terms)
+  #   }
+  #   if (length(specific_list) > 0) {
+  #     negation_expr <- sprintf("!grepl('%s', VEP_CONSEQUENCE, ignore.case = TRUE)", paste(specific_list, collapse = "|"))
+  #     filter_expression <- add_filter_condition(filter_expression, negation_expr)
+  #   }
+  # } else {
+  #   filter_expression <- add_filter_condition(
+  #     filter_expression,
+  #     # text_filter("VEP_CONSEQUENCE", filters$annotation_filter)
+  #     text_filter("VEP_CONSEQUENCE", vep_consequences[consequence %in% filters$annotation_filter, term])
+  #   )
+  # }
+  filter_expression <- add_filter_condition(filter_expression, text_filter("VEP_CONSEQUENCE", filters$annotation_filter))
 
   spliceai_override_condition <- NULL
   clinvar_override_condition <- NULL

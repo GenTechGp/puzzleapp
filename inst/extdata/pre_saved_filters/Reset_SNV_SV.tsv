@@ -43,3 +43,5 @@ SV_intra_tad_only
 SV_inter_tad_only	
 SV_SVscanner_classification	
 SV_SVscanner_reciprocal	
+SNV_Consequence	
+SV_Consequence	

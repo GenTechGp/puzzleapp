@@ -104,7 +104,6 @@ server <- function(input, output, session) {
   shared_store$samples <- NULL
   shared_store$pedigree <- NULL
   shared_store$panel_app_data <- NULL
-  shared_store$vep_map <- NULL
   shared_store$phenotype_data <- NULL
   shared_store$vep_consequences <- NULL
   shared_store$svlog_db <- NULL
@@ -123,6 +122,8 @@ server <- function(input, output, session) {
     hpoid_version = reactiveVal(0L),
     qcplot_version = reactiveVal(0L)
   )
+  shared_store$vep_consequences <- read.delim(system.file("extdata", "db", "vep_consequences", "October_2025", "vep_annotations.tsv", package = "puzzleapp"), header = TRUE, stringsAsFactors = FALSE, encoding = "UTF-8")
+  shared_store$vep_consequences <- data.table::as.data.table(shared_store$vep_consequences)
 
   home_server("home", shared_store, shared_rx)
   selectFiltersServer("filter", shared_store, shared_rx)
@@ -131,7 +132,6 @@ server <- function(input, output, session) {
   igv_server("igv", shared_store, shared_rx)
   dataServer("panel_app", shared_store, shared_rx, "panel_app", "panel_app")
   dataServer("phenotype", shared_store, shared_rx, "phenotype", "phenotype", 2000000)
-  # dataServer("vep_consequences", shared_store, shared_rx, "vep_consequences", "vep_consequences")
 
   # Expose the current session's log to viewer as default selection
   log_viewer_server("log", logs_dir = logs_dir, session_logfile_reactive = shiny::reactive(session$userData$logfile))
