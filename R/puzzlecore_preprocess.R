@@ -241,17 +241,10 @@ process_snv_data <- function(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA) {
   } else {
     snv_vcf_long <- read_vcf_long(snvs_vcf_cohort)
     final_snv <- process_snv_vcf(snv_vcf_long)
-    final_snv[, fam := sub("-RF.*$", "", Sample)]
-    pedigree_data[, fam := sub("-RF.*$", "", sample_id)]
-    final_snv <- merge(
-      final_snv[, .(VariantID, fam, N_Cohort)],
-      pedigree_data[, .(fam, kinship, sort_order)],
-      by = "fam"
-    )[, fam := NULL]
-    snvs_data_melt <- merge(
-      snvs_data_melt, final_snv[, .(VariantID, N_Cohort)],
-      by = "VariantID", all.x = TRUE
-    )
+    # From process_snv_vcf output, for each VariantID get N_Cohort (one per VariantID)
+    cohort_counts <- unique(final_snv[, .(VariantID, N_Cohort)])
+    # Annotate family variants with cohort counts by VariantID
+    snvs_data_melt <- merge(snvs_data_melt, cohort_counts, by = "VariantID", all.x = TRUE)
   }
 
   # ADD back legacy columns: CADD_PHRED, CADD_RAW and SpliceAI component scores
@@ -505,22 +498,8 @@ process_sv_data <- function(svs_vcf, pedigree_data,
     svs_data_melt[, CLINVAR_ID := NA_character_]
   }
 
-  if (is.na(svs_vcf_cohort)) {
-    svs_data_melt[, N_Cohort := NA_integer_]
-  } else {
-    sv_vcf_long <- read_vcf_long(svs_vcf_cohort)
-    final_sv <- process_sv_vcf(sv_vcf_long)
-    final_sv[, fam := sub("-RF.*$", "", Sample)]
-    pedigree_data[, fam := sub("-RF.*$", "", sample_id)]
-    final_sv <- merge(
-      final_sv[, .(VariantID, fam, N_Cohort)],
-      pedigree_data[, .(fam, kinship, sort_order)],
-      by = "fam"
-    )[, fam := NULL]
-    svs_data_melt <- merge(
-      svs_data_melt, final_sv[, .(VariantID, N_Cohort)],
-      by = "VariantID", all.x = TRUE
-    )
+  if (!is.na(svs_vcf_cohort)) {
+    cat("SV vcf_cohor vcf is not used. TODO: decide\n")
   }
 
   required_cols <- c("CLIN_SIG", "CLINVAR_ID", "gnomAD_ID", "gnomAD_sv_N_HOMALT")
@@ -717,7 +696,7 @@ read_and_normalise_vcf <- function(vcf_path) {
 
   # 6) Build CSQ strings from the chosen tag, using generic normaliser
   cat("Normalising ", tag, " to CSQ for VCF: ", vcf_path, "\n", sep = "")
-  csq_vec <- .build_csq_from_tag(
+  csq_vec <- build_csq_from_tag(
     info_vec    = vcf_data$INFO,
     tag         = tag,
     tag_columns = tag_columns,
@@ -776,7 +755,7 @@ read_and_normalise_vcf <- function(vcf_path) {
 #' @param mapping_col Column name in csq_map to use ("SnpEff_ANN_field" or "BCFtools_BCSQ_field").
 #' @return Character vector of CSQ strings, one per element of info_vec.
 #' @keywords internal
-.build_csq_from_tag <- function(info_vec,
+build_csq_from_tag <- function(info_vec,
                                 tag,
                                 tag_columns,
                                 csq_columns,

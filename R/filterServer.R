@@ -239,16 +239,35 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     #   cat(sprintf("Checkboxes '%s' updated.\n", checkbox_id))
     # }
 
-    updateAnnotationSelection <- function(selected_option, checkbox_id, session) {
-      cat(sprintf("Annotation selection changed: %s\n", selected_option))
-      annotation_map <- list(
-        "None" = character(0),
-        "HIGH" = c("frameshift_variant", "transcript_ablation", "transcript_amplification", "feature_elongation", "feature_truncation", "splice_acceptor_variant", "splice_donor_variant", "start_lost", "stop_gained", "stop_lost"),
-        "MODERATE" = c("inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant"),
-        "LOW" = c("incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant", "splice_donor_5th_base_variant", "splice_region_variant", "splice_donor_region_variant", "splice_polypyrimidine_tract_variant", "synonymous_variant"),
-        "MODIFIER" = c("3_prime_UTR_variant", "5_prime_UTR_variant", "intergenic_variant", "intron_variant", "coding_sequence_variant", "mature_miRNA_variant", "non_coding_transcript_exon_variant", "NMD_transcript_variant", "non_coding_transcript_variant", "coding_transcript_variant", "upstream_gene_variant", "downstream_gene_variant", "TFBS_ablation", "TFBS_amplification", "TF_binding_site_variant", "regulatory_region_ablation", "sequence_variant", "regulatory_region_amplification", "regulatory_region_variant")
-      )
+    annotation_map <- list(
+      "None" = character(0),
+      "HIGH" = c("frameshift_variant", "transcript_ablation", "transcript_amplification", "feature_elongation", "feature_truncation", "splice_acceptor_variant", "splice_donor_variant", "start_lost", "stop_gained", "stop_lost"),
+      "MODERATE" = c("inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant"),
+      "LOW" = c("incomplete_terminal_codon_variant", "start_retained_variant", "stop_retained_variant", "splice_donor_5th_base_variant", "splice_region_variant", "splice_donor_region_variant", "splice_polypyrimidine_tract_variant", "synonymous_variant"),
+      "MODIFIER" = c("3_prime_UTR_variant", "5_prime_UTR_variant", "intergenic_variant", "intron_variant", "coding_sequence_variant", "mature_miRNA_variant", "non_coding_transcript_exon_variant", "NMD_transcript_variant", "non_coding_transcript_variant", "coding_transcript_variant", "upstream_gene_variant", "downstream_gene_variant", "TFBS_ablation", "TFBS_amplification", "TF_binding_site_variant", "regulatory_region_ablation", "sequence_variant", "regulatory_region_amplification", "regulatory_region_variant")
+    )
 
+    user_unchecked_conseq <- reactiveVal(character(0))
+    user_unchecked_sv <- reactiveVal(character(0))
+
+    observeEvent(input$conseq_checkboxes, {
+      valid <- intersect(input$consequence, names(annotation_map))
+      expected <- unique(unlist(annotation_map[valid]))
+      current <- input$conseq_checkboxes %||% character(0)
+
+      user_unchecked_conseq(setdiff(expected, current))
+    })
+
+    observeEvent(input$sv_conseq_checkboxes, {
+      valid <- intersect(input$sv_consequence, names(annotation_map))
+      expected <- unique(unlist(annotation_map[valid]))
+      current <- input$sv_conseq_checkboxes %||% character(0)
+
+      user_unchecked_sv(setdiff(expected, current))
+    })
+
+    updateAnnotationSelection <- function(selected_option, checkbox_id, session, user_unchecked) {
+      cat(sprintf("Annotation selection changed: %s\n", selected_option))
       # treat NULL or empty selection as "None"
       if (is.null(selected_option) || length(selected_option) == 0) {
         selected_annotations <- character(0)
@@ -256,6 +275,8 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
         valid <- intersect(selected_option, names(annotation_map))
         selected_annotations <- unique(unlist(annotation_map[valid]))
       }
+
+      selected_annotations <- setdiff(selected_annotations, user_unchecked())
       cat(sprintf("Mapped annotation selection: %s -> %s\n", selected_option, paste(selected_annotations, collapse = ", ")))
       updateCheckboxGroupInput(session, checkbox_id, selected = selected_annotations)
     }
@@ -264,7 +285,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (updating_filters_programmatically()) return()
       selected <- input$consequence %||% character(0)
       tryCatch({
-        updateAnnotationSelection(selected, "conseq_checkboxes", session)
+        updateAnnotationSelection(selected, "conseq_checkboxes", session, user_unchecked_conseq)
       }, error = function(e) {
         cat("Error:", e$message, "\n")
       })
@@ -274,7 +295,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       if (updating_filters_programmatically()) return()
       selected <- input$sv_consequence %||% character(0)
       tryCatch({
-        updateAnnotationSelection(selected, "sv_conseq_checkboxes", session)
+        updateAnnotationSelection(selected, "sv_conseq_checkboxes", session, user_unchecked_sv)
       }, error = function(e) {
         cat("Error:", e$message, "\n")
       })

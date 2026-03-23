@@ -39,5 +39,7 @@ utils::globalVariables(c(
   "AVERAGE_COVERAGE",
   "avg_auto",
   "variable",
-  "width"
+  "width",
+
+  "VEP_CSQ_field"
 ))

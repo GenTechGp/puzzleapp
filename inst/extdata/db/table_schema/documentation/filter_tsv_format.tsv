@@ -8,7 +8,8 @@ Inheritance_PanelApp_Gene	No	Apply selected mode of inheritance to PanelApp gene
 Substract_PanelApp_Gene_Lists	No	PanelApp gene lists to be subtracted from the analysis		Achromatopsia;Alternating Hemiplegia and Hemiplegic Migraine;Bardet Biedl syndrome
 Substract_PanelApp_Genes	No	Individual PanelApp genes to exclude		SLC4A4; TBX20; TBX5; TNNI3K; TRIM63; VCL
 HPO_Terms	No	Human Phenotype Ontology (HPO) terms used for phenotype-driven prioritisation (annotation only, not used for filtering).		HP:0100022; HP:0100023
-SNV_Annotation	No	VEP functional annotation categories used for SNVs/Indels filtering		Stop lost;Splice variant;Missense variant;3'UTR variant
+SNV_Consequence	No	VEP impact		HGH; LOW
+SNV_Annotation	No	VEP terms		inframe_insertion;inframe_deletion;missense_variant;protein_altering_variant;3_prime_UTR_variant;
 SNV_Pathogenicity	No	ClinVar pathogenicity classification for SNVs/Indels		Likely pathogenic;Conflicting;Likely benign;Not available
 SNV_SpliceAI_score	No	Minimum SpliceAI score required for splice-impact SNVs/Indels	0	0.35
 SNV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SNVs/Indels	1	0.02
@@ -21,7 +22,8 @@ SNV_AlphaMissense	No	AlphaMissense score	0	0.25
 SNV_SIFT	No	SIFT prediction		Deleterious
 SNV_PolyPhen	No	PolyPhen-2 prediction		Possibly damaging
 SNV_Use_AF	No	Use SNV_gnomADv4_AF for clinvar and spliceAI override filters	FALSE	TRUE
-SV_Annotation	No	VEP functional or genomic annotation categories used for SV filtering		Stop gained;Stop lost;5'UTR variant;Intergenic variant
+SV_Consequence	No	VEP impact		HIGH; MODIFIER
+SV_Annotation	No	VEP term		incomplete_terminal_codon_variant;start_retained_variant
 SV_gnomADv4_AF	No	Maximum allowed gnomAD v4 allele frequency for SVs derived from SVlog.	1	0.02
 SV_Affected_only	No	Only apply quality filters for SVs present in affected individuals	FALSE	TRUE
 SV_Genotype_quality	No	Minimum genotype quality (GQ) threshold for SVs	0	57

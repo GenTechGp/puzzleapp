@@ -67,8 +67,9 @@ text_filter <- function(column, values) {
 # Helper function: Handle frequency and quality filters
 quality_filters <- function(filters, data, pedigree) {
   conditions <- list()
-  # if (!is.null(filters$af_value) && filters$af_value < 1) 
-    #conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
+  if (!is.null(filters$af_value) && filters$af_value < 1){
+    conditions <- c(conditions, sprintf("(is.na(AF) | AF <= %f)", filters$af_value))
+  }
 
   # check if pedigree samples have status "affected" if so get their codes
   gq_vars <- grep("^GQ_", colnames(data), value = TRUE)
