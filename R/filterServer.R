@@ -29,7 +29,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       }
       pedigree <- shared_store$pedigree
       sample <- pedigree[kinship == "proband", sample_id]
-      sprintf("%s/puzzleapp/saved_sessions/%s", shared_store$work_dir, sample)
+      sprintf("%s/.puzzleapp/saved_sessions/%s", shared_store$work_dir, sample)
     })
     sessions <- reactiveVal(character())
     observe({
@@ -433,7 +433,7 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
     })
 
     ##################### Pre-saved searches
-    saved_filters <- "puzzleapp/saved_filters"
+    saved_filters <- ".puzzleapp/saved_filters"
     filters_state <- reactiveValues(
       all = NULL,
       work_dir = NULL

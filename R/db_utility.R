@@ -741,13 +741,13 @@ sanitise_samples <- function(samples) {
 }
 
 create_work_dir <- function(work_dir, sticky = TRUE) {
-  # Ensure last dir is "puzzleapp"
-  if (basename(work_dir) != "puzzleapp") {
-    work_dir <- file.path(work_dir, "puzzleapp")
+  # Ensure last dir is ".puzzleapp"
+  if (basename(work_dir) != ".puzzleapp") {
+    work_dir <- file.path(work_dir, ".puzzleapp")
   }
   
   # -------------------------------
-  # 1. puzzleapp directory
+  # 1. .puzzleapp directory
   # -------------------------------
   # - Only owner can read/write/execute (0700)
   # - No one else can create files or subdirs here
