@@ -397,6 +397,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
           "  if (id != null) {",
           "    Shiny.setInputValue(", id_selected_igv_json, ", id, {priority:'event'});",
           "  }",
+          "  this.blur();",
           "});",
 
           "$(tbl.table().node()).off('click.genesymbol').on('click.genesymbol', 'a.gene-symbol', function(e){",
@@ -597,7 +598,7 @@ dataServer <- function(id, shared_store, shared_rx, dataset_names = NULL, prefix
         )
         widget
       }, server = TRUE)
-      outputOptions(output, "tbl", suspendWhenHidden = FALSE)
+      # outputOptions(output, "tbl", suspendWhenHidden = FALSE)
 
       # Create proxy now that the table exists (IMPORTANT: scope with session)
       proxy <<- dataTableProxy("tbl", session = session)

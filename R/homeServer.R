@@ -17,7 +17,8 @@ home_server <- function(id, shared_store, shared_rx) {
     paths <- shiny::reactiveValues(
       svlog_db = NULL,
       coverage_vaf_html = NULL,
-      somalier_html = NULL
+      somalier_html = NULL,
+      igv_annotation = NULL
     )
     clear_shared_store <- function() {
       shared_store$data_for_data  <- list()
@@ -86,18 +87,19 @@ home_server <- function(id, shared_store, shared_rx) {
         paths$svlog_db <- config$paths$svlog_db %||% NULL
         paths$coverage_vaf_html <- config$paths$coverage_vaf_html %||% NULL
         paths$somalier_html <- config$paths$somalier_html %||% NULL
+        paths$igv_annotation <- config$paths$igv_annotation %||% NULL
         output$other_params_text <- renderUI({
           li_list <- Filter(
             Negate(is.null),
             list(
               if (!is.null(paths$svlog_db))
                 tags$li(paste("SVLog DB:", paths$svlog_db)),
-
               if (!is.null(paths$coverage_vaf_html))
                 tags$li(paste("Coverage html:", paths$coverage_vaf_html)),
-
               if (!is.null(paths$somalier_html))
-                tags$li(paste("Somalier html:", paths$somalier_html))
+                tags$li(paste("Somalier html:", paths$somalier_html)),
+              if (!is.null(paths$igv_annotation))
+                tags$li(paste("IGV annotation:", paths$igv_annotation))
             )
           )
 
@@ -130,6 +132,12 @@ home_server <- function(id, shared_store, shared_rx) {
         }
         if (!is.null(config$paths$work_dir) && nzchar(config$paths$work_dir)) {
           shiny::updateTextInput(session, "work_dir", value = config$paths$work_dir)
+        }
+        if (!is.null(config$paths$genome) && nzchar(config$paths$genome)) {
+          log_info(paste("Setting IGV genome from YAML config:", config$paths$genome))
+          shiny::updateSelectizeInput(session, "igv_genome",
+            choices  = union(.igv_genome_choices, config$paths$genome),
+            selected = config$paths$genome)
         }
         # Set number of Individuals based on YAML
         shiny::updateNumericInput(session, "num_individuals", value = length(config$samples))
@@ -190,13 +198,17 @@ home_server <- function(id, shared_store, shared_rx) {
       custom_genome <- NULL
       igv_genome_name <- input$igv_genome
       use_custom_genome <- FALSE
-      if (input$igv_genome == "custom (as configured in app.conf)") {
-        custom_genome <- get_igv_custom_genome()
-        if (is.null(custom_genome)) {
-          shiny::showNotification("Custom genome is not properly configured in app.conf.", type = "error")
-          shinyjs::enable("load_data")
-          return()
-        }
+      if (!(input$igv_genome %in% .igv_genome_choices)) {
+        fasta <- input$igv_genome
+        index <- paste0(fasta, ".fai")
+        name <- tools::file_path_sans_ext(basename(fasta))
+        id <- paste0("custom_", name)
+        custom_genome <-   list(
+          id    = id,
+          name  = name,
+          fasta = fasta,
+          index = index
+        )
         igv_genome_name <- custom_genome$name
         use_custom_genome <- TRUE
       }
@@ -205,7 +217,8 @@ home_server <- function(id, shared_store, shared_rx) {
         svs_vcf = collected$svs_vcf,
         igv_genome = igv_genome_name,
         custom_genome = custom_genome,
-        use_custom_genome = use_custom_genome
+        use_custom_genome = use_custom_genome,
+        igv_annotation = paths$igv_annotation %||% NULL
       )
 
       shared_store$data_for_data[["[panel_app]_Boundary"]] <- collected$panel_app_default_dt
@@ -236,7 +249,7 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$preferred_cols[["SNV"]] <- selected_pref_snv_cols
       shared_store$preferred_cols[["SV"]] <- selected_pref_sv_cols
       shared_store$preferred_cols[["panel_app"]] <- input$panelapp_preferences
-      shared_store$preferred_cols[["Phenotype"]] <- input$phenotype_preferences
+      shared_store$preferred_cols[["phenotype"]] <- input$phenotype_preferences
       
       if (paths$coverage_vaf_html %||% "" != "") {
         coverage_vaf_html_path <- normalizePath(paths$coverage_vaf_html %||% "", mustWork = FALSE)

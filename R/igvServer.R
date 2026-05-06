@@ -16,6 +16,8 @@ igv_server <- function(id, shared_store, shared_rx) {
     assembly_val <- reactiveVal("hg38")
     custom_genome <- reactiveVal(NULL)
     use_custom_genome <- reactiveVal(FALSE)
+    annotation_track_info <- reactiveVal(NULL)
+    annotation_loaded     <- reactiveVal(FALSE)
 
     region <- reactiveVal(NULL)
     `%||%` <- function(x, y) if (is.null(x)) y else x
@@ -63,29 +65,89 @@ igv_server <- function(id, shared_store, shared_rx) {
       do.call(c, gr_list)
     }
 
+    # Resolve igv_annotation path/URL to a list(type, url[, indexURL]) or NULL.
+    .resolve_annotation <- function(anno_raw, session, shiny_base) {
+      anno_raw <- trimws(anno_raw %||% "")
+      if (!nzchar(anno_raw)) return(NULL)
+
+      anno_is_remote <- grepl("^https?://", anno_raw)
+      anno_ext <- tolower(tools::file_ext(anno_raw))
+
+      if (anno_is_remote) {
+        return(list(
+          type = if (anno_ext == "bb") "bigbed" else "gff3url",
+          url  = anno_raw
+        ))
+      }
+
+      anno_path <- normalizePath(anno_raw, mustWork = FALSE)
+      if (!file.exists(anno_path)) {
+        log_error(sprintf("[igvServer] Annotation file not found: %s", anno_path))
+        showNotification(sprintf("Annotation file not found: %s", anno_path), type = "warning")
+        return(NULL)
+      }
+
+      if (anno_ext == "gz") {
+        tbi_path <- paste0(anno_path, ".tbi")
+        if (!file.exists(tbi_path)) {
+          showNotification(sprintf("Tabix index missing: %s", tbi_path), type = "warning")
+          return(NULL)
+        }
+        urls <- register_genome_files(session, make_file_map(anno_path, tbi_path), shiny_base)
+        list(type     = "gff3gz",
+             url      = urls[[basename(anno_path)]],
+             indexURL = urls[[basename(tbi_path)]])
+      } else if (anno_ext == "bb") {
+        urls <- register_genome_files(session, make_file_map(anno_path), shiny_base)
+        list(type = "bigbed", url = urls[[basename(anno_path)]])
+      } else {
+        urls <- register_genome_files(session, make_file_map(anno_path), shiny_base)
+        list(type = "gff3url", url = urls[[basename(anno_path)]])
+      }
+    }
+
     updateIgvViewer <- function(locus, assembly) {
       if (is.null(locus) || !nzchar(locus)) return()
       region(parseRegionList(locus))
       log_info(sprintf("[igvServer] Updating IGV viewer to locus: %s (assembly: %s)", locus, assembly))
       if (is.null(region())) {
+        log_error(sprintf("Failed to parse locus: %s", locus))
         showNotification("Invalid locus specification", type = "error")
         return()
       }
       showNotification("Loading IGV...", duration = NULL, id = ns("notify_igv"), type = "message")
+
+      shiny_base <- sprintf("%s//%s:%s",
+        session$clientData$url_protocol,
+        session$clientData$url_hostname,
+        session$clientData$url_port)
+
       use_custom_genome_flag <- use_custom_genome()
       genomeOptions <- NULL
-      
+      log_info(sprintf("Use custom genome: %s", use_custom_genome_flag))
       if (use_custom_genome_flag) {
         cg <- custom_genome()
-        genomeOptions <- igvShiny::parseAndValidateGenomeSpec(
-          genomeName   = assembly,
-          initialLocus = locus,
-          stockGenome  = FALSE,
-          dataMode = "localFiles",
-          fasta = cg$fasta,
-          fastaIndex = cg$index
-        )
-      } else{
+        log_info(sprintf("Custom genome FASTA: %s", cg$fasta))
+        log_info(sprintf("Custom genome index: %s", cg$index))
+        genomeOptions <- tryCatch({
+          urls <- register_genome_files(
+            session  = session,
+            files    = make_file_map(cg$fasta, cg$index),
+            base_url = shiny_base
+          )
+          build_local_genome_spec(
+            name  = assembly,
+            urls  = urls,
+            fasta = cg$fasta,
+            fai   = cg$index,
+            locus = locus
+          )
+        }, error = function(e) {
+          showNotification(sprintf("Custom genome error: %s", e$message), type = "error")
+          NULL
+        })
+      } else {
+        log_info("Using stock genome")
         genomeOptions <- igvShiny::parseAndValidateGenomeSpec(
           genomeName   = assembly,
           initialLocus = locus,
@@ -93,10 +155,24 @@ igv_server <- function(id, shared_store, shared_rx) {
           dataMode     = "localFiles"
         )
       }
+
+      # Resolve annotation track info (works for both custom and stock genomes)
+      anno_raw <- shared_store$igv_data$igv_annotation %||% NULL
+      new_anno_info <- tryCatch(
+        .resolve_annotation(anno_raw, session, shiny_base),
+        error = function(e) {
+          showNotification(sprintf("Annotation error: %s", e$message), type = "warning")
+          NULL
+        }
+      )
+      annotation_track_info(new_anno_info)
+      annotation_loaded(FALSE)
+
+      removeNotification(ns("notify_igv"))
+      if (is.null(genomeOptions)) return()
       output$igvShiny_0 <- igvShiny::renderIgvShiny({
         igvShiny::igvShiny(genomeOptions, displayMode = "SQUISHED")
       })
-      removeNotification(ns("notify_igv"))
     }
 
     # ---- File validations (clear user errors, cheap checks) ----
@@ -208,6 +284,41 @@ igv_server <- function(id, shared_store, shared_rx) {
             )
           }
           removeNotification(nid)
+        }
+      }
+
+      # Load annotation track if configured and not yet loaded
+      if (!annotation_loaded()) {
+        info <- annotation_track_info()
+        if (!is.null(info)) {
+          log_info(sprintf("[igvServer] Loading annotation track (type=%s)", info$type))
+          if (info$type == "gff3gz") {
+            loadGFF3TrackFromURL(
+              session,
+              id                     = ns("igvShiny_0"),
+              trackName              = "Annotation",
+              gff3URL                = info$url,
+              indexURL               = info$indexURL,
+              color                  = "gray",
+              colorTable             = list(),
+              colorByAttribute       = NA_character_,
+              displayMode            = "EXPANDED",
+              trackHeight            = 200,
+              visibilityWindow       = 50000,
+              deleteTracksOfSameName = TRUE
+            )
+          } else {
+            load_annotation_track(
+              session,
+              id           = ns("igvShiny_0"),
+              track_name   = "Annotation",
+              url          = info$url,
+              format       = if (info$type == "gff3url") "gff3" else NULL,
+              display_mode = "EXPANDED",
+              track_height = 100
+            )
+          }
+          annotation_loaded(TRUE)
         }
       }
 

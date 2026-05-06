@@ -42,6 +42,7 @@ ui <- fluidPage(
       }
     });
   ")),
+    tags$head(genome_server_js()),
     tags$head(tags$style(HTML("
     /* Group 1: Data tabs */
     .nav-tabs > li > a[data-value='Filter'],

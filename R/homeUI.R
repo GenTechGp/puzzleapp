@@ -1,3 +1,5 @@
+.igv_genome_choices <- c("hg38", "hs1", "hg19", "chm13v1.1", "mm10", "rn6", "custom")
+
 #' @keywords internal
 prefOptsUI <- function(ns) {
   createPreferencesSection <- function(id, title) {
@@ -62,7 +64,7 @@ home_ui <- function(id) {
       shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%"),
       shiny::checkboxInput(ns("sticky_work_dir"), "Enable shared-safe mode", value = TRUE)
       ),
-      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=c("hg38","hg19","chm13v1.1","mm10","rn6","custom (as configured in app.conf - experimental)"), selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
+      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=.igv_genome_choices, selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
     ),
     fluidRow(
       column(12, uiOutput(ns("other_params_text")))
