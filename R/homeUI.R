@@ -42,10 +42,9 @@ home_ui <- function(id) {
       shiny::column(2, shiny::actionButton(ns("open_new_session"), "Open new session in new tab", class = "btn-primary"))
     ),
 
-    shiny::strong("Number of Individuals (set this value first):"),
     shiny::fluidRow(
-      shiny::column(1, shiny::numericInput(ns("num_individuals"), label = NULL, value = 1, min = 1, step = 1)),
-      shiny::column(11)  # empty space
+      shiny::column(3, shiny::numericInput(ns("num_individuals"), label = "Number of Individuals (set first)", value = 1, min = 1, step = 1)),
+      shiny::column(9)  # empty space
     ),
 
     shiny::uiOutput(ns("samples_panel")),
@@ -131,6 +130,12 @@ home_ui <- function(id) {
         )
       ),
       column(3)
+    ),
+
+    fluidRow(
+      column(12, style = "margin-top: 20px; text-align: center;",
+        shiny::tags$p("A genomic variants explorer by GenomeTechLab at Garvan Institute of Medical Research (Google Chrome recommended)")
+      )
     )
 
 

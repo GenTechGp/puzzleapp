@@ -27,6 +27,13 @@ ui <- fluidPage(
       Shiny.setInputValue('home-cookie_prefs', cookieVal, {priority: 'event'});
     });
     
+    document.documentElement.setAttribute('lang', 'en');
+
+    // --- Dynamic page title (updated after data loads) ---
+    Shiny.addCustomMessageHandler('update_title', function(title) {
+      document.title = title;
+    });
+
     // --- Unload warning (enable after data is loaded) ---
     var _warnOnLeave = false;
     function _beforeUnloadHandler(e) {
@@ -42,6 +49,7 @@ ui <- fluidPage(
       }
     });
   ")),
+    tags$head(tags$title("PuzzleApp")),
     tags$head(genome_server_js()),
     tags$head(tags$style(HTML("
     /* Group 1: Data tabs */
@@ -50,12 +58,14 @@ ui <- fluidPage(
     .nav-tabs > li > a[data-value='SV'] {
         background-color: #e8f4ff;
         border-bottom: 2px solid #b3dafc;
+        color: #1a5276;
     }
     /* Group 2: Interpretation tabs */
     .nav-tabs > li > a[data-value='PanelApp'],
     .nav-tabs > li > a[data-value='Phenotype'] {
         background-color: #f9f5e8;
         border-bottom: 2px solid #ead8a6;
+        color: #7d5a00;
     }
     /* Hover style */
     .nav-tabs > li > a:hover {
@@ -66,8 +76,14 @@ ui <- fluidPage(
         border-bottom: 2px solid #007bff !important;
         font-weight: bold;
     }
+    /* btn-danger: darken background so white text clears 4.5:1 */
+    .btn-danger {
+        background-color: #b52b27;
+        border-color: #8e1c18;
+    }
   "))),
   shinyjs::useShinyjs(),
+  tags$main(
   tabsetPanel(
     id = "main_tabs",
     tabPanel("Home", home_ui("home")),
@@ -89,6 +105,31 @@ ui <- fluidPage(
       )
     )
   )
+  ) # tags$main
+  # Workaround for Shiny bug #2845: checkboxGroupInput/radioButtons emit <label for="div-id">
+  # which Chrome flags as invalid. Converts those group labels to <span> (aria-labelledby still works).
+  ,tags$script(HTML("
+    (function() {
+      var labelable = {INPUT:1,SELECT:1,TEXTAREA:1,BUTTON:1,METER:1,OUTPUT:1,PROGRESS:1};
+      function fixGroupLabels() {
+        document.querySelectorAll('label.control-label[for]').forEach(function(labelEl) {
+          var target = document.getElementById(labelEl.getAttribute('for'));
+          if (target && !labelable[target.tagName]) {
+            var span = document.createElement('span');
+            Array.from(labelEl.attributes).forEach(function(attr) {
+              if (attr.name !== 'for') span.setAttribute(attr.name, attr.value);
+            });
+            span.innerHTML = labelEl.innerHTML;
+            labelEl.parentNode.replaceChild(span, labelEl);
+          }
+        });
+      }
+      fixGroupLabels();
+      new MutationObserver(fixGroupLabels).observe(
+        document.documentElement, {childList:true, subtree:true}
+      );
+    })();
+  "))
 )
 
 server <- function(input, output, session) {

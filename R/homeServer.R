@@ -299,6 +299,10 @@ home_server <- function(id, shared_store, shared_rx) {
         session$sendCustomMessage("set_leave_warning", list(enable = TRUE))
       }
 
+      proband <- Filter(function(s) identical(s$kinship, "proband"), collected$samples)
+      proband_id <- if (length(proband) > 0) proband[[1]]$sample_id else collected$samples[[1]]$sample_id
+      session$sendCustomMessage("update_title", paste0("PuzzleApp-", proband_id))
+
       bump_version(version_type = "data", shared_rx = shared_rx)
       bump_version(version_type = "panelapp", shared_rx = shared_rx)
       bump_version(version_type = "qcplot", shared_rx = shared_rx)
