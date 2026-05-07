@@ -72,7 +72,7 @@ PathoUI <- function(ns, id_prefix = "snv") {
   )
     tagList(
     h4("Pathogenicity"),
-    selectInput(ns(paste0(id_prefix, "pathogenicity")), "Clinvar:", choices = pathogenicity_clinvar_select_opts, selected = "None"),
+    selectInput(ns(paste0(id_prefix, "pathogenicity")), "Clinvar:", choices = pathogenicity_clinvar_select_opts, selected = "None", selectize = FALSE),
     checkboxGroupInput(ns(paste0(id_prefix, "clinvar_checkboxes")), NULL, choices = pathogenicity_clinvar_opts)
   )
 }
@@ -120,7 +120,7 @@ FreqUI <- function(ns, id_prefix = "snv") {
   )
   tagList(
     h4("Frequency"),
-    selectInput(ns(paste0(id_prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    selectInput(ns(paste0(id_prefix, "af")), "gnomADv4 AF:", choices = filter_freqs, selected = 1, selectize = FALSE),
     if (is_snv) {
       checkboxInput(ns(paste0(id_prefix, "use_af")), "Use for clinvar and spliceAI override filters", value = FALSE)
     }
@@ -204,7 +204,7 @@ PopulationUI_0 <- function(ns) {
   choices_similarity_criteria <- c("High", "Moderate", "Low", "None")
   tagList(
     h4("Population Evidence"),
-    selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices_similarity_criteria, selected = "None"),
+    selectInput(ns("sv_population_similarity_criteria"), "Similarity/Matching criteria:", choices = choices_similarity_criteria, selected = "None", selectize = FALSE),
     sliderInput(ns("sv_reciprocal_overlap_fraction"), "Reciprocal overlap fraction - DEL,DUP,INV:", 0, 1, 0, ticks = FALSE),
     numericInput(ns("sv_max_breakpoint_distance"), "Max position distance (bp) - INS:", value = NULL, min = 0, step = 1),
     numericInput(ns("sv_max_delta_length"), "Max |delta len| (bp) - INS:", value = NULL, min = 0, step = 1)
@@ -217,7 +217,7 @@ PopulationUI_1 <- function(ns) {
     0.001, 0.005, 0.01, 0.02, 0.03, 0.04, 0.05, 0.1, 1
   )
   tagList(
-    selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1),
+    selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1, selectize = FALSE),
     strong("ONT 1000 Genomes"),
     h5("Max carriers (HOM + HET)"),
     numericInput(ns("sv_max_carriers_1000"), label = NULL, value = NULL, min = 0, step = 1),
@@ -234,7 +234,7 @@ SVlog_conseqUI <- function(ns) {
   svlog_conseq_opts <- c("affects_cds", "affects_only_promoter", "affects_tad_boundary", "affects_utr", "intronic", "intergenic", "splice_altering", "other")
   ui_elements <- list(
     h4("SVlog annotation"),
-    selectInput(ns("svlog_consequence"), "SVlog Consequence:", choices = annotation_select_opts, selected = "None"),
+    selectInput(ns("svlog_consequence"), "SVlog Consequence:", choices = annotation_select_opts, selected = "None", selectize = FALSE),
     checkboxGroupInput(ns("svlog_conseq_checkboxes"), NULL, choices = svlog_conseq_opts)
   )
   tagList(ui_elements)

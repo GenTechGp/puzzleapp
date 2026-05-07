@@ -63,7 +63,29 @@ home_ui <- function(id) {
       shiny::textInput(ns("work_dir"), "Working directory:", placeholder = "optional. leave blank to use $HOME dir", width = "100%"),
       shiny::checkboxInput(ns("sticky_work_dir"), "Enable shared-safe mode", value = TRUE)
       ),
-      shiny::column(6, style="padding:1;", shiny::selectizeInput(ns("igv_genome"), "IGV genome:", choices=.igv_genome_choices, selected="hg38", multiple=FALSE, options=list(create=TRUE, placeholder="Select or type a genome..."), width="100%"))
+      shiny::column(6, style="padding:1;",
+        tags$div(class="form-group shiny-input-container", style="width:100%;",
+          tags$label("IGV genome:", `for`=ns("igv_genome")),
+          tags$input(id=ns("igv_genome"), type="text", value="hg38",
+                     list=ns("igv_genome_list"), class="form-control",
+                     autocomplete="off", placeholder="Select or type a genome..."),
+          tags$datalist(id=ns("igv_genome_list"),
+            lapply(.igv_genome_choices, function(g) tags$option(value=g)))
+        )
+      ),
+      tags$script(HTML(sprintf("
+        (function() {
+          var el = document.getElementById('%s');
+          if (!el) return;
+          el.addEventListener('focus', function() {
+            this._saved = this.value;
+            this.value = '';
+          });
+          el.addEventListener('blur', function() {
+            if (this.value === '') this.value = this._saved;
+          });
+        })();
+      ", ns("igv_genome"))))
     ),
     fluidRow(
       column(12, uiOutput(ns("other_params_text")))
@@ -123,8 +145,10 @@ home_ui <- function(id) {
         shiny::div(
           style = "margin-top: 10px; text-align: center;",
           shiny::tags$img(
-            src = "puzzleapp-assets/logo.png",  # served from inst/www via addResourcePath
+            src = "puzzleapp-assets/logo.webp",
             alt = "PuzzleApp image",
+            width = "684",
+            height = "91",
             style = "max-width: 80%; height: auto; display: inline-block;"
           )
         )

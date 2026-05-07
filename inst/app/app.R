@@ -50,6 +50,7 @@ ui <- fluidPage(
     });
   ")),
     tags$head(tags$title("PuzzleApp")),
+    tags$head(tags$meta(name="description", content="PuzzleApp — genomic variant explorer")),
     tags$head(genome_server_js()),
     tags$head(tags$style(HTML("
     /* Group 1: Data tabs */

@@ -18,3 +18,4 @@ tests/out_sv
 tests/svlog
 tests/configs/sample*.yaml
 install.log
+.claude
