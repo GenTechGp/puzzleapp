@@ -325,13 +325,13 @@ home_server <- function(id, shared_store, shared_rx) {
       sample_rows <- lapply(seq_len(n), function(i) {
         s <- if (!is.null(samples) && length(samples) >= i) samples[[i]] else list()
         shiny::fluidRow(
-          shiny::column(1, shiny::textInput(ns(paste0("sample_id_", i)), label = NULL, value = s$sample_id %||% "")),
-          shiny::column(1, shiny::selectInput(ns(paste0("kinship_", i)), label = NULL, choices = v_kinships, selected = s$kinship %||% "unknown", selectize = FALSE)),
-          shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = NULL, choices = v_statuses, selected = s$status %||% "unknown", selectize = FALSE)),
-          shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = NULL, choices = v_sexes, selected = s$sex %||% "unknown", selectize = FALSE)),
-          shiny::column(1, shiny::numericInput(ns(paste0("code_", i)), label = NULL, value = s$code %||% 1, min = 0)),
-          shiny::column(5, shiny::textInput(ns(paste0("bam_", i)), label = NULL, value = s$bam %||% "", width = "100%")),
-          shiny::column(2, shiny::textInput(ns(paste0("coverage_", i)), label = NULL, value = s$coverage %||% "", width = "100%"))
+          shiny::column(1, shiny::textInput(ns(paste0("sample_id_", i)), label = shiny::span(paste("Sample ID", i), class = "sr-only"), value = s$sample_id %||% "")),
+          shiny::column(1, shiny::selectInput(ns(paste0("kinship_", i)), label = shiny::span(paste("Kinship", i), class = "sr-only"), choices = v_kinships, selected = s$kinship %||% "unknown", selectize = FALSE)),
+          shiny::column(1, shiny::selectInput(ns(paste0("status_", i)), label = shiny::span(paste("Status", i), class = "sr-only"), choices = v_statuses, selected = s$status %||% "unknown", selectize = FALSE)),
+          shiny::column(1, shiny::selectInput(ns(paste0("sex_", i)), label = shiny::span(paste("Sex", i), class = "sr-only"), choices = v_sexes, selected = s$sex %||% "unknown", selectize = FALSE)),
+          shiny::column(1, shiny::numericInput(ns(paste0("code_", i)), label = shiny::span(paste("Code", i), class = "sr-only"), value = s$code %||% 1, min = 0)),
+          shiny::column(5, shiny::textInput(ns(paste0("bam_", i)), label = shiny::span(paste("BAM Path", i), class = "sr-only"), value = s$bam %||% "", width = "100%")),
+          shiny::column(2, shiny::textInput(ns(paste0("coverage_", i)), label = shiny::span(paste("Coverage Path", i), class = "sr-only"), value = s$coverage %||% "", width = "100%"))
         )
       })
       shiny::tagList(header_row, sample_rows)

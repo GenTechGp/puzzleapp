@@ -220,12 +220,12 @@ PopulationUI_1 <- function(ns) {
     selectInput(ns("sv_af"), "gnomADv4 AF:", choices = filter_freqs, selected = 1, selectize = FALSE),
     strong("ONT 1000 Genomes"),
     h5("Max carriers (HOM + HET)"),
-    numericInput(ns("sv_max_carriers_1000"), label = NULL, value = NULL, min = 0, step = 1),
+    numericInput(ns("sv_max_carriers_1000"), label = span("ONT 1000 Genomes max carriers (HOM + HET)", class = "sr-only"), value = NULL, min = 0, step = 1),
     strong("Internal Cohort"),
     h5("Max carriers (HOM + HET)"),
-    numericInput(ns("sv_max_carriers_internal"), label = NULL, value = NULL, min = 0, step = 1),
+    numericInput(ns("sv_max_carriers_internal"), label = span("Internal Cohort max carriers (HOM + HET)", class = "sr-only"), value = NULL, min = 0, step = 1),
     h5("Max families:"),
-    numericInput(ns("sv_max_families"), label = NULL, value = NULL, min = 0, step = 1)
+    numericInput(ns("sv_max_families"), label = span("Max families", class = "sr-only"), value = NULL, min = 0, step = 1)
   )
 }
 
@@ -307,10 +307,10 @@ panelAppOptsUI <- function(ns) {
     textInput(ns("substract_panelapp_genes"), "Subtract genes from PanelApp Gene list (semi-colon separated):", value = "", width = "100%"),
     br(),
     fluidRow(
-      column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "gray")),
+      column(3, panelBox(ns("unclassified_genes"), "Unclassified genes:", "#595959")),
       column(3, panelBox(ns("green_genes"), "Green genes:", "green")),
-      column(3, panelBox(ns("red_genes"), "Red genes:", "red")),
-    column(3, panelBox(ns("amber_genes"), "Amber genes:", "#FFBF00"))
+      column(3, panelBox(ns("red_genes"), "Red genes:", "#c0392b")),
+    column(3, panelBox(ns("amber_genes"), "Amber genes:", "#7d5a00"))
     ),
     fluidRow(
       column(12, textInput(ns("custom_genes"), "Custom genes (semi-colon separated):", value = "", width = "100%"))

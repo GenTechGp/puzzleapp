@@ -26,7 +26,7 @@ log_viewer_ui <- function(id) {
     shiny::fluidRow(
       shiny::column(
         width = 9,
-        shiny::selectizeInput(ns("file"), "Select log file:", choices = character(0), width = "100%"),
+        shiny::selectInput(ns("file"), "Select log file:", choices = character(0), width = "100%", selectize = FALSE),
         shiny::textInput(ns("search"), "Search (regex, optional):", value = "", placeholder = "e.g. error|warn|go"),
         shiny::verbatimTextOutput(ns("log_tail"), placeholder = TRUE)
       ),
@@ -120,11 +120,10 @@ log_viewer_server <- function(id, logs_dir = "logs", session_logfile_reactive = 
       # - Otherwise, select the latest file (if any).
       selected <- if (current_is_valid) current else latest
 
-      shiny::updateSelectizeInput(
+      shiny::updateSelectInput(
         session, "file",
         choices = choices,
-        selected = selected %||% character(0),
-        server = TRUE
+        selected = selected %||% character(0)
       )
     }, ignoreInit = FALSE)
 
