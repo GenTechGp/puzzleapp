@@ -117,10 +117,20 @@ igv_server <- function(id, shared_store, shared_rx) {
       }
       showNotification("Loading IGV...", duration = NULL, id = ns("notify_igv"), type = "message")
 
-      shiny_base <- sprintf("%s//%s:%s",
-        session$clientData$url_protocol,
-        session$clientData$url_hostname,
-        session$clientData$url_port)
+      cd       <- session$clientData
+      port     <- cd$url_port
+      use_port <- nchar(port) > 0 &&
+                  !(port == "80"  && cd$url_protocol == "http:")  &&
+                  !(port == "443" && cd$url_protocol == "https:")
+      host     <- if (use_port)
+                    sprintf("%s//%s:%s", cd$url_protocol, cd$url_hostname, port)
+                  else
+                    sprintf("%s//%s",    cd$url_protocol, cd$url_hostname)
+      # Reverse-proxies (e.g. ARE/RStudio) mount Shiny under a path prefix;
+      # url_pathname holds the browser path, e.g. "/rstudio/proxy/5637/".
+      path_prefix <- sub("/+$", "", cd$url_pathname)
+      shiny_base  <- paste0(host, path_prefix)
+      log_info(sprintf("[igvServer] base_url: %s", shiny_base))
 
       use_custom_genome_flag <- use_custom_genome()
       genomeOptions <- NULL

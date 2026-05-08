@@ -19,3 +19,4 @@ tests/svlog
 tests/configs/sample*.yaml
 install.log
 .claude
+tests/logs/lighthouse_reports/
