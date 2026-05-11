@@ -11,7 +11,5 @@ HGVSg		HGVSg	CSQ	FALSE	direct	Genomic HGVS
 HGVSc		HGVSc	CSQ	FALSE	direct	Coding HGVS
 HGVSp		HGVSp	CSQ	FALSE	direct	Protein HGVS
 Consequence		VEP_CONSEQUENCE	CSQ	FALSE	direct	VEP functional consequence
-gnomAD_sv_AF		AF	CSQ	FALSE	direct	gnomAD-SV allele frequency
-gnomAD_sv		gnomAD_ID	CSQ	FALSE	sv_gnomad_link	gnomAD-SV identifier; parsed and wrapped in HTML anchor at runtime
 SVTYPE		VAR_TYPE	INFO	FALSE	direct	Structural variant type (DEL/INS/DUP/INV/BND)
 SVLEN		VAR_LENGTH	INFO	FALSE	abs	abs(SVLEN) in bp

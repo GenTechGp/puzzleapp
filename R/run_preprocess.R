@@ -75,7 +75,13 @@ run_preprocess <- function(config_yaml,
   svs_tsv           <- paths$svs_tsv           %||% NULL
   svlog_static      <- paths$svlog_static      %||% NULL
   svlog_db          <- paths$svlog_db          %||% NULL
-  vcf_field_mapping <- paths$vcf_field_mapping %||% NULL
+  snv_field_mapping <- paths$snv_field_mapping %||% NULL
+  sv_field_mapping  <- paths$sv_field_mapping  %||% NULL
+
+  if (verbose && !is.null(snv_field_mapping))
+    message("[preprocess] SNV field mapping override: ", snv_field_mapping)
+  if (verbose && !is.null(sv_field_mapping))
+    message("[preprocess] SV field mapping override: ", sv_field_mapping)
 
   # Validation rules
   if (!is.null(snvs_vcf) && is.null(snvs_tsv)) {
@@ -123,7 +129,7 @@ run_preprocess <- function(config_yaml,
       snvs_vcf          = snvs_vcf,
       pedigree_data     = pedigree_data,
       snvs_vcf_cohort   = snvs_vcf_cohort,
-      vcf_field_mapping = vcf_field_mapping
+      snv_field_mapping = snv_field_mapping
     )
 
     # snv_dt <- snv_dt[1:10000, ]
@@ -141,11 +147,11 @@ run_preprocess <- function(config_yaml,
     if (verbose) message("[preprocess] SV: ", svs_vcf, " -> ", svs_tsv)
     ensure_parent_dir(svs_tsv)
     sv_dt <- process_sv_data(
-      svs_vcf           = svs_vcf,
-      pedigree_data     = pedigree_data,
-      svlog_static      = svlog_static,
-      svlog_db          = svlog_db,
-      vcf_field_mapping = vcf_field_mapping
+      svs_vcf          = svs_vcf,
+      pedigree_data    = pedigree_data,
+      svlog_static     = svlog_static,
+      svlog_db         = svlog_db,
+      sv_field_mapping = sv_field_mapping
     )
     data.table::fwrite(sv_dt, svs_tsv, sep = "\t", quote = FALSE, na = "NA")
     result$sv_path <- svs_tsv

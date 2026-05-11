@@ -1,6 +1,6 @@
 # VCF processing helpers — mapping-driven, tolerant of missing fields.
 # Canonical field mappings live in inst/extdata/preprocess/{snv,sv}_field_mapping.tsv.
-# Users can supply an optional override TSV via the vcf_field_mapping config key.
+# Users can supply optional override TSVs via snv_field_mapping / sv_field_mapping config keys.
 
 # -------------------------------------------------------------------------
 # Mapping loader
@@ -140,16 +140,16 @@ process_snv_vcf <- function(vcf_long) {
 #' @param snvs_vcf          Path to gzipped SNV/indel VCF (.vcf.gz)
 #' @param pedigree_data     data.table with columns sample_id, kinship
 #' @param snvs_vcf_cohort   Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)
-#' @param vcf_field_mapping Optional path to user field-mapping override TSV
+#' @param snv_field_mapping Optional path to user SNV field-mapping override TSV
 #' @return data.table
 #' @export
 process_snv_data <- function(snvs_vcf, pedigree_data,
                                  snvs_vcf_cohort   = NA,
-                                 vcf_field_mapping = NULL) {
+                                 snv_field_mapping = NULL) {
   cat("Processing SNV VCF:", snvs_vcf, "\n")
   if (!file.exists(snvs_vcf)) stop("SNV VCF file not found: ", snvs_vcf)
 
-  mapping <- load_field_mapping("snv", vcf_field_mapping)
+  mapping <- load_field_mapping("snv", snv_field_mapping)
 
   out        <- read_and_normalise_vcf(snvs_vcf)
   snvs_data  <- out$vcf_data
@@ -410,23 +410,23 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
 
 #' Process SV VCF to wide annotated table (v2 — mapping-driven)
 #'
-#' @param svs_vcf           Path to gzipped SV VCF (.vcf.gz)
-#' @param pedigree_data     data.table with columns sample_id, kinship
-#' @param svs_vcf_cohort    Optional cohort VCF (currently unused; reserved)
-#' @param svlog_static      Optional SVlog static TSV for annotation
-#' @param svlog_db          Optional SVlog database TSV (reserved)
-#' @param vcf_field_mapping Optional path to user field-mapping override TSV
+#' @param svs_vcf          Path to gzipped SV VCF (.vcf.gz)
+#' @param pedigree_data    data.table with columns sample_id, kinship
+#' @param svs_vcf_cohort   Optional cohort VCF (currently unused; reserved)
+#' @param svlog_static     Optional SVlog static TSV for annotation
+#' @param svlog_db         Optional SVlog database TSV (reserved)
+#' @param sv_field_mapping Optional path to user SV field-mapping override TSV
 #' @return data.table
 #' @export
 process_sv_data <- function(svs_vcf, pedigree_data,
-                                svs_vcf_cohort   = NA,
-                                svlog_static     = NULL,
-                                svlog_db         = NULL,
-                                vcf_field_mapping = NULL) {
+                                svs_vcf_cohort  = NA,
+                                svlog_static    = NULL,
+                                svlog_db        = NULL,
+                                sv_field_mapping = NULL) {
   cat("Processing SV VCF:", svs_vcf, "\n")
   if (!file.exists(svs_vcf)) stop("SV VCF file not found: ", svs_vcf)
 
-  mapping <- load_field_mapping("sv", vcf_field_mapping)
+  mapping <- load_field_mapping("sv", sv_field_mapping)
 
   # --- SVlog ---------------------------------------------------------------
   svlog_dt <- NULL
@@ -623,23 +623,6 @@ process_sv_data <- function(svs_vcf, pedigree_data,
         NA_character_
       )]
     }
-  }
-
-  # --- gnomAD / ClinVar links ----------------------------------------------
-  if ("AF" %in% names(svs_data_melt)) {
-    svs_data_melt[, AF := suppressWarnings(as.numeric(AF))]
-  } else {
-    svs_data_melt[, AF := NA_real_]
-  }
-
-  if ("gnomAD_ID" %in% names(svs_data_melt)) {
-    svs_data_melt[, gnomAD_ID := sub(".*?(DEL|DUP|INV|INS|CNV|TRA|BND)_", "\\1_", gnomAD_ID)]
-    svs_data_melt[!is.na(AF) & AF > 0 & !is.na(gnomAD_ID), gnomAD_ID := sprintf(
-      '<a href="https://gnomad.broadinstitute.org/variant/%s?dataset=gnomad_sv_r4" target="_blank">%s</a>',
-      gnomAD_ID, gnomAD_ID
-    )]
-  } else {
-    svs_data_melt[, gnomAD_ID := NA_character_]
   }
 
   required_cols <- c("CLIN_SIG", "CLINVAR_ID", "gnomAD_sv_N_HOMALT")

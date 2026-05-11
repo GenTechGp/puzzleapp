@@ -136,8 +136,10 @@ run_pipeline(
 
 
 ## Preprocessing
-A one time preprocessing step is required to extract required information from the VCF files to create the SNV and SV tsv files.
-```
+
+A one-time preprocessing step converts VCF files into the tab-delimited TSV format consumed by the app.
+
+```r
 library(puzzleapp)
 
 run_preprocess(
@@ -145,7 +147,36 @@ run_preprocess(
 )
 ```
 
-TODO: A documentation on the yaml file format will be added in the future.
+The config YAML must contain a `paths` block pointing to input VCFs and the desired output TSV paths:
+
+```yaml
+paths:
+  snvs_vcf:  /path/to/sample.snvs.vcf.gz   # SNV/indel input
+  snvs_tsv:  /path/to/output_snv.tsv        # SNV output (written by preprocess)
+  svs_vcf:   /path/to/sample.svs.vcf.gz    # SV input
+  svs_tsv:   /path/to/output_sv.tsv         # SV output (written by preprocess)
+
+samples:
+  - sample_id: SAMPLE1
+    kinship: proband
+  - sample_id: SAMPLE2
+    kinship: mother
+```
+
+### VCF field mapping
+
+The pipeline maps VCF field names to canonical output column names using bundled TSV mapping files. Different VCF callers and reference genomes can use different field names for the same data — this is handled through **user override mapping files** specified in the YAML:
+
+```yaml
+paths:
+  # ... vcf/tsv paths above ...
+  snv_field_mapping: /path/to/hs1_snv_field_mapping.tsv   # optional SNV override
+  sv_field_mapping:  /path/to/hs1_sv_field_mapping.tsv    # optional SV override
+```
+
+An override TSV only needs rows for fields that differ from the canonical defaults. Missing non-required fields degrade gracefully (warning + NA) rather than stopping.
+
+See [`inst/extdata/docs/vcf_field_mapping.md`](inst/extdata/docs/vcf_field_mapping.md) for full documentation of the mapping schema, computation types, and how to add support for a new VCF caller.
 
 ## Development
 
