@@ -2,9 +2,14 @@
 % Please edit documentation in R/puzzlecore_preprocess.R
 \name{process_snv_data}
 \alias{process_snv_data}
-\title{Process SNV VCF to wide annotated table (legacy)}
+\title{Process SNV VCF to wide annotated table (v2 — mapping-driven)}
 \usage{
-process_snv_data(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA)
+process_snv_data(
+  snvs_vcf,
+  pedigree_data,
+  snvs_vcf_cohort = NA,
+  snv_field_mapping = NULL
+)
 }
 \arguments{
 \item{snvs_vcf}{Path to gzipped SNV/indel VCF (.vcf.gz)}
@@ -12,10 +17,12 @@ process_snv_data(snvs_vcf, pedigree_data, snvs_vcf_cohort = NA)
 \item{pedigree_data}{data.table with columns sample_id, kinship}
 
 \item{snvs_vcf_cohort}{Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)}
+
+\item{snv_field_mapping}{Optional path to user SNV field-mapping override TSV}
 }
 \value{
 data.table
 }
 \description{
-Process SNV VCF to wide annotated table (legacy)
+Process SNV VCF to wide annotated table (v2 — mapping-driven)
 }

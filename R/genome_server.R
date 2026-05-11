@@ -10,7 +10,7 @@
 #'
 #' Attaches a range-capable HTTP handler for each file onto Shiny's own httpuv
 #' server via session$registerDataObj(). Files are served through the existing
-#' Shiny port — no separate server, no firewall or CORS issues.
+#' Shiny port -- no separate server, no firewall or CORS issues.
 #'
 #' @param session  The Shiny session object.
 #' @param files    Named character vector from make_file_map().
@@ -122,7 +122,7 @@ make_file_map <- function(...) {
   if (length(paths) == 0L) stop("No valid file paths provided")
   nms <- basename(paths)
   if (anyDuplicated(nms))
-    stop("Duplicate basenames — rename files to make them unique")
+    stop("Duplicate basenames \u2014 rename files to make them unique")
   setNames(as.character(paths), nms)
 }
 

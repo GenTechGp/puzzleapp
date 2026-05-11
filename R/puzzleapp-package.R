@@ -44,7 +44,7 @@
 #'
 #' @importFrom utils packageVersion capture.output modifyList read.delim str write.table read.table
 #'
-#' @importFrom stats setNames density
+#' @importFrom stats setNames density na.omit
 #' 
 #' @importFrom bit64 as.integer64
 #' 

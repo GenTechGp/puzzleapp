@@ -10,30 +10,11 @@ read_and_normalise_vcf(vcf_path)
 \item{vcf_path}{Path to gzipped VCF (.vcf.gz)}
 }
 \value{
-list with elements:
-\itemize{
-\item vcf_data   : data.table of VCF body (variants)
-\item vcf_header  : data.table of header lines (one per row, col V1)
-}
+list(vcf_data, vcf_header)
 }
 \description{
-This helper reads a gzipped VCF and:
-\itemize{
-\item If a CSQ INFO header is present, returns the data and header unchanged.
-\item Else, if an ANN INFO header is present, it builds a pseudo-CSQ INFO field
-from ANN using CSQ_mapping.tsv.
-\item Else, if a BCSQ INFO header is present, it builds a pseudo-CSQ INFO field
-from BCSQ using CSQ_mapping.tsv.
-\item Else, errors.
-}
-}
-\details{
-It assumes:
-\itemize{
-\item A resource file "CSQ_ANN_BSQ_header.txt" containing at least the canonical
-CSQ INFO header line (used to derive csq_columns).
-\item A resource file "CSQ_mapping.tsv" with columns:
-VEP_CSQ_field, SnpEff_ANN_field, BCFtools_BCSQ_field
-}
+Returns data unchanged if CSQ is already present. Otherwise converts ANN
+(SnpEff) or BCSQ (BCFtools) to a pseudo-CSQ field using the mapping tables
+in inst/extdata/preprocess/.
 }
 \keyword{internal}

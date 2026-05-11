@@ -22,9 +22,9 @@ build_csq_from_tag(
 
 \item{csq_columns}{Canonical CSQ schema (from CSQ header).}
 
-\item{csq_map}{Mapping table (data.table) with VEP_CSQ_field + mapping cols.}
+\item{csq_map}{Mapping table with VEP_CSQ_field + mapping cols.}
 
-\item{mapping_col}{Column name in csq_map to use ("SnpEff_ANN_field" or "BCFtools_BCSQ_field").}
+\item{mapping_col}{Column name in csq_map to use.}
 }
 \value{
 Character vector of CSQ strings, one per element of info_vec.

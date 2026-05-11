@@ -12,7 +12,6 @@ Depends: R (>= 4.4)
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
 biocViews:
 Imports: 
     shiny,
@@ -42,3 +41,4 @@ Imports:
 Suggests:
     testthat (>= 3.0.0)
 Config/testthat/edition: 3
+Config/roxygen2/version: 8.0.0

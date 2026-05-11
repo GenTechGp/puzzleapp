@@ -41,5 +41,12 @@ utils::globalVariables(c(
   "variable",
   "width",
 
-  "VEP_CSQ_field"
+  "VEP_CSQ_field",
+
+  # field_mapping columns (used in dplyr/data.table NSE)
+  "field_type", "output_column", "computation", "required", "vcf_field",
+
+  # splice / genotype columns
+  "Acceptor_Gain", "Acceptor_Loss", "Donor_Gain", "Donor_Loss",
+  "N_HOM_ALT", "GENE_ID", "TRANSCRIPT", "VAR_LENGTH"
 ))

@@ -13,6 +13,7 @@ an R/Shiny application for interactive exploration and review of genomic variant
 
 Authors:
 \itemize{
+  \item Hiruna Samarkoon \email{hiruna.samarkoon@garvan.org.au}
   \item Andre Martins Reis \email{a.martinsreis@garvan.org.au}
   \item Sasha Jenner \email{sjen6644@uni.sydney.edu.au}
 }

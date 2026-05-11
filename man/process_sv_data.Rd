@@ -2,14 +2,15 @@
 % Please edit documentation in R/puzzlecore_preprocess.R
 \name{process_sv_data}
 \alias{process_sv_data}
-\title{Process SV VCF to wide annotated table (legacy)}
+\title{Process SV VCF to wide annotated table (v2 — mapping-driven)}
 \usage{
 process_sv_data(
   svs_vcf,
   pedigree_data,
   svs_vcf_cohort = NA,
   svlog_static = NULL,
-  svlog_db = NULL
+  svlog_db = NULL,
+  sv_field_mapping = NULL
 )
 }
 \arguments{
@@ -17,15 +18,17 @@ process_sv_data(
 
 \item{pedigree_data}{data.table with columns sample_id, kinship}
 
-\item{svs_vcf_cohort}{Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)}
+\item{svs_vcf_cohort}{Optional cohort VCF (currently unused; reserved)}
 
-\item{svlog_static}{Optional SVlog static TSV file for annotation (default NULL)}
+\item{svlog_static}{Optional SVlog static TSV for annotation}
 
-\item{svlog_db}{Optional SVlog database TSV file for annotation (default NULL)}
+\item{svlog_db}{Optional SVlog database TSV (reserved)}
+
+\item{sv_field_mapping}{Optional path to user SV field-mapping override TSV}
 }
 \value{
 data.table
 }
 \description{
-Process SV VCF to wide annotated table (legacy)
+Process SV VCF to wide annotated table (v2 — mapping-driven)
 }
