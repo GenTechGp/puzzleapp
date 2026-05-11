@@ -26,6 +26,9 @@
 #' @param config_yaml Path to the YAML configuration file.
 #' @param validate Logical; if TRUE (default) perform strict key checks.
 #' @param verbose Logical; print progress messages (default TRUE).
+#' @param version Integer; 1 (default) uses process_snv/sv_data, 2 uses the
+#'   mapping-driven process_snv/sv_data_v2. When version = 2, the optional
+#'   paths$vcf_field_mapping key in the YAML is passed as a user override TSV.
 #' @return Invisibly returns a list with elements:
 #'   $snv_path (written SNV TSV or NULL),
 #'   $sv_path (written SV TSV or NULL),
@@ -35,7 +38,8 @@
 #' @export
 run_preprocess <- function(config_yaml,
                        validate = TRUE,
-                       verbose = TRUE) {
+                       verbose  = TRUE,
+                       version  = 1L) {
   yaml_path <- config_yaml
   if (!requireNamespace("yaml", quietly = TRUE)) {
     stop("Package 'yaml' is required.")
@@ -68,13 +72,14 @@ run_preprocess <- function(config_yaml,
   }
 
   # Extract paths (scalar expected)
-  snvs_vcf         <- paths$snvs_vcf         %||% NULL
-  snvs_tsv         <- paths$snvs_tsv         %||% NULL
-  snvs_vcf_cohort  <- paths$snvs_vcf_cohort  %||% NA
-  svs_vcf          <- paths$svs_vcf          %||% NULL
-  svs_tsv          <- paths$svs_tsv          %||% NULL
-  svlog_static     <- paths$svlog_static     %||% NULL
-  svlog_db         <- paths$svlog_db         %||% NULL
+  snvs_vcf          <- paths$snvs_vcf          %||% NULL
+  snvs_tsv          <- paths$snvs_tsv          %||% NULL
+  snvs_vcf_cohort   <- paths$snvs_vcf_cohort   %||% NA
+  svs_vcf           <- paths$svs_vcf           %||% NULL
+  svs_tsv           <- paths$svs_tsv           %||% NULL
+  svlog_static      <- paths$svlog_static      %||% NULL
+  svlog_db          <- paths$svlog_db          %||% NULL
+  vcf_field_mapping <- paths$vcf_field_mapping %||% NULL
 
   # Validation rules
   if (!is.null(snvs_vcf) && is.null(snvs_tsv)) {
@@ -118,11 +123,20 @@ run_preprocess <- function(config_yaml,
       message("[preprocess] SNV cohort VCF: ", snvs_vcf_cohort)
     }
     ensure_parent_dir(snvs_tsv)
-    snv_dt <- process_snv_data(
-      snvs_vcf        = snvs_vcf,
-      pedigree_data   = pedigree_data,
-      snvs_vcf_cohort = snvs_vcf_cohort
-    )
+    snv_dt <- if (version == 2L) {
+      process_snv_data_v2(
+        snvs_vcf          = snvs_vcf,
+        pedigree_data     = pedigree_data,
+        snvs_vcf_cohort   = snvs_vcf_cohort,
+        vcf_field_mapping = vcf_field_mapping
+      )
+    } else {
+      process_snv_data(
+        snvs_vcf        = snvs_vcf,
+        pedigree_data   = pedigree_data,
+        snvs_vcf_cohort = snvs_vcf_cohort
+      )
+    }
 
     # snv_dt <- snv_dt[1:10000, ]
     data.table::fwrite(snv_dt, snvs_tsv, sep = "\t", quote = FALSE, na = "NA")
@@ -138,12 +152,22 @@ run_preprocess <- function(config_yaml,
     }
     if (verbose) message("[preprocess] SV: ", svs_vcf, " -> ", svs_tsv)
     ensure_parent_dir(svs_tsv)
-    sv_dt <- process_sv_data(
-      svs_vcf       = svs_vcf,
-      pedigree_data = pedigree_data,
-      svlog_static  = svlog_static,
-      svlog_db      = svlog_db
-    )
+    sv_dt <- if (version == 2L) {
+      process_sv_data_v2(
+        svs_vcf           = svs_vcf,
+        pedigree_data     = pedigree_data,
+        svlog_static      = svlog_static,
+        svlog_db          = svlog_db,
+        vcf_field_mapping = vcf_field_mapping
+      )
+    } else {
+      process_sv_data(
+        svs_vcf       = svs_vcf,
+        pedigree_data = pedigree_data,
+        svlog_static  = svlog_static,
+        svlog_db      = svlog_db
+      )
+    }
     data.table::fwrite(sv_dt, svs_tsv, sep = "\t", quote = FALSE, na = "NA")
     result$sv_path <- svs_tsv
     result$sv_dt <- sv_dt

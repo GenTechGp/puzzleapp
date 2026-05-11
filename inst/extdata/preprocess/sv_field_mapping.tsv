@@ -1,0 +1,17 @@
+vcf_field	vcf_field_2	output_column	field_type	required	computation	note
+GT		GT_n	FORMAT_SV	TRUE	direct	Per-sample genotype
+GQ		GQ_n	FORMAT_SV	FALSE	direct	Per-sample genotype quality
+DV		AD_n	FORMAT_SV	FALSE	direct	Variant support reads (alt depth)
+DV	DR	DP_n	FORMAT_SV	FALSE	sum	DP = DV + DR (variant + reference reads)
+DV	DR	VAF_n	FORMAT_SV	FALSE	ratio	VAF = DV / (DV + DR)
+Gene		GENE_ID	CSQ	FALSE	direct	Ensembl gene ID
+SYMBOL		GENE_SYMBOL	CSQ	FALSE	direct	HGNC gene symbol
+Feature		TRANSCRIPT	CSQ	FALSE	direct	Transcript ID
+HGVSg		HGVSg	CSQ	FALSE	direct	Genomic HGVS
+HGVSc		HGVSc	CSQ	FALSE	direct	Coding HGVS
+HGVSp		HGVSp	CSQ	FALSE	direct	Protein HGVS
+Consequence		VEP_CONSEQUENCE	CSQ	FALSE	direct	VEP functional consequence
+gnomAD_sv_AF		AF	CSQ	FALSE	direct	gnomAD-SV allele frequency
+gnomAD_sv		gnomAD_ID	CSQ	FALSE	sv_gnomad_link	gnomAD-SV identifier; parsed and wrapped in HTML anchor at runtime
+SVTYPE		VAR_TYPE	INFO	FALSE	direct	Structural variant type (DEL/INS/DUP/INV/BND)
+SVLEN		VAR_LENGTH	INFO	FALSE	abs	abs(SVLEN) in bp

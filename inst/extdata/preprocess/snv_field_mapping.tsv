@@ -1,0 +1,33 @@
+vcf_field	vcf_field_2	output_column	field_type	required	computation	note
+GT		GT_n	FORMAT	TRUE	direct	Per-sample genotype
+GQ		GQ_n	FORMAT	FALSE	direct	Per-sample genotype quality
+AD		AD_n	FORMAT	FALSE	direct	Per-sample alt allele depth
+DP		DP_n	FORMAT	FALSE	direct	Per-sample total depth
+AD	DP	VAF_n	FORMAT	FALSE	ratio	VAF = AD / DP
+Gene		GENE_ID	CSQ	FALSE	direct	Ensembl gene ID
+SYMBOL		GENE_SYMBOL	CSQ	FALSE	direct	HGNC gene symbol
+Feature		TRANSCRIPT	CSQ	FALSE	direct	Transcript ID
+HGVSg		HGVSg	CSQ	FALSE	direct	Genomic HGVS
+HGVSc		HGVSc	CSQ	FALSE	direct	Coding HGVS
+HGVSp		HGVSp	CSQ	FALSE	direct	Protein HGVS
+Consequence		VEP_CONSEQUENCE	CSQ	FALSE	direct	VEP functional consequence
+CLIN_SIG		CLINVAR	CSQ	FALSE	direct	ClinVar clinical significance
+ClinVar		CLINVAR_ID	CSQ	FALSE	html_clinvar	ClinVar variation ID; wrapped in HTML anchor at runtime
+gnomAD_AF_joint		AF	CSQ	FALSE	direct	gnomAD v4 allele frequency
+gnomAD_nhomalt_joint		N_HOM_ALT	CSQ	FALSE	direct	gnomAD v4 homozygous-alt count
+SIFT		SIFT	CSQ	FALSE	direct	SIFT prediction
+PolyPhen		PolyPhen	CSQ	FALSE	direct	PolyPhen-2 prediction
+REVEL		REVEL	CSQ	FALSE	direct	REVEL missense score
+am_class		am_class	CSQ	FALSE	direct	AlphaMissense classification
+am_pathogenicity		am_pathogenicity	CSQ	FALSE	direct	AlphaMissense pathogenicity score
+CADD_PHRED		CADD_PHRED	CSQ	FALSE	direct	CADD PHRED-scaled score
+CADD_RAW		CADD_RAW	CSQ	FALSE	direct	CADD raw score
+SpliceAI_pred_DS_DL		Donor_Loss	CSQ	FALSE	direct	SpliceAI donor loss delta score
+SpliceAI_pred_DS_DG		Donor_Gain	CSQ	FALSE	direct	SpliceAI donor gain delta score
+SpliceAI_pred_DS_AL		Acceptor_Loss	CSQ	FALSE	direct	SpliceAI acceptor loss delta score
+SpliceAI_pred_DS_AG		Acceptor_Gain	CSQ	FALSE	direct	SpliceAI acceptor gain delta score
+SpliceAI_pred_SYMBOL		_spliceai_symbol	CSQ	FALSE	direct	Helper: gene symbol for SpliceAI_pred compound string
+SpliceAI_pred_DP_AG		_spliceai_dp_ag	CSQ	FALSE	direct	Helper: acceptor gain position for SpliceAI_pred compound string
+SpliceAI_pred_DP_AL		_spliceai_dp_al	CSQ	FALSE	direct	Helper: acceptor loss position for SpliceAI_pred compound string
+SpliceAI_pred_DP_DG		_spliceai_dp_dg	CSQ	FALSE	direct	Helper: donor gain position for SpliceAI_pred compound string
+SpliceAI_pred_DP_DL		_spliceai_dp_dl	CSQ	FALSE	direct	Helper: donor loss position for SpliceAI_pred compound string
