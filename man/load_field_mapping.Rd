@@ -13,7 +13,7 @@ load_field_mapping(variant_type, user_mapping_path = NULL)
 }
 \value{
 data.table with columns:
-vcf_field, vcf_field_2, output_column, field_type, required, computation, note
+vcf_field, output_column, field_type, required, note
 }
 \description{
 Load and merge canonical + user field mappings

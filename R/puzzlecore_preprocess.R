@@ -11,7 +11,7 @@
 #' @param variant_type "snv" or "sv"
 #' @param user_mapping_path Optional path to a user override TSV (same schema).
 #' @return data.table with columns:
-#'   vcf_field, vcf_field_2, output_column, field_type, required, computation, note
+#'   vcf_field, output_column, field_type, required, note
 #' @keywords internal
 load_field_mapping <- function(variant_type, user_mapping_path = NULL) {
   fname <- paste0(variant_type, "_field_mapping.tsv")
@@ -37,8 +37,7 @@ load_field_mapping <- function(variant_type, user_mapping_path = NULL) {
     }
   }
 
-  mapping[is.na(computation), computation := "direct"]
-  mapping[is.na(required),    required    := "FALSE"]
+  mapping[is.na(required), required := "FALSE"]
   mapping
 }
 
@@ -84,7 +83,7 @@ extract_csq_columns <- function(dt, mapping) {
 #' Resolve FORMAT fields for SNV from the mapping, return selected field names.
 #' @keywords internal
 snv_format_fields <- function(mapping) {
-  fmt <- mapping[field_type == "FORMAT" & computation == "direct"]
+  fmt <- mapping[field_type == "FORMAT" & !grepl(",", vcf_field, fixed = TRUE)]
   unique(fmt$vcf_field)
 }
 
@@ -96,7 +95,8 @@ snv_format_fields <- function(mapping) {
 #' @keywords internal
 sv_format_fields <- function(mapping) {
   fmt <- mapping[field_type == "FORMAT_SV"]
-  unique(na.omit(c(fmt$vcf_field, fmt$vcf_field_2)))
+  fields <- unlist(strsplit(fmt$vcf_field, ",", fixed = TRUE))
+  unique(trimws(fields))
 }
 
 # -------------------------------------------------------------------------
@@ -218,7 +218,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   snvs_data_melt <- merge(snvs_data_melt, trio_dt, by = "Sample")
 
   # --- FORMAT field selection driven by mapping ----------------------------
-  fmt_direct <- mapping[field_type == "FORMAT" & computation == "direct", vcf_field]
+  fmt_direct <- mapping[field_type == "FORMAT" & !grepl(",", vcf_field, fixed = TRUE), vcf_field]
   snvs_data_melt <- snvs_data_melt[FORMAT %in% fmt_direct]
 
   # AD: keep only the alt allele count (second element)
@@ -243,8 +243,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   gt_cols  <- paste0("GT_", seq_len(num_samples))
   gq_cols  <- paste0("GQ_", seq_len(num_samples))
 
-  vaf_row <- mapping[field_type == "FORMAT" & computation == "ratio"]
-  if (nrow(vaf_row)) {
+  if ("VAF_n" %in% mapping$output_column) {
     for (i in seq_along(ad_cols)) {
       if (ad_cols[i] %in% names(snvs_data_melt) && dp_cols[i] %in% names(snvs_data_melt)) {
         snvs_data_melt[, (vaf_cols[i]) :=
@@ -533,13 +532,11 @@ process_sv_data <- function(svs_vcf, pedigree_data,
   gt_cols  <- paste0("GT_", seq_len(num_samples))
   gq_cols  <- paste0("GQ_", seq_len(num_samples))
 
-  dv_row  <- mapping[field_type == "FORMAT_SV" & computation == "direct" &
-                       output_column == "AD_n"]
-  sum_row <- mapping[field_type == "FORMAT_SV" & computation == "sum"]
-  rat_row <- mapping[field_type == "FORMAT_SV" & computation == "ratio"]
+  dv_row <- mapping[field_type == "FORMAT_SV" & output_column == "AD_n"]
+  dp_row <- mapping[field_type == "FORMAT_SV" & output_column == "DP_n"]
 
-  dv_field <- if (nrow(dv_row))  paste0(dv_row$vcf_field[1],  "_") else "DV_"
-  dr_field <- if (nrow(sum_row)) paste0(sum_row$vcf_field_2[1], "_") else "DR_"
+  dv_field <- if (nrow(dv_row)) paste0(trimws(strsplit(dv_row$vcf_field[1], ",", fixed = TRUE)[[1]][1]), "_") else "DV_"
+  dr_field <- if (nrow(dp_row)) paste0(trimws(strsplit(dp_row$vcf_field[1], ",", fixed = TRUE)[[1]][2]), "_") else "DR_"
 
   for (i in seq_len(num_samples)) {
     dv_col <- paste0(dv_field, i)
@@ -588,7 +585,6 @@ process_sv_data <- function(svs_vcf, pedigree_data,
   for (i in seq_len(nrow(info_rows))) {
     tag      <- info_rows$vcf_field[i]
     out_col  <- info_rows$output_column[i]
-    comp     <- info_rows$computation[i]
     pattern  <- paste0(".*", tag, "=([^;]*).*")
 
     raw_val <- ifelse(
@@ -597,7 +593,7 @@ process_sv_data <- function(svs_vcf, pedigree_data,
       NA_character_
     )
 
-    if (identical(comp, "abs")) {
+    if (identical(tag, "SVLEN")) {
       svs_data_melt[, (out_col) := suppressWarnings(abs(as.numeric(raw_val)))]
     } else {
       svs_data_melt[, (out_col) := raw_val]

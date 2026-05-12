@@ -1,18 +1,4 @@
-#' @importFrom shiny
-#'   NS tagList tags HTML
-#'   textOutput verbatimTextOutput renderText renderUI
-#'   selectInput selectizeInput checkboxGroupInput radioButtons
-#'   numericInput sliderInput textInput checkboxInput actionButton
-#'   downloadButton downloadHandler
-#'   updateSelectInput updateSelectizeInput updateCheckboxGroupInput
-#'   updateCheckboxInput updateRadioButtons updateSliderInput
-#'   updateTextInput updateNumericInput
-#'   moduleServer reactiveVal reactive eventReactive
-#'   observe observeEvent isolate invalidateLater
-#'   showModal modalDialog modalButton showNotification
-#'   uiOutput fluidRow column div span h4 br
-#'   req getDefaultReactiveDomain onStop
-#'   runApp
+#' @importFrom shiny NS tagList tags HTML textOutput verbatimTextOutput renderText renderUI selectInput selectizeInput checkboxGroupInput radioButtons numericInput sliderInput textInput checkboxInput actionButton downloadButton downloadHandler updateSelectInput updateSelectizeInput updateCheckboxGroupInput updateCheckboxInput updateRadioButtons updateSliderInput updateTextInput updateNumericInput moduleServer reactiveVal reactive eventReactive observe observeEvent isolate invalidateLater showModal modalDialog modalButton showNotification uiOutput fluidRow column div span h4 br req getDefaultReactiveDomain onStop runApp
 #'
 #' @importFrom shinybusy add_busy_spinner
 #' 
@@ -24,19 +10,13 @@
 #'
 #' @importFrom jsonlite toJSON fromJSON
 #'
-#' @importFrom data.table
-#'   data.table as.data.table copy is.data.table haskey key
-#'   setkey set setDT setcolorder rbindlist fread fwrite tstrsplit
-#'   fifelse := setnames melt %chin%
+#' @importFrom data.table data.table as.data.table copy is.data.table haskey key setkey set setDT setcolorder rbindlist fread fwrite tstrsplit fifelse := setnames melt %chin%
 #'
 #' @importFrom stringr str_extract str_remove
 #'
 #' @importFrom tools file_path_sans_ext file_ext
 #'
-#' @importFrom lgr
-#'   get_log_levels get_logger
-#'   AppenderConsole LayoutFormat
-#'   AppenderFile    LayoutJson
+#' @importFrom lgr get_log_levels get_logger AppenderConsole LayoutFormat AppenderFile LayoutJson
 #'
 #' @importFrom yaml read_yaml
 #'
