@@ -1,5 +1,5 @@
 Installing persistently into: /g/data/ox63/hiruna/puzzleapp/app/30102025_431
-Cloning repository from: git@github.com:KCCGGenomeTechLab/puzzleapp.git
+Cloning repository from: git@github.com:GenTechGp/puzzleapp.git
 Checking out branch: pack (latest commit)
 Resolved commit hash: 261e4fa32b656a6608d71133bc4298547b11076f
 Applying --oldr modifications to DESCRIPTION...
@@ -8047,19 +8047,37 @@ Creating a new generic function for ‘tabulate’ in package ‘VariantAnnotati
 ** testing if installed package keeps a record of temporary installation path
 * DONE (VariantAnnotation)
 [36m──[39m [36mR CMD build[39m [36m─────────────────────────────────────────────────────────────────[39m
-     checking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/remotes2b17186646a35a/gladkia-igvShiny-e7ed502/DESCRIPTION’ ...  [32m✔[39m  [38;2;169;169;169mchecking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/remotes2b17186646a35a/gladkia-igvShiny-e7ed502/DESCRIPTION’[39m[36m[36m (368ms)[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mpreparing ‘igvShiny’:[39m[36m[36m (586ms)[36m[39m
-  [32m✔[39m  [38;2;169;169;169mchecking DESCRIPTION meta-information[39m[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for LF line-endings in source and make files and shell scripts[39m[36m[36m (344ms)[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for empty or unneeded directories[39m[36m[39m
-       NB: this package now depends on R (>= 3.5.0)
-       WARNING: Added dependency on R >= 3.5.0 because serialized objects in
+  
+   checking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/remotes2b17186646a35a/gladkia-igvShiny-e7ed502/DESCRIPTION’ ...
+  
+[32m✔[39m  [38;2;169;169;169mchecking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/remotes2b17186646a35a/gladkia-igvShiny-e7ed502/DESCRIPTION’[39m[36m[36m (368ms)[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mpreparing ‘igvShiny’:[39m[36m[36m (586ms)[36m[39m
+
+  
+[32m✔[39m  [38;2;169;169;169mchecking DESCRIPTION meta-information[39m[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for LF line-endings in source and make files and shell scripts[39m[36m[36m (344ms)[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for empty or unneeded directories[39m[36m[39m
+
+  
+     NB: this package now depends on R (>= 3.5.0)
+
+  
+     WARNING: Added dependency on R >= 3.5.0 because serialized objects in
      serialize/load version 3 cannot be read in older versions of R.
      File(s) containing such objects:
        ‘igvShiny/inst/extdata/gwas.RData’
 [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mbuilding ‘igvShiny_1.5.2.tar.gz’[39m[36m[39m
-     
-begin installing package ‘lazyeval’
+
+  
+   
+
+begin installing package ‘lazyeval’
 begin installing package ‘lobstr’
 begin installing package ‘lgr’
 begin installing package ‘data.table’
@@ -8344,13 +8362,31 @@ installing to /g/data/ox63/hiruna/puzzleapp/app/30102025_431/Rlib/00LOCK-data.ta
 ** testing if installed package keeps a record of temporary installation path
 * DONE (data.table)
 [36m──[39m [36mR CMD build[39m [36m─────────────────────────────────────────────────────────────────[39m
-     checking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/file2b17184aeba364/puzzleapp_repo/DESCRIPTION’ ...  [32m✔[39m  [38;2;169;169;169mchecking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/file2b17184aeba364/puzzleapp_repo/DESCRIPTION’[39m[36m[36m (356ms)[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mpreparing ‘puzzleapp’:[39m[36m[36m (388ms)[36m[39m
-     checking DESCRIPTION meta-information ...  [32m✔[39m  [38;2;169;169;169mchecking DESCRIPTION meta-information[39m[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for LF line-endings in source and make files and shell scripts[39m[36m[36m (423ms)[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for empty or unneeded directories[39m[36m[39m
-  [38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mbuilding ‘puzzleapp_0.1.0.tar.gz’[39m[36m[39m
-     
-Purged old log files
+  
+   checking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/file2b17184aeba364/puzzleapp_repo/DESCRIPTION’ ...
+  
+[32m✔[39m  [38;2;169;169;169mchecking for file ‘/scratch/wv19/hm4078/tmp/Rtmpu5YDeK/file2b17184aeba364/puzzleapp_repo/DESCRIPTION’[39m[36m[36m (356ms)[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mpreparing ‘puzzleapp’:[39m[36m[36m (388ms)[36m[39m
+
+  
+   checking DESCRIPTION meta-information ...
+  
+[32m✔[39m  [38;2;169;169;169mchecking DESCRIPTION meta-information[39m[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for LF line-endings in source and make files and shell scripts[39m[36m[36m (423ms)[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mchecking for empty or unneeded directories[39m[36m[39m
+
+  
+[38;2;169;169;169m─[39m[38;2;169;169;169m  [39m[38;2;169;169;169mbuilding ‘puzzleapp_0.1.0.tar.gz’[39m[36m[39m
+
+  
+   
+
+Purged old log files
 Application started
 Application stopping

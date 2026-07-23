@@ -8,7 +8,7 @@ aboutUI <- function(id) {
   tagList(
     shiny::br(),
     tags$p("PuzzleApp version: v0.0.1"),
-    tags$p("README: ", tags$a(href = "https://github.com/KCCGGenomeTechLab/puzzleapp/blob/pack/README.md", "https://github.com/KCCGGenomeTechLab/puzzleapp/blob/pack/README.md", target = "_blank")),
+    tags$p("README: ", tags$a(href = "https://github.com/GenTechGp/puzzleapp/blob/pack/README.md", "https://github.com/GenTechGp/puzzleapp/blob/pack/README.md", target = "_blank")),
     tags$p("Table Documentation: "),
     tabPanel(
       "Table Documentation",

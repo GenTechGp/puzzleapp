@@ -2,7 +2,7 @@
 
 <!-- badges: start -->
 
-[![R-CMD-check](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/KCCGGenomeTechLab/puzzleapp/actions/workflows/R-CMD-check.yaml)
+[![R-CMD-check](https://github.com/GenTechGp/puzzleapp/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/GenTechGp/puzzleapp/actions/workflows/R-CMD-check.yaml)
 <!-- badges: end -->
 
 Visualise and analyse variants
@@ -13,7 +13,7 @@ Try the following code in your R console:
 
 ``` r
 if (!requireNamespace("remotes", quietly = TRUE)) install.packages("remotes")
-remotes::install_github("KCCGGenomeTechLab/puzzleapp", dependencies = TRUE, lib = "optional path")
+remotes::install_github("GenTechGp/puzzleapp", dependencies = TRUE, lib = "optional path")
 library(puzzleapp)
 run_app()
 ```
@@ -21,7 +21,7 @@ run_app()
 ## Installation
 
 ``` bash
-git clone --branch pack --depth 1 git@github.com:KCCGGenomeTechLab/puzzleapp.git
+git clone --branch main --depth 1 https://github.com/GenTechGp/puzzleapp.git
 cd puzzleapp
 ```
 

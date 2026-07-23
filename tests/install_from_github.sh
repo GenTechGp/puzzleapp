@@ -49,7 +49,7 @@ usage() {
 }
 
 # --- Default settings ---
-REPO="git@github.com:KCCGGenomeTechLab/puzzleapp.git"
+REPO="git@github.com:GenTechGp/puzzleapp.git"
 BRANCH="pack"
 COMMIT=""
 VERSION=""

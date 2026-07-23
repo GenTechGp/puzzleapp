@@ -1,6 +1,6 @@
 Using TMPDIR: /jobfs/162410241.gadi-pbs
 Installing persistently into: /g/data/if89/testdir/puzzleapp/app/05032026
-Cloning repository from: git@github.com:KCCGGenomeTechLab/puzzleapp.git
+Cloning repository from: git@github.com:GenTechGp/puzzleapp.git
 Checking out branch: pack (latest commit)
 Cloning into '/g/data/if89/testdir/puzzleapp/app/05032026/puzzleapp_repo'...
 Resolved commit hash: 84d851477c3acb3fa2cdfd12ff82f9c819613ea0
@@ -5323,14 +5323,30 @@ begin installing package ‘plotly’
 The downloaded source packages are in
 	‘/jobfs/162410241.gadi-pbs/RtmpV6zVuQ/downloaded_packages’
 ── R CMD build ─────────────────────────────────────────────────────────────────
-     checking for file ‘/jobfs/162410241.gadi-pbs/RtmpV6zVuQ/file2850489754a3e/puzzleapp_repo/DESCRIPTION’ ...  ✔  checking for file ‘/jobfs/162410241.gadi-pbs/RtmpV6zVuQ/file2850489754a3e/puzzleapp_repo/DESCRIPTION’ (341ms)
-  ─  preparing ‘puzzleapp’:
-     checking DESCRIPTION meta-information ...  ✔  checking DESCRIPTION meta-information
-  ─  checking for LF line-endings in source and make files and shell scripts (375ms)
-  ─  checking for empty or unneeded directories
+  
+   checking for file ‘/jobfs/162410241.gadi-pbs/RtmpV6zVuQ/file2850489754a3e/puzzleapp_repo/DESCRIPTION’ ...
+  
+✔  checking for file ‘/jobfs/162410241.gadi-pbs/RtmpV6zVuQ/file2850489754a3e/puzzleapp_repo/DESCRIPTION’ (341ms)
+
+  
+─  preparing ‘puzzleapp’:
+
+  
+   checking DESCRIPTION meta-information ...
+  
+✔  checking DESCRIPTION meta-information
+
+  
+─  checking for LF line-endings in source and make files and shell scripts (375ms)
+
+  
+─  checking for empty or unneeded directories
 ─  building ‘puzzleapp_0.1.0.tar.gz’
-     
-* installing *source* package ‘puzzleapp’ ...
+
+  
+   
+
+* installing *source* package ‘puzzleapp’ ...
 ** this is package ‘puzzleapp’ version ‘0.1.0’
 ** using staged installation
 ** R

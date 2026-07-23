@@ -1,5 +1,5 @@
 Installing persistently into: /g/data/ox63/hiruna/puzzleapp/app/30102025_442
-Cloning repository from: git@github.com:KCCGGenomeTechLab/puzzleapp.git
+Cloning repository from: git@github.com:GenTechGp/puzzleapp.git
 Checking out branch: pack (latest commit)
 Resolved commit hash: 261e4fa32b656a6608d71133bc4298547b11076f
 Starting PuzzleApp (commit: 261e4fa32b656a6608d71133bc4298547b11076f)
