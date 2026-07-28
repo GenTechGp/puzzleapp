@@ -26,7 +26,7 @@ SIFT	0	string
 PolyPhen	0	string
 REVEL	0	float
 am_class	0	string
-am_pathogenicity	0	string
+am_pathogenicity	0	float
 CADD_PHRED	0	float
 CADD_RAW	0	float
 SpliceAI_pred	0	string
@@ -34,9 +34,9 @@ Donor_Loss	0	float
 Donor_Gain	0	float
 Acceptor_Loss	0	float
 Acceptor_Gain	0	float
-AD_1	1	integer
-DP_1	1	integer
-VAF_1	1	float
-GT_1	1	string
-GQ_1	1	integer
-alt_allele_count_1	1	integer
+AD	1	integer
+DP	1	integer
+VAF	1	float
+GT	1	string
+GQ	1	integer
+alt_allele_count	1	integer

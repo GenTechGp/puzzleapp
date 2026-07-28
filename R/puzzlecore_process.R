@@ -39,10 +39,8 @@ check_data <- function(label, data, table_schema) {
   }
 
   # 2) Check suffix columns exist (error if any base missing)
-  suffix_bases <- unique(vapply(table_schema[has_suffix == 1, name], function(nm) {
-    parts <- strsplit(nm, "_", fixed = TRUE)[[1]]
-    if (length(parts) >= 2) paste(parts[-length(parts)], collapse = "_") else nm
-  }, character(1)))
+  # has_suffix == 1 rows hold the base name; the real columns are <base>_<code>.
+  suffix_bases <- unique(table_schema[has_suffix == 1, name])
 
   prefixes <- if (length(suffix_bases)) paste0(suffix_bases, "_") else character(0)
   base_has_cols <- function(base) any(startsWith(orig_names, paste0(base, "_")))
@@ -84,13 +82,17 @@ check_data <- function(label, data, table_schema) {
 
   # check if column data types match the schema; if not report; no conversion done here
   for (nm in names(data)) {
-    expected_type <- table_schema[name == nm, default_type]
+    # per-sample columns are <base>_<code>; look their type up under the base
+    schema_name <- if (nm %in% fixed_names) nm else sub("_[0-9]+$", "", nm)
+    expected_type <- table_schema[name == schema_name, default_type]
     if (length(expected_type) == 0) next  # skip columns not in schema
     actual_type <- class(data[[nm]])[1]
     type_match <- FALSE
     if (expected_type == "integer" && actual_type %in% c("integer", "integer64")) {
       type_match <- TRUE
-    } else if (expected_type == "float" && actual_type %in% c("numeric", "double")) {
+    } else if (expected_type == "float" &&
+               actual_type %in% c("numeric", "double", "integer", "integer64")) {
+      # float is the wider declaration: whole-numbered data still satisfies it
       type_match <- TRUE
     } else if (expected_type == "string" && actual_type %in% c("character", "factor")) {
       type_match <- TRUE

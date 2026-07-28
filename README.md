@@ -21,7 +21,7 @@ run_app()
 ## Installation
 
 ``` bash
-git clone --branch main --depth 1 https://github.com/GenTechGp/puzzleapp.git
+git clone --depth 1 https://github.com/GenTechGp/puzzleapp.git
 cd puzzleapp
 ```
 

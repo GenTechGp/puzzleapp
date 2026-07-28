@@ -6,7 +6,7 @@ REF	Reference allele or anchor base (may be symbolic for SVs).	gaaggttcaactctgtg
 ALT	Alternate allele representation of the SV (symbolic or sequence, e.g. <DEL>, <INS>, inserted sequence).	g	[ACGTN]+	Variant caller		string	string		0	0
 VAR_TYPE	Specific SV class (e.g. DEL, INS, DUP, INV, BND or TRA).	DEL	DEL, INS, DUP, INV	Variant caller		string	string	Yes	0	0
 VAR_LENGTH	Length of the structural variant in bp.	171	integer > 0	Variant caller		integer	integer		0	0
-QUAL	Variant quality score summarising SV call confidence.	60	integer ≥ 0 (phred-scaled)	Variant caller		integer	integer		0	0
+QUAL	Variant quality score summarising SV call confidence.	60	≥ 0 (phred-scaled)	Variant caller		float	numeric (float)		0	0
 FILTER	VCF FILTER status for the SV call (PASS or filter labels).	GT	PASS or semicolon-separated filter labels	Variant caller		string	string		0	0
 GT_n	Sample genotype for the SV (e.g. 0/1, 1/1, phased forms 0|1).	0|1	0/0, 0/1, 1/1, 1/2, … and/or phased forms 0|1, 1|0	Variant caller		string	string (genotype)	Yes	1	0
 GQ_n	Genotype quality for sample n (phred-scaled).	20	integer ≥ 0	Variant caller		integer	integer		1	0
@@ -73,9 +73,9 @@ FINAL_CLASSIFICATION	Final SVscanner classification indicating whether SV is non
 CONSENSUS_REPEAT	Consensus sepeat sequence for tandem repeats.	AAAGGAAGGTTCAACTCTGTGAGTTGAATGCACACATCACAAAGAAG	any non-empty string	SVscanner		string	string		0	0
 RM_CLASSIFICATION	Repeat class(es) overlapping the SV: SINE, LINE, LTR, DNA, Retroposon, NON-REPETITIVE.	SINE	DNA, HOMO, LINE, LTR, Retroposon, SINE	SVscanner		string	string		0	0
 RM_RECIPROCAL	Overlap class for the dominant RepeatMasker class. Full if at least ~75% of the SV is covered and each overlapped repeat element is mostly covered (≥75%). Partial if ≥75% SV coverage but some <75%.	Partial	full, partial	SVscanner		string	string		0	0
-RM_TOTAL_SV_COVERAGE	Proportion of the SV covered by RepeatMasker hits, with overlaps merged so regions aren’t counted twice [0-1].	1	any non-empty string	SVscanner		string	string		0	0
+RM_TOTAL_SV_COVERAGE	Proportion of the SV covered by RepeatMasker hits, with overlaps merged so regions aren’t counted twice [0-1].	1	0–1	SVscanner		float	numeric (float)		0	0
 TRF_CLASSIFICATION	TRF repeat class(es) overlapping the SV: HOMO (homopolymer), STR, VNTR, TR, or NON-REPETITIVE.	TR	STR, TR, VNTR	SVscanner		string	string		0	0
 TRF_PERIOD_SIZE	Period size(s) in bp for each TRF hit.	171	any non-empty string	SVscanner		string	string		0	0
 TRF_COPY_NUMBER	Copy number(s) for each TRF hit.	21	any non-empty string	SVscanner		string	string		0	0
 TRF_SV_COVERAGE	For each TRF hit, fraction of SV length covered.	1	any non-empty string	SVscanner		string	string		0	0
-TRF_TOTAL_SV_COVERAGE	Proportion of the SV covered by TRF hits, with overlaps merged so regions aren’t counted twice [0-1].	1	any non-empty string	SVscanner		string	string		0	0
+TRF_TOTAL_SV_COVERAGE	Proportion of the SV covered by TRF hits, with overlaps merged so regions aren’t counted twice [0-1].	1	0–1	SVscanner		float	numeric (float)		0	0

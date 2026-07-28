@@ -28,7 +28,7 @@ CADD_RAW	CADD raw score.	0.421284	unbounded (typically around −5 to +5)	VEP		f
 SIFT	SIFT prediction; some pipelines provide a score and category.		score 0–1 and/or categories: deleterious, tolerated	VEP		string	string or numeric		0	0
 PolyPhen	PolyPhen-2 prediction; some pipelines provide a score and category.		score 0–1 and/or categories: benign, possibly_damaging, probably_damaging	VEP		string	string or numeric		0	0
 am_class	AlphaMissense classification.			VEP		string	string		0	0
-am_pathogenicity	AlphaMissense pathogenicity score.			VEP		string	string		0	0
+am_pathogenicity	AlphaMissense pathogenicity score.		0–1	VEP		float	numeric (float)		0	0
 SpliceAI_pred	Composite/summary text for SpliceAI prediction (if present).	NA	free-text summary (if provided)	VEP		string	string		0	0
 Donor_Loss	SpliceAI delta score for donor-loss (DS_DL).	NA	0–1	VEP		float	numeric (float)		0	0
 Donor_Gain	SpliceAI delta score for donor-gain (DS_DG).	NA	0–1	VEP		float	numeric (float)		0	0
