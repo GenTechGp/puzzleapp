@@ -1,10 +1,7 @@
 name	min	max
-AF	0	1
-REVEL	0	1
 QUAL	0	100
-Donor_Gain	0	1
-Donor_Loss	0	1
-Acceptor_Gain	0	1
-Acceptor_Loss	0	1
 VAF	0	1
 alt_allele_count	0	2
+gnomAD_AF_max	0	1
+RM_TOTAL_SV_COVERAGE	0	1
+TRF_TOTAL_SV_COVERAGE	0	1
