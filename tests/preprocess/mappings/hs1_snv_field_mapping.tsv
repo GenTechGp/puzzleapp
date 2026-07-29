@@ -1,0 +1,8 @@
+vcf_field	output_column	field_type	required	note
+gnomAD_genomes_AF	AF	CSQ	FALSE	hs1/CHM13 has no joint gnomAD release, so AF reports the genomes callset
+gnomAD_genomes_AF	genomes_AF	CSQ	FALSE	hs1/CHM13 names the subset before the metric: gnomAD_genomes_AF, not gnomAD_AF_genomes
+gnomAD_exomes_AF	exomes_AF	CSQ	FALSE	hs1/CHM13 names the subset before the metric: gnomAD_exomes_AF, not gnomAD_AF_exomes
+gnomAD_genomes_nhomalt	N_HOM_ALT	CSQ	FALSE	hs1/CHM13 has no joint gnomAD release, so N_HOM_ALT reports the genomes callset
+gnomAD_genomes_nhomalt	genomes_N_HOM_ALT	CSQ	FALSE	hs1/CHM13 genomes-only homozygous-alt count
+gnomAD_exomes_nhomalt	exomes_N_HOM_ALT	CSQ	FALSE	hs1/CHM13 exomes-only homozygous-alt count
+ClinVar_CLNSIG	CLINVAR	CSQ	FALSE	DEGRADED SIGNAL. VEP's built-in CLIN_SIG is declared but never populated on CHM13 (its cache carries no ClinVar), so this custom-annotation field is the only source. Unlike CLIN_SIG it reports ClinVar's single aggregate classification rather than every submission, so a variant with conflicting submissions appears as e.g. Benign instead of benign&pathogenic. On GRCh38 that difference lost 10 of 12 Pathogenic matches, so the canonical mapping deliberately keeps CLIN_SIG; expect hs1 runs to under-report conflicting-submission pathogenic variants.
