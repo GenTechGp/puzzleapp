@@ -1,5 +1,7 @@
 name	min	max
 AF	0	1
+genomes_AF	0	1
+exomes_AF	0	1
 REVEL	0	1
 am_pathogenicity	0	1
 QUAL	0	100

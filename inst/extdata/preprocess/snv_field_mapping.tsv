@@ -13,8 +13,12 @@ HGVSp	HGVSp	CSQ	FALSE	Protein HGVS
 Consequence	VEP_CONSEQUENCE	CSQ	FALSE	VEP functional consequence
 CLIN_SIG	CLINVAR	CSQ	FALSE	ClinVar clinical significance
 ClinVar	CLINVAR_ID	CSQ	FALSE	ClinVar variation ID; wrapped in HTML anchor by post-processing in code
-gnomAD_AF_joint	AF	CSQ	FALSE	gnomAD v4 allele frequency
-gnomAD_nhomalt_joint	N_HOM_ALT	CSQ	FALSE	gnomAD v4 homozygous-alt count
+gnomAD_AF_joint	AF	CSQ	FALSE	gnomAD v4 allele frequency (joint = exomes + genomes)
+gnomAD_AF_genomes	genomes_AF	CSQ	FALSE	gnomAD v4 genomes-only allele frequency
+gnomAD_AF_exomes	exomes_AF	CSQ	FALSE	gnomAD v4 exomes-only allele frequency
+gnomAD_nhomalt_joint	N_HOM_ALT	CSQ	FALSE	gnomAD v4 homozygous-alt count (joint = exomes + genomes)
+gnomAD_nhomalt_genomes	genomes_N_HOM_ALT	CSQ	FALSE	gnomAD v4 genomes-only homozygous-alt count
+gnomAD_nhomalt_exomes	exomes_N_HOM_ALT	CSQ	FALSE	gnomAD v4 exomes-only homozygous-alt count
 SIFT	SIFT	CSQ	FALSE	SIFT prediction
 PolyPhen	PolyPhen	CSQ	FALSE	PolyPhen-2 prediction
 REVEL	REVEL	CSQ	FALSE	REVEL missense score

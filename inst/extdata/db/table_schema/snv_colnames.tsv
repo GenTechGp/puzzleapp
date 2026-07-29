@@ -20,7 +20,11 @@ CLINVAR	0	string
 CLINVAR_ID	0	string
 gnomAD_ID	0	string
 AF	0	float
+genomes_AF	0	float
+exomes_AF	0	float
 N_HOM_ALT	0	integer
+genomes_N_HOM_ALT	0	integer
+exomes_N_HOM_ALT	0	integer
 N_Cohort	0	integer
 SIFT	0	string
 PolyPhen	0	string

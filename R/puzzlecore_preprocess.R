@@ -337,6 +337,17 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
     snvs_data_melt[, N_HOM_ALT := NA_real_]
   }
 
+  # Per-callset gnomAD columns. GRCh38 carries a joint release plus both
+  # components; CHM13 has no joint, so AF/N_HOM_ALT fall back to genomes there
+  # and these keep each callset visible on either reference.
+  for (col in c("genomes_AF", "exomes_AF", "genomes_N_HOM_ALT", "exomes_N_HOM_ALT")) {
+    if (col %in% names(snvs_data_melt)) {
+      snvs_data_melt[, (col) := suppressWarnings(as.numeric(get(col)))]
+    } else {
+      snvs_data_melt[, (col) := NA_real_]
+    }
+  }
+
   if ("CLINVAR_ID" %in% names(snvs_data_melt)) {
     snvs_data_melt[!is.na(CLINVAR_ID) & CLINVAR_ID != "", CLINVAR_ID := sprintf(
       '<a href="https://www.ncbi.nlm.nih.gov/clinvar/variation/%s/" target="_blank">%s</a>',
@@ -381,7 +392,11 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
     CLINVAR_ID,
     gnomAD_ID,
     AF,
+    genomes_AF,
+    exomes_AF,
     N_HOM_ALT,
+    genomes_N_HOM_ALT,
+    exomes_N_HOM_ALT,
     N_Cohort,
     SIFT, PolyPhen, REVEL,
     am_class, am_pathogenicity,
