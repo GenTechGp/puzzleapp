@@ -853,8 +853,9 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   #   filtered_data[eval(parse(text = spliceai_override_condition)),
   #                 spliceai_override := TRUE]
   # }
-  # Initialize existing columns
-  filtered_data[, `:=`(clinvar_override = FALSE, spliceai_override = FALSE)]
+  # Initialize existing columns. spliceai_override is SNV-only; see add_extra_columns.
+  filtered_data[, clinvar_override := FALSE]
+  if (is_snv) filtered_data[, spliceai_override := FALSE]
 
   # Apply ClinVar override if condition exists
   if (!is.null(clinvar_override_condition)) filtered_data[eval(parse(text = clinvar_override_condition)), clinvar_override := TRUE]

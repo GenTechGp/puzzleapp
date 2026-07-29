@@ -1,4 +1,4 @@
-add_extra_columns <- function(dt) {
+add_extra_columns <- function(dt, snv = TRUE) {
   # Return NULL immediately if input is NULL
   if (is.null(dt)) return(NULL)
 
@@ -14,6 +14,9 @@ add_extra_columns <- function(dt) {
     clinvar_override = FALSE,       # logical
     spliceai_override = FALSE      # logical
   )
+  # The SpliceAI delta scores this flag derives from are SNV-only, so on the SV
+  # table it could never be anything but FALSE.
+  if (!snv) extra_columns$spliceai_override <- NULL
   # Add any missing columns
   for (col in names(extra_columns)) {
     if (!(col %in% names(dt))) {
@@ -220,7 +223,7 @@ puzzlecore_read_variant_tsv <- function(file_path, nthreads, snv=TRUE, add_svlog
       data <- check_data("sv", data, table_schema)
     }
 
-    data <- add_extra_columns(data)
+    data <- add_extra_columns(data, snv = snv)
 
     # CONSEQUENCE column has & symbol. replace with ;
     if ("VEP_CONSEQUENCE" %in% names(data)) {
