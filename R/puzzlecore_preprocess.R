@@ -243,11 +243,20 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   gt_cols  <- paste0("GT_", seq_len(num_samples))
   gq_cols  <- paste0("GQ_", seq_len(num_samples))
 
+  # GQ: the VCF writes "." for a no-call, which is NA here (mirrors the SV path)
+  for (gq_col in intersect(gq_cols, names(snvs_data_melt))) {
+    snvs_data_melt[, (gq_col) := suppressWarnings(as.integer(snvs_data_melt[[gq_col]]))]
+  }
+
   if ("VAF_n" %in% mapping$output_column) {
     for (i in seq_along(ad_cols)) {
       if (ad_cols[i] %in% names(snvs_data_melt) && dp_cols[i] %in% names(snvs_data_melt)) {
-        snvs_data_melt[, (vaf_cols[i]) :=
-          round(as.integer(get(ad_cols[i])) / as.integer(get(dp_cols[i])), 2)]
+        ad <- suppressWarnings(as.integer(snvs_data_melt[[ad_cols[i]]]))
+        dp <- suppressWarnings(as.integer(snvs_data_melt[[dp_cols[i]]]))
+        # a zero or missing depth gives NaN/Inf, neither of which is a fraction
+        vaf <- round(ad / dp, 2)
+        vaf[!is.finite(vaf)] <- NA_real_
+        snvs_data_melt[, (vaf_cols[i]) := vaf]
       } else {
         snvs_data_melt[, (vaf_cols[i]) := NA_real_]
       }
@@ -543,20 +552,29 @@ process_sv_data <- function(svs_vcf, pedigree_data,
     dr_col <- paste0(dr_field, i)
     gq_col <- paste0("GQ_", i)
 
-    if (dv_col %in% names(svs_data_melt)) {
-      svs_data_melt[, (ad_cols[i]) := as.integer(get(dv_col))]
+    # A sample with no support for a merged call carries "." in every FORMAT
+    # subfield, which is legitimately NA here, so the coercion warning is
+    # muffled. Coerce once per sample rather than once per use.
+    dv <- if (dv_col %in% names(svs_data_melt))
+      suppressWarnings(as.integer(svs_data_melt[[dv_col]]))
+    dr <- if (dr_col %in% names(svs_data_melt))
+      suppressWarnings(as.integer(svs_data_melt[[dr_col]]))
+
+    if (!is.null(dv)) {
+      svs_data_melt[, (ad_cols[i]) := dv]
     } else {
       svs_data_melt[, (ad_cols[i]) := NA_integer_]
     }
     if (gq_col %in% names(svs_data_melt)) {
-      svs_data_melt[, (gq_col) := as.integer(get(gq_col))]
+      svs_data_melt[, (gq_col) := suppressWarnings(as.integer(svs_data_melt[[gq_col]]))]
     }
-    if (dv_col %in% names(svs_data_melt) && dr_col %in% names(svs_data_melt)) {
-      svs_data_melt[, (dp_cols[i]) :=
-        as.integer(get(dv_col)) + as.integer(get(dr_col))]
-      svs_data_melt[, (vaf_cols[i]) :=
-        round(as.integer(get(dv_col)) /
-              (as.integer(get(dv_col)) + as.integer(get(dr_col))), 2)]
+    if (!is.null(dv) && !is.null(dr)) {
+      depth <- dv + dr
+      # a zero or missing depth gives NaN/Inf, neither of which is a fraction
+      vaf <- round(dv / depth, 2)
+      vaf[!is.finite(vaf)] <- NA_real_
+      svs_data_melt[, (dp_cols[i])  := depth]
+      svs_data_melt[, (vaf_cols[i]) := vaf]
     } else {
       svs_data_melt[, (dp_cols[i])  := NA_integer_]
       svs_data_melt[, (vaf_cols[i]) := NA_real_]
