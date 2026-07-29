@@ -36,7 +36,10 @@ check_data <- function(label, data, table_schema) {
   if (length(missing_fixed)) {
     for (nm in missing_fixed) {
       dtype <- table_schema[name == nm, default_type][1]
-      val <- if (dtype == "integer") 0L else if (dtype == "float") 0 else NA_character_
+      # An invented column holds no data, so use a typed NA rather than 0: for a
+      # distance or a coordinate 0 is a real value and would be read as one.
+      # Matches the NA_* placeholders treat_svlog() uses for its own columns.
+      val <- if (dtype == "integer") NA_integer_ else if (dtype == "float") NA_real_ else NA_character_
       data[, (nm) := val]
     }
   }
