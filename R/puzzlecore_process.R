@@ -81,11 +81,20 @@ check_data <- function(label, data, table_schema) {
   }
 
   # check if column data types match the schema; if not report; no conversion done here
+  empty_cols <- character(0)
+  type_msgs  <- character(0)
   for (nm in names(data)) {
     # per-sample columns are <base>_<code>; look their type up under the base
     schema_name <- if (nm %in% fixed_names) nm else sub("_[0-9]+$", "", nm)
     expected_type <- table_schema[name == schema_name, default_type]
     if (length(expected_type) == 0) next  # skip columns not in schema
+    # An all-missing column is absent data, not a type error: fread reads it as
+    # logical whatever the declared type, so report it separately. Placeholders
+    # added above are empty by construction and already reported.
+    if (nrow(data) > 0 && !nm %in% missing_fixed && all(is.na(data[[nm]]))) {
+      empty_cols <- c(empty_cols, nm)
+      next
+    }
     actual_type <- class(data[[nm]])[1]
     type_match <- FALSE
     if (expected_type == "integer" && actual_type %in% c("integer", "integer64")) {
@@ -98,8 +107,19 @@ check_data <- function(label, data, table_schema) {
       type_match <- TRUE
     }
     if (!type_match) {
-      cat(sprintf("Warning: Column '%s' has type '%s' but expected '%s'\n", nm, actual_type, expected_type))
+      type_msgs <- c(type_msgs, sprintf("Column '%s' has type '%s' but expected '%s'",
+                                        nm, actual_type, expected_type))
     }
+  }
+  cat(sprintf("Columns empty (all values missing): %d\n", length(empty_cols)))
+  if (length(empty_cols) > 0) {
+    cat("Empty columns:\n")
+    for (col in empty_cols) {
+      cat(" - ", col, "\n")
+    }
+  }
+  for (msg in type_msgs) {
+    cat("Warning: ", msg, "\n", sep = "")
   }
 
   return(data)
