@@ -449,11 +449,16 @@ puzzlecore_compute_allele_table <- function(pedigree, inher) {
 #' Parse Filter Table
 #' This function parses a filter table from a given file path and extracts SNV and SV filters.
 #' @param path The path to the filter table file or a data.table object.
+#' @param vep_consequences Optional VEP consequences table. When supplied, the
+#'   human-readable SNV_Annotation / SV_Annotation labels stored in filter files
+#'   (e.g. "Stop gained") are mapped to the VEP terms the data actually holds
+#'   (e.g. "stop_gained"). The Shiny app applies this when it reads filter files;
+#'   headless callers must pass it here or annotation filters match nothing.
 #' @return A list containing two elements: snv_filters and sv_filters, each being a list of filter parameters.
 #' @examples
 #' # filters <- puzzlecore_parse_filter_table("path/to/filter_table.tsv")
 #' @export
-puzzlecore_parse_filter_table <- function(path) {
+puzzlecore_parse_filter_table <- function(path, vep_consequences = NULL) {
   # if path is a data.table already, use it directly
   if (is.data.table(path)) {
     dt <- path
@@ -464,6 +469,18 @@ puzzlecore_parse_filter_table <- function(path) {
   data.table::setnames(dt, c("key", "value"))
   dt[, key := trimws(key)]
   dt[, value := trimws(value)]
+
+  # Map consequence labels to VEP terms, reusing the same helper the Shiny path
+  # uses. It no-ops unless every label is recognised, so already-mapped tables
+  # and tables without annotation keys pass through untouched.
+  if (!is.null(vep_consequences)) {
+    label <- if (is.character(path) && length(path) == 1) path else "<filter table>"
+    mapped <- check_for_vep_consequences(
+      label, data.frame(Key = dt$key, Value = dt$value, stringsAsFactors = FALSE),
+      vep_consequences
+    )
+    dt[, value := mapped$Value]
+  }
   # helpers
   get_first <- function(k) {
     v <- dt[key == k, value]

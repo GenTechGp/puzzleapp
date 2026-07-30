@@ -82,7 +82,7 @@ run_pipeline <- function(
   phenotype_data    <- puzzlecore_load_phenotype_data(dep$phenotype_data)
 
   # Parse 2-column filter table (Key<TAB>Value) and map to filter lists
-  filters       <- puzzlecore_parse_filter_table(filter_table)
+  filters       <- puzzlecore_parse_filter_table(filter_table, vep_consequences = vep_consequences)
   filters_snv   <- filters$snv_filters
   filters_sv    <- filters$sv_filters
   allele_counts_dt <- puzzlecore_allele_counts_table(samples_list, filters_snv$inheritance_filter, filters_snv$custom_allele_counts)
