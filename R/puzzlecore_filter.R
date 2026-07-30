@@ -42,7 +42,7 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
       # condition <- sprintf("compare_allele_count(get('%s'), '%s')",col_name,val)
       # inheritance_conditions <- c(inheritance_conditions, condition)
       if (val != "") {
-        condition <- sprintf("compare_allele_count(get('%s'), '%s')", col_name, val)
+        condition <- sprintf("compare_allele_count(get('%s'), '%s')", col_name, escape_expr_value(val))
         inheritance_conditions <- c(inheritance_conditions, condition)
       }
     }
@@ -58,10 +58,20 @@ inheritance_filter <- function(filters, pedigree, allele_tab) {
   return(NULL)
 }
 
+# Helper function: escape a value for embedding in a single-quoted R string
+# literal. Filter predicates are assembled as R source and eval(parse())'d, so
+# an apostrophe in a value would close the literal early and produce a syntax
+# error (e.g. the shipped "5'UTR variant" consequence label). Escaping only
+# changes the literal, not the string it parses to, so matching is unaffected.
+escape_expr_value <- function(x) {
+  x <- gsub("\\", "\\\\", x, fixed = TRUE)
+  gsub("'", "\\'", x, fixed = TRUE)
+}
+
 # Helper function: Apply text-based filters
 text_filter <- function(column, values) {
   if (length(values) == 0) return(NULL)
-  return(sprintf("grepl('%s', %s, ignore.case = TRUE)", paste(values, collapse = "|"), column))
+  return(sprintf("grepl('%s', %s, ignore.case = TRUE)", paste(escape_expr_value(values), collapse = "|"), column))
 }
 
 # Helper function: Handle frequency and quality filters
@@ -214,13 +224,13 @@ apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
     # using GENE_SYMBOL because INHERITANCE is not yet merged into data at this point
     dom_genes <- genes[grepl("MONOALLELIC|BOTH", INHERITANCE, ignore.case = TRUE), GENE_SYMBOL]
     if (length(dom_genes) == 0) return(NULL)
-    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(dom_genes, collapse = "','")))
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(escape_expr_value(dom_genes), collapse = "','")))
   }
   
   if (filters$inheritance_filter == "Homozygous Recessive") {
     rec_genes <- genes[grepl("BIALLELIC|BOTH", INHERITANCE, ignore.case = TRUE), GENE_SYMBOL]
     if (length(rec_genes) == 0) return(NULL)
-    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(rec_genes, collapse = "','")))
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(escape_expr_value(rec_genes), collapse = "','")))
   }
 
   if (filters$inheritance_filter == "X-Linked Recessive") {
@@ -229,9 +239,9 @@ apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
     # check if proband is male or female
     proband <- pedigree[pedigree$kinship == "proband", ]
     if (proband$sex == "male") {
-      return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(x_genes, collapse = "','")))
+      return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 >= 1)", paste(escape_expr_value(x_genes), collapse = "','")))
     }
-    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(x_genes, collapse = "','")))
+    return(sprintf("(GENE_SYMBOL %%in%% c('%s') & alt_allele_count_1 == 2)", paste(escape_expr_value(x_genes), collapse = "','")))
   }
   return(NULL)
 }
@@ -329,7 +339,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
           if (term %in% names(special_map)) {
             substring_terms <- c(substring_terms, special_map[[term]])
           } else {
-            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+            word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", escape_expr_value(term), "\\\\b"))
           }
         }
         clinvar_pattern <- paste(c(word_boundary_terms, substring_terms), collapse = "|")
@@ -345,7 +355,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
           substring_terms <- c(substring_terms, special_map[[term]])
         } else {
           # normal case → strict word-boundary match
-          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", term, "\\\\b"))
+          word_boundary_terms <- c(word_boundary_terms, paste0("\\\\b", escape_expr_value(term), "\\\\b"))
         }
       }
       # Combine all patterns into one regex
@@ -459,12 +469,12 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
         }
         if (length(excluded_terms) > 0) {
           negation_expr <- sprintf(
-            "(is.na(FINAL_CLASSIFICATION) | !grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", paste(excluded_terms, collapse = "|")
+            "(is.na(FINAL_CLASSIFICATION) | !grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", paste(escape_expr_value(excluded_terms), collapse = "|")
           )
           filter_expression <- add_filter_condition(filter_expression, negation_expr)
         }
       } else {
-        pat <- paste(filters$svscanner_classification_filter, collapse = "|")
+        pat <- paste(escape_expr_value(filters$svscanner_classification_filter), collapse = "|")
         class_expr <- sprintf("(is.na(FINAL_CLASSIFICATION) | grepl('%s', FINAL_CLASSIFICATION, ignore.case = TRUE))", pat)
         filter_expression <- add_filter_condition(filter_expression, class_expr)
       }
@@ -473,7 +483,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     # svscanner_reciprocal_filter
     if(!is.null(filters$svscanner_reciprocal_filter) && length(filters$svscanner_reciprocal_filter) > 0) {
       log_info("[filtServer][filter_dataset] Applying SVscanner_RECIPROCAL filter")
-      pat <- paste(filters$svscanner_reciprocal_filter, collapse = "|")
+      pat <- paste(escape_expr_value(filters$svscanner_reciprocal_filter), collapse = "|")
       reciprocal_expr <- sprintf("(is.na(RM_RECIPROCAL) | grepl('%s', RM_RECIPROCAL, ignore.case = TRUE))", pat)
       filter_expression <- add_filter_condition(filter_expression, reciprocal_expr)
     }
@@ -579,11 +589,11 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
           excluded_terms <- setdiff(excluded_terms, explicitly_selected)
         }
         if (length(excluded_terms) > 0) {
-          negation_expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | !grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", paste(excluded_terms, collapse = "|"))
+          negation_expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | !grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", paste(escape_expr_value(excluded_terms), collapse = "|"))
           filter_expression <- add_filter_condition(filter_expression, negation_expr)
         }
       } else {
-        pat <- paste(filters$svlog_annotation_filter, collapse = "|")
+        pat <- paste(escape_expr_value(filters$svlog_annotation_filter), collapse = "|")
         expr <- sprintf("(is.na(SVLOG_CONSEQUENCE) | grepl('%s', SVLOG_CONSEQUENCE, ignore.case = TRUE))", pat)
         filter_expression <- add_filter_condition(filter_expression, expr)
       }
@@ -651,7 +661,7 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
     
     if (length(K) > 0 || length(F) > 0) {
       
-      mk_pat <- function(x) paste(sprintf("(^|,)%s(,|$)", x), collapse = "|")
+      mk_pat <- function(x) paste(sprintf("(^|,)%s(,|$)", escape_expr_value(x)), collapse = "|")
       
       # KEEPING_EVIDENCE has at least one selected Keeping predicate
       keep_part <- if (length(K) > 0) {
