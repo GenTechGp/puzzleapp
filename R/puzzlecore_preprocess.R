@@ -100,6 +100,39 @@ sv_format_fields <- function(mapping) {
 }
 
 # -------------------------------------------------------------------------
+# Per-sample output column guarantee
+# -------------------------------------------------------------------------
+
+#' Fill absent per-sample output columns with NA.
+#'
+#' A FORMAT field declared required = FALSE may be missing from the VCF, in
+#' which case the wide cast never produces its <base>_<code> columns and the
+#' output assembly fails on a name that is not there. Fill them so the output
+#' keeps the same shape whatever the caller emitted, matching the graceful
+#' degradation extract_csq_columns() already applies to CSQ fields. Dropping
+#' them instead is not an option: check_data() rejects a table that has no
+#' column at all for a has_suffix base.
+#'
+#' By this point the table may have lost its data.table self-reference, so the
+#' filled table is returned rather than relying on modification in place, and
+#' set() is used in preference to := to avoid a shallow-copy warning.
+#'
+#' @param dt    data.table to add columns to.
+#' @param cols  Expected per-sample column names.
+#' @param value Typed NA to fill absent columns with.
+#' @return The table, with any absent columns added.
+#' @keywords internal
+ensure_sample_columns <- function(dt, cols, value) {
+  absent <- setdiff(cols, names(dt))
+  if (length(absent)) {
+    for (col in absent) data.table::set(dt, j = col, value = value)
+    warning("FORMAT field absent from VCF; column(s) filled with NA: ",
+            paste(absent, collapse = ", "))
+  }
+  dt
+}
+
+# -------------------------------------------------------------------------
 # Internal helpers shared with v1 (re-exported here so v2 is self-contained)
 # -------------------------------------------------------------------------
 
@@ -408,6 +441,11 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
     Acceptor_Gain  = suppressWarnings(as.numeric(Acceptor_Gain))
   )]
 
+  # AD/DP/GQ come straight from the FORMAT cast and VAF_n may be unmapped, so
+  # any of them can be absent. GT is required = TRUE and is left to fail.
+  snvs_data_melt <- ensure_sample_columns(snvs_data_melt, c(ad_cols, dp_cols, gq_cols), NA_integer_)
+  snvs_data_melt <- ensure_sample_columns(snvs_data_melt, vaf_cols, NA_real_)
+
   full <- cbind(core,
                 snvs_data_melt[, c(ad_cols, dp_cols, vaf_cols, gt_cols, gq_cols), with = FALSE])
 
@@ -684,6 +722,11 @@ process_sv_data <- function(svs_vcf, pedigree_data,
     TRF_COPY_NUMBER, TRF_TOTAL_SV_COVERAGE,
     CONSENSUS_REPEAT, FINAL_CLASSIFICATION
   )]
+
+  # GQ comes straight from the FORMAT cast, so it can be absent; AD/DP/VAF are
+  # created above either way. GT is required = TRUE and is left to fail.
+  svs_data_melt <- ensure_sample_columns(svs_data_melt, c(ad_cols, dp_cols, gq_cols), NA_integer_)
+  svs_data_melt <- ensure_sample_columns(svs_data_melt, vaf_cols, NA_real_)
 
   full <- cbind(core,
                 svs_data_melt[, c(ad_cols, dp_cols, vaf_cols, gt_cols, gq_cols), with = FALSE])
