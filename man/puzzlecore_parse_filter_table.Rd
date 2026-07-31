@@ -5,10 +5,16 @@
 \title{Parse Filter Table
 This function parses a filter table from a given file path and extracts SNV and SV filters.}
 \usage{
-puzzlecore_parse_filter_table(path)
+puzzlecore_parse_filter_table(path, vep_consequences = NULL)
 }
 \arguments{
 \item{path}{The path to the filter table file or a data.table object.}
+
+\item{vep_consequences}{Optional VEP consequences table. When supplied, the
+human-readable SNV_Annotation / SV_Annotation labels stored in filter files
+(e.g. "Stop gained") are mapped to the VEP terms the data actually holds
+(e.g. "stop_gained"). The Shiny app applies this when it reads filter files;
+headless callers must pass it here or annotation filters match nothing.}
 }
 \value{
 A list containing two elements: snv_filters and sv_filters, each being a list of filter parameters.

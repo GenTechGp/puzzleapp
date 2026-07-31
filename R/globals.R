@@ -48,5 +48,7 @@ utils::globalVariables(c(
 
   # splice / genotype columns
   "Acceptor_Gain", "Acceptor_Loss", "Donor_Gain", "Donor_Loss",
-  "N_HOM_ALT", "GENE_ID", "TRANSCRIPT", "VAR_LENGTH"
+  "N_HOM_ALT", "GENE_ID", "TRANSCRIPT", "VAR_LENGTH",
+  # per-callset gnomAD columns (genomes/exomes reported alongside AF/N_HOM_ALT)
+  "genomes_AF", "exomes_AF", "genomes_N_HOM_ALT", "exomes_N_HOM_ALT"
 ))
