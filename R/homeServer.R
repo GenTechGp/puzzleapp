@@ -76,8 +76,21 @@ home_server <- function(id, shared_store, shared_rx) {
         config_samples(samples)
 
         if (input$load_local_db) {
-          panelapp <- load_local_db("panelapp", "all_panels.tsv")
-          phenotype <- load_local_db("phenotype", "phenotype_to_genes.txt")
+          # A missing local DB must not abort loading the rest of the config:
+          # PanelApp/HPO are optional extras, and an unreachable path here used
+          # to take the whole Load Config down with an opaque error.
+          load_optional_db <- function(key, file_name) {
+            tryCatch(load_local_db(key, file_name), error = function(e) {
+              log_warn(sprintf("[HomeServer] local %s DB unavailable: %s", key, conditionMessage(e)))
+              shiny::showNotification(
+                sprintf("Local %s DB not loaded: %s", key, conditionMessage(e)),
+                type = "warning", duration = NULL
+              )
+              NULL
+            })
+          }
+          panelapp <- load_optional_db("panelapp", "all_panels.tsv")
+          phenotype <- load_optional_db("phenotype", "phenotype_to_genes.txt")
           config$dependencies <- list(
             panel_app = panelapp,
             phenotype_data = phenotype

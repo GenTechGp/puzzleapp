@@ -205,3 +205,45 @@ test_that("documentation TSVs have a consistent field count on every row", {
     expect_gt(ncol(x), 1)
   }
 })
+
+# =============================================================================
+# load_local_db() — resolution order and portability of app.conf
+# =============================================================================
+
+test_that("app.conf carries no machine-specific absolute paths", {
+  conf <- system.file("extdata", "app.conf", package = "puzzleapp")
+  skip_if_not(nzchar(conf), "app.conf not found")
+  vals <- grep("^[a-z_]+\\s*=", readLines(conf, warn = FALSE), value = TRUE)
+  vals <- sub('^[^"]*"', "", sub('"\\s*$', "", vals))
+  # portable = package-relative or ~/ ; an absolute /path pins it to one machine
+  expect_identical(grep("^/", vals, value = TRUE), character(0))
+})
+
+test_that("a db dir option overrides app.conf", {
+  root <- file.path(tempdir(), "puzzleapp-optdb")
+  dir.create(file.path(root, "March_2020"), recursive = TRUE, showWarnings = FALSE)
+  writeLines("x", file.path(root, "March_2020", "all_panels.tsv"))
+  old <- getOption("puzzleapp.panelapp_db_dir")
+  on.exit(options(puzzleapp.panelapp_db_dir = old), add = TRUE)
+  options(puzzleapp.panelapp_db_dir = root)
+  expect_identical(
+    suppressMessages(load_local_db("panelapp", "all_panels.tsv")),
+    file.path(root, "March_2020", "all_panels.tsv")
+  )
+})
+
+test_that("an unresolvable db dir names the option that fixes it", {
+  old <- getOption("puzzleapp.panelapp_db_dir")
+  on.exit(options(puzzleapp.panelapp_db_dir = old), add = TRUE)
+  options(puzzleapp.panelapp_db_dir = file.path(tempdir(), "definitely-not-here"))
+  expect_error(load_local_db("panelapp", "all_panels.tsv"),
+               "puzzleapp\\.panelapp_db_dir")
+})
+
+test_that("the vep_consequences dir still resolves relative to the package", {
+  old <- getOption("puzzleapp.vep_consequences_db_dir")
+  on.exit(options(puzzleapp.vep_consequences_db_dir = old), add = TRUE)
+  options(puzzleapp.vep_consequences_db_dir = NULL)
+  p <- suppressMessages(load_local_db("vep_consequences", "vep_annotations.tsv"))
+  expect_true(file.exists(p))
+})

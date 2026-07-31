@@ -466,24 +466,38 @@ nthreads <- 8  # Number of threads for data.table operations
 load_local_db <- function(key, file_name) {
   conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
 
-  if (!file.exists(conf_file)) {
-    stop("Configuration file not found: ", conf_file)
+  # --- Resolve the directory: option first, then the shipped app.conf --------
+  # app.conf lives inside the installed package, so editing it per machine is
+  # awkward and its value cannot be portable. An R option lets each user or
+  # site point at their own copy without touching the install, e.g. in
+  # ~/.Rprofile or before run_app():
+  #   options(puzzleapp.panelapp_db_dir = "/g/data/if89/.../db/panelapp")
+  opt_name <- paste0("puzzleapp.", key, "_db_dir")
+  db_dir <- getOption(opt_name)
+  source_desc <- sprintf("option %s", opt_name)
+
+  if (is.null(db_dir) || !nzchar(db_dir)) {
+    if (!file.exists(conf_file)) {
+      stop("Configuration file not found: ", conf_file)
+    }
+
+    # --- Read config file lines ---
+    lines <- readLines(conf_file)
+
+    # --- Construct the pattern for this key ---
+    pattern <- sprintf("^%s_db_dir\\s*=\\s*\".*\"$", key)
+    db_line <- grep(pattern, lines, value = TRUE)
+
+    if (length(db_line) == 0) {
+      stop(sprintf("No %s_db_dir entry in %s, and option %s is unset.",
+                   key, conf_file, opt_name))
+    }
+
+    # --- Extract db_dir path ---
+    db_dir <- sub(sprintf("^%s_db_dir\\s*=\\s*\"", key), "", db_line[1])
+    db_dir <- sub("\"$", "", db_dir)
+    source_desc <- sprintf("%s_db_dir in %s", key, conf_file)
   }
-
-  # --- Read config file lines ---
-  lines <- readLines(conf_file)
-
-  # --- Construct the pattern for this key ---
-  pattern <- sprintf("^%s_db_dir\\s*=\\s*\".*\"$", key)
-  db_line <- grep(pattern, lines, value = TRUE)
-
-  if (length(db_line) == 0) {
-    stop("No matching entry found for key: ", key)
-  }
-
-  # --- Extract db_dir path ---
-  db_dir <- sub(sprintf("^%s_db_dir\\s*=\\s*\"", key), "", db_line[1])
-  db_dir <- sub("\"$", "", db_dir)
 
   # --- Handle relative paths like 'extdata/db/vep_consequences' ---
   if (!dir.exists(db_dir)) {
@@ -492,9 +506,12 @@ load_local_db <- function(key, file_name) {
     if (dir.exists(possible_dir)) {
       db_dir <- possible_dir
     } else {
-      stop("Database directory does not exist: ", db_dir)
+      stop(sprintf(
+        "%s database directory does not exist: %s (from %s). Point it elsewhere with options(%s = \"/path/to/%s\") before run_app().",
+        key, db_dir, source_desc, opt_name, key))
     }
   }
+  log_info(sprintf("[load_local_db] %s directory resolved from %s: %s", key, source_desc, db_dir))
 
   # --- Handle panelapp/phenotype case: pick latest month_year subdirectory ---
   subdirs <- list.dirs(db_dir, full.names = TRUE, recursive = FALSE)
@@ -820,46 +837,4 @@ create_safe_dir <- function(dir_path, sticky = TRUE) {
     }
   }
   return(dir_path)
-}
-
-get_igv_custom_genome <- function() {
-  conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
-  if (!nzchar(conf_file) || !file.exists(conf_file)) {
-    stop("Configuration file not found: ", conf_file)
-  }
-  lines <- readLines(conf_file, warn = FALSE)
-  # Strip trailing comments and whitespace
-  lines <- sub("\\s*#.*$", "", lines)
-  lines <- trimws(lines)
-  lines <- lines[nzchar(lines)]
-
-  extract_quoted <- function(key) {
-    # Matches: optional leading ws, key, =, quoted value, optional trailing ws
-    pattern <- sprintf("^%s\\s*=\\s*\"([^\"]+)\"\\s*$", key)
-    hit <- grep(pattern, lines, value = TRUE)
-    if (!length(hit)) return(NA_character_)
-    sub(pattern, "\\1", hit[1])
-  }
-
-  id    <- extract_quoted("igv_custom_genome_id")
-  name <- extract_quoted("igv_custom_genome_name")
-  fasta <- extract_quoted("igv_custom_genome_fasta")
-  index <- extract_quoted("igv_custom_genome_index")
-
-  missing <- c(id = id, fasta = fasta, index = index)
-  if (anyNA(missing) || any(!nzchar(missing))) {
-    stop("Missing required IGV custom genome settings in app.conf: ",
-         paste(names(missing)[is.na(missing) | !nzchar(missing)], collapse = ", "))
-  }
-
-  # Optional: warn if paths don’t exist (keep running to allow containers/volumes to mount later)
-  if (!file.exists(fasta)) warning("FASTA not found at: ", fasta)
-  if (!file.exists(index)) warning("FAI index not found at: ", index)
-
-  list(
-    id    = id,
-    name  = name,
-    fasta = fasta,
-    index = index
-  )
 }
