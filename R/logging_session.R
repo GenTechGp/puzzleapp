@@ -83,11 +83,31 @@ setup_app_logging <- function(level = "info",
     })
   }
 
-  # Capture unhandled Shiny errors to console logger (best-effort)
-  options(shiny.error = function(e) {
-    msg <- paste0("Unhandled error: ", conditionMessage(e))
-    lgr::get_logger("shinyapp")$error(msg,
-      stack = paste(utils::capture.output(sys.calls()), collapse = " | "))
+  # Capture unhandled Shiny errors to the console logger (best-effort).
+  #
+  # Shiny calls this hook with NO arguments (shiny:::shinyCallingHandlers does
+  # `handle <- getOption("shiny.error"); handle()`), so it must not declare one:
+  # a `function(e)` signature throws "argument \"e\" is missing" and Shiny then
+  # reports that instead of the real error, masking every failure in the app.
+  #
+  # The condition itself is not passed, but Shiny's enclosing calling handler
+  # holds it as `e`, so walk the frames outermost-inward to recover the message.
+  # If that ever stops working the stack trace is still logged, and the real
+  # error still reaches the user because that depends only on the signature.
+  #
+  # The whole body is wrapped so this handler can never itself raise: an error
+  # handler that errors turns every bug into the same useless message.
+  options(shiny.error = function() {
+    tryCatch({
+      cond <- NULL
+      for (fr in rev(sys.frames())) {
+        obj <- tryCatch(get("e", envir = fr, inherits = FALSE), error = function(...) NULL)
+        if (inherits(obj, "condition")) { cond <- obj; break }
+      }
+      msg <- if (is.null(cond)) "<message unavailable>" else conditionMessage(cond)
+      lgr::get_logger("shinyapp")$error(paste0("Unhandled error: ", msg),
+        stack = paste(utils::capture.output(sys.calls()), collapse = " | "))
+    }, error = function(...) NULL)
   })
 
   invisible(TRUE)
