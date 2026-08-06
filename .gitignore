@@ -22,4 +22,8 @@ install.log
 # R CMD build / check artefacts
 /puzzleapp_*.tar.gz
 /puzzleapp.Rcheck/
+# ABLeS/if89 reference material kept locally; the install script itself lives
+# in the ables-software-installations repo, not here
+/install.template
+/ABLeS - Application Installation Guidelines.md
 tests/logs/lighthouse_reports/
