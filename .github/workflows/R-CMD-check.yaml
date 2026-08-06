@@ -88,6 +88,11 @@ jobs:
             exit 1
           fi
 
+      # Emits puzzleapp_<version>.tar.gz, the standard R source-package name
+      # used by CRAN and Bioconductor. Do not rename it: R tooling recognises
+      # this form, and it stays directly installable from a package repository.
+      # GitHub's own auto-generated "Source code (tar.gz)" is a different
+      # artefact served from /archive/refs/tags/, not this one.
       - name: Build source tarball
         run: R CMD build --no-build-vignettes .
 
