@@ -51,7 +51,11 @@ ui <- fluidPage(
   ")),
     tags$head(tags$title("PuzzleApp")),
     tags$head(tags$meta(name="description", content="PuzzleApp — genomic variant explorer")),
-    tags$head(genome_server_js()),
+    # ::: because genome_server_js() is internal, like load_annotation_track()
+    # whose message handler it registers. library(puzzleapp) above only puts
+    # exported functions on the search path, so a bare call fails from an
+    # installed package.
+    tags$head(puzzleapp:::genome_server_js()),
     tags$head(tags$style(HTML("
     /* Group 1: Data tabs */
     .nav-tabs > li > a[data-value='Filter'],
@@ -90,9 +94,29 @@ ui <- fluidPage(
     .irs-single {
         background: #2471a3;
     }
+    /* Version label, right-aligned on the tab bar. Absolutely positioned so it
+       is out of the layout flow and costs no row of its own; the padding
+       matches .nav-tabs > li > a so it sits on the same baseline as the tab
+       labels. pointer-events:none keeps it from swallowing clicks if a narrow
+       window lets the tabs run underneath it. */
+    .puzzleapp-tabbar {
+        position: relative;
+    }
+    .puzzleapp-version {
+        position: absolute;
+        top: 0;
+        right: 0;
+        padding: 10px 15px;
+        font-size: 0.85em;
+        color: #6c757d;
+        pointer-events: none;
+    }
   "))),
   shinyjs::useShinyjs(),
   tags$main(
+  div(
+  class = "puzzleapp-tabbar",
+  div(class = "puzzleapp-version", paste0("v", puzzleapp:::puzzleapp_version())),
   tabsetPanel(
     id = "main_tabs",
     tabPanel("Home", home_ui("home")),
@@ -114,6 +138,7 @@ ui <- fluidPage(
       )
     )
   )
+  ) # div.puzzleapp-tabbar
   ) # tags$main
   # Workaround for Shiny bug #2845: checkboxGroupInput/radioButtons emit <label for="div-id">
   # which Chrome flags as invalid. Converts those group labels to <span> (aria-labelledby still works).

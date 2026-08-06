@@ -1,6 +1,6 @@
-# puzzleapp version - v0.0.1
+# puzzleapp
 
-README - https://github.com/GenTechGp/puzzleapp/blob/pack/README.md
+README - https://github.com/GenTechGp/puzzleapp/blob/main/README.md
 
 ### Documentation of file formats
 1. SNV table format   -> www.snv

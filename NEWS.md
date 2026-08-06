@@ -1,3 +1,27 @@
+# puzzleapp 0.2.1
+
+## New features
+
+* The package version is now shown in the top-right corner of the tab bar, on
+  the same line as the tabs, not only under Help > About. It is absolutely
+  positioned, so it consumes no layout space of its own.
+* The if89 module's launcher gained `puzzleapp --version`, reporting the module
+  version, the package version R actually loaded, the R version and the library
+  path — a mismatch between the first two indicates a broken install.
+
+## Fixes
+
+* `run_app()` failed immediately with "could not find function
+  `genome_server_js`" when launched from an installed package. The bundled
+  Shiny app called this internal helper by bare name, which only resolves when
+  the package is loaded with `devtools::load_all()`, not via
+  `library(puzzleapp)`. It is now called as `puzzleapp:::genome_server_js()`.
+  0.2.0 cannot start the web UI; use this release instead.
+* Help > About reported a hardcoded "v0.0.1" and linked to a `pack` branch that
+  no longer exists. The version is now read from `DESCRIPTION` at run time via
+  a single internal helper shared with the Home tab and the launcher, so the
+  three cannot disagree.
+
 # puzzleapp 0.2.0
 
 First tagged release, and the version packaged as an NCI `if89` module.
