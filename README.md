@@ -124,16 +124,23 @@ most recent one is used. That lets you keep dated snapshots side by side.
 
 ### Populating them
 
-PanelApp Australia — build `all_panels.tsv` with the bundled script (needs
-`curl` and `jq`; the output directory must not already exist):
+Both are published as GitHub releases. Pick a release tag and download its
+asset into a matching `<Month>_<Year>` directory:
 
 ``` bash
-./tests/download_panelapp_db.sh ~/.puzzleapp/panelapp/March_2026
+# PanelApp Australia — https://github.com/KCCGGenomeTechLab/PanelAppDB/releases
+mkdir -p ~/.puzzleapp/panelapp/August_2026
+curl -fsSL -o ~/.puzzleapp/panelapp/August_2026/all_panels.tsv \
+  https://github.com/KCCGGenomeTechLab/PanelAppDB/releases/download/v2026-08-03/all_panels.tsv
+
+# HPO — https://github.com/obophenotype/human-phenotype-ontology/releases
+mkdir -p ~/.puzzleapp/phenotype/June_2026
+curl -fsSL -o ~/.puzzleapp/phenotype/June_2026/phenotype_to_genes.txt \
+  https://github.com/obophenotype/human-phenotype-ontology/releases/download/v2026-06-23/phenotype_to_genes.txt
 ```
 
-HPO — download `phenotype_to_genes.txt` from the
-[HPO annotation release](https://github.com/obophenotype/human-phenotype-ontology/releases)
-and place it at `~/.puzzleapp/phenotype/phenotype_to_genes.txt`.
+Substitute the current tags — `gh release view --repo KCCGGenomeTechLab/PanelAppDB`
+and the equivalent for HPO will tell you what they are.
 
 VEP consequences — a snapshot ships in the package. To regenerate it against a
 specific Ensembl VEP release:
