@@ -5,3 +5,7 @@
 ^LICENSE\.md$
 ^\.vscode$
 ^\.claude$
+# if89/ABLeS packaging references kept in the working tree; not part of the
+# package, and R CMD check NOTEs on unrecognised top-level files.
+^install\.template$
+^ABLeS - Application Installation Guidelines\.md$

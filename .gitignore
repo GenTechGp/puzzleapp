@@ -19,4 +19,7 @@ tests/svlog
 tests/configs/sample*.yaml
 install.log
 .claude
+# R CMD build / check artefacts
+/puzzleapp_*.tar.gz
+/puzzleapp.Rcheck/
 tests/logs/lighthouse_reports/

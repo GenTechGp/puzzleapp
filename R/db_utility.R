@@ -466,17 +466,32 @@ nthreads <- 8  # Number of threads for data.table operations
 load_local_db <- function(key, file_name) {
   conf_file <- system.file("extdata", "app.conf", package = "puzzleapp")
 
-  # --- Resolve the directory: option first, then the shipped app.conf --------
+  # --- Resolve the directory: option, then env var, then the shipped app.conf -
   # app.conf lives inside the installed package, so editing it per machine is
-  # awkward and its value cannot be portable. An R option lets each user or
-  # site point at their own copy without touching the install, e.g. in
-  # ~/.Rprofile or before run_app():
-  #   options(puzzleapp.panelapp_db_dir = "/g/data/if89/.../db/panelapp")
+  # awkward and its value cannot be portable. Two overrides sit in front of it:
+  #
+  #   1. An R option, for a single user or a single session, e.g. in
+  #      ~/.Rprofile or before run_app():
+  #        options(puzzleapp.panelapp_db_dir = "/g/data/if89/.../db/panelapp")
+  #   2. An environment variable, for site-wide deployment. A Unix modulefile
+  #      cannot set an R option, so this is how a shared install points at a
+  #      shared database copy:
+  #        setenv PUZZLEAPP_PANELAPP_DB_DIR /g/data/if89/.../db/panelapp
+  #
+  # The option wins over the environment variable, which wins over app.conf, so
+  # a user can always override whatever the module set for them.
   opt_name <- paste0("puzzleapp.", key, "_db_dir")
+  env_name <- toupper(paste0("PUZZLEAPP_", key, "_DB_DIR"))
+
   db_dir <- getOption(opt_name)
   source_desc <- sprintf("option %s", opt_name)
 
   if (is.null(db_dir) || !nzchar(db_dir)) {
+    db_dir <- Sys.getenv(env_name, unset = "")
+    source_desc <- sprintf("environment variable %s", env_name)
+  }
+
+  if (!nzchar(db_dir)) {
     if (!file.exists(conf_file)) {
       stop("Configuration file not found: ", conf_file)
     }
@@ -489,8 +504,8 @@ load_local_db <- function(key, file_name) {
     db_line <- grep(pattern, lines, value = TRUE)
 
     if (length(db_line) == 0) {
-      stop(sprintf("No %s_db_dir entry in %s, and option %s is unset.",
-                   key, conf_file, opt_name))
+      stop(sprintf("No %s_db_dir entry in %s, and neither option %s nor $%s is set.",
+                   key, conf_file, opt_name, env_name))
     }
 
     # --- Extract db_dir path ---
@@ -507,8 +522,8 @@ load_local_db <- function(key, file_name) {
       db_dir <- possible_dir
     } else {
       stop(sprintf(
-        "%s database directory does not exist: %s (from %s). Point it elsewhere with options(%s = \"/path/to/%s\") before run_app().",
-        key, db_dir, source_desc, opt_name, key))
+        "%s database directory does not exist: %s (from %s). Point it elsewhere with options(%s = \"/path/to/%s\") before run_app(), or by setting $%s.",
+        key, db_dir, source_desc, opt_name, key, env_name))
     }
   }
   log_info(sprintf("[load_local_db] %s directory resolved from %s: %s", key, source_desc, db_dir))

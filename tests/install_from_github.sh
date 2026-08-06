@@ -50,7 +50,7 @@ usage() {
 
 # --- Default settings ---
 REPO="git@github.com:GenTechGp/puzzleapp.git"
-BRANCH="pack"
+BRANCH="main"
 COMMIT=""
 VERSION=""
 DEST=""

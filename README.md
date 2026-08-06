@@ -86,6 +86,86 @@ cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
 .libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8895)
 ```
 
+## Launching the app
+
+``` r
+run_app(port = 8888, host = "0.0.0.0")
+```
+
+* `port` — port to listen on. Default `8888`.
+* `host` — interface to bind to. Default `"0.0.0.0"`, which binds **all**
+  interfaces so the app is reachable from other machines that can route to the
+  host. That is what you want behind an SSH tunnel or NCI OnDemand. On a
+  multi-user or internet-facing machine, prefer `host = "127.0.0.1"` and reach
+  it through a tunnel — the app has no authentication of its own.
+
+`tests/qsub_launch.sh` is a PBS script that starts the app on a Gadi compute
+node and writes the exact SSH tunnel command to `ssh_connect_<jobid>.txt`. Edit
+the `#PBS -P` and `-l storage=` lines for your project, then
+`qsub -v PORT=8895 tests/qsub_launch.sh`.
+
+## Local databases (PanelApp and HPO)
+
+The home screen has a **Load PanelApp and HPO from local DB** checkbox, enabled
+by default. When it is on, the app reads two files:
+
+| Source | Expected file | Default location |
+| --- | --- | --- |
+| PanelApp Australia | `all_panels.tsv` | `~/.puzzleapp/panelapp` |
+| HPO phenotypes | `phenotype_to_genes.txt` | `~/.puzzleapp/phenotype` |
+| VEP consequences | `vep_consequences_*.tsv` | bundled in the package |
+
+Neither of the first two is bundled — the app starts without them, but panel
+and phenotype filtering is unavailable until they are in place.
+
+A directory may either hold the file directly, or hold `<Month>_<Year>`
+subdirectories (for example `March_2026/all_panels.tsv`), in which case the
+most recent one is used. That lets you keep dated snapshots side by side.
+
+### Populating them
+
+PanelApp Australia — build `all_panels.tsv` with the bundled script (needs
+`curl` and `jq`; the output directory must not already exist):
+
+``` bash
+./tests/download_panelapp_db.sh ~/.puzzleapp/panelapp/March_2026
+```
+
+HPO — download `phenotype_to_genes.txt` from the
+[HPO annotation release](https://github.com/obophenotype/human-phenotype-ontology/releases)
+and place it at `~/.puzzleapp/phenotype/phenotype_to_genes.txt`.
+
+VEP consequences — a snapshot ships in the package. To regenerate it against a
+specific Ensembl VEP release:
+
+``` bash
+./tests/download_vep_db.sh release/115.2 /tmp/ensembl_vep_115
+```
+
+### Pointing somewhere else
+
+Defaults live in `inst/extdata/app.conf` inside the installed package. Do not
+edit that file; override it instead. Precedence is **R option > environment
+variable > `app.conf`**.
+
+Per user or per session, in `~/.Rprofile` or before `run_app()`:
+
+``` r
+options(puzzleapp.panelapp_db_dir  = "/g/data/if89/.../db/panelapp")
+options(puzzleapp.phenotype_db_dir = "/g/data/if89/.../db/phenotype")
+```
+
+Site-wide, for a shared install or a Unix modulefile, which cannot set R
+options:
+
+``` bash
+export PUZZLEAPP_PANELAPP_DB_DIR=/g/data/if89/.../db/panelapp
+export PUZZLEAPP_PHENOTYPE_DB_DIR=/g/data/if89/.../db/phenotype
+```
+
+Whichever source is used is written to the session log, so it is always clear
+where a database was read from.
+
 ## Working directory (shared-safe mode)
 
 ```
@@ -128,7 +208,7 @@ run_pipeline(
 
 ### Parameters
 
-- config_yaml: Path to the pipeline YAML (e.g., tests/configs/samples.yml).
+- config_yaml: Path to the pipeline YAML (e.g., tests/configs/sample.yaml).
 - filter_table: Path to the two‑column filters file (e.g., tests/filters/*).
 - output_dir: Directory to write outputs (default: "pipeline_output").
 - nthreads: Number of threads for reading/processing (default: 4).
@@ -143,7 +223,9 @@ A one-time preprocessing step converts VCF files into the tab-delimited TSV form
 library(puzzleapp)
 
 run_preprocess(
-  config_yaml = "path/to/config.yml"
+  config_yaml = "path/to/config.yml",
+  validate    = TRUE,   # strict key checks on the YAML (default TRUE)
+  verbose     = TRUE    # progress messages (default TRUE)
 )
 ```
 
@@ -196,8 +278,10 @@ devtools::document()    # Run after editing functions, roxygen comments, or _PAC
 devtools::load_all()    # Run while testing functions interactively
 devtools::install()     # Run after changes to test outside load_all()
 devtools::check(clean = TRUE)
-devtools::build_readme() # Update README.md
+devtools::test()        # testthat only
 ```
+
+README.md is edited directly — there is no README.Rmd to knit.
 
 Officially supported: R ≥ 4.4 (Bioconductor 3.19).
 
