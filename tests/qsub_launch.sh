@@ -52,18 +52,18 @@ EOF
 echo "Connection instructions written to:"
 echo "  ${INFO_FILE}"
 
-module load intel-compiler-llvm/2025.2.0
-module load intel-mkl/2025.2.0
-module load R/4.5.0
+# The if89 modulefiles are always needed, because the puzzleapp module
+# soft-prereqs Rlib/4.4.2 from there. MODULE_DIR additionally points at a
+# testing install, e.g.
+#   qsub -v PORT=8895,MODULE_DIR=$HOME/ables-software-testing/modules qsub_launch.sh
+MODULE_DIR="${MODULE_DIR:-/g/data/if89/apps/modulefiles}"
+PUZZLEAPP_MODULE="${PUZZLEAPP_MODULE:-puzzleapp/0.2.1}"
 
-# --- Write R runner script ---
-cat > run_puzzleapp.R <<EOF
-dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
-d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
-cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
-.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = ${PORT})
-EOF
+module use /g/data/if89/apps/modulefiles
+module use "${MODULE_DIR}"
+module load "${PUZZLEAPP_MODULE}"
 
 # --- Run the app ---
-echo "Starting PuzzleApp at remoteport ${PORT}"
-Rscript --vanilla run_puzzleapp.R
+echo "Starting PuzzleApp at remote port ${PORT}"
+puzzleapp --version
+puzzleapp --port "${PORT}"

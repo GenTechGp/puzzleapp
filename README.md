@@ -43,48 +43,102 @@ run_app()
 
 # For NCI Gadi if89 users
 
+Nothing to install — puzzleapp is available as an `if89` module, which supplies
+the R library, a `puzzleapp` launcher, and shared PanelApp and HPO database
+snapshots so it works out of the box. Those snapshots are pinned at the time
+the module was built; see [Local databases](#local-databases-panelapp-and-hpo)
+for how to point at a newer one.
+
+``` bash
+module use /g/data/if89/apps/modulefiles
+module load puzzleapp/0.2.1
+puzzleapp --version
+```
+
+Your project needs `gdata/if89` in its storage flags, or `/g/data/if89` will
+not be mounted and the module will point at paths that do not exist.
+
+## Via the OnDemand RStudio dashboard
+
 1.  Visit [NCI Batch Connect
     Dashboard](https://are.nci.org.au/pun/sys/dashboard/batch_connect/sessions)
-2.  Launch an RStudio job. Remember to add `gdata/if89` to the storage
-    parameter. Example parameters:
+2.  Launch an RStudio job. Add `gdata/if89` to the storage parameter, and set
+    the two module fields under **Show advanced settings**:
 
 ```
       mem=64GB
       ncpus=4
       jobfs=10GB
       storage=gdata/if89+gdata/project1+gdata/project2
-      modules=R/4.5.0
+
+      Module directories:  /g/data/if89/apps/modulefiles
+      Modules:             puzzleapp/0.2.1
 ```
+
 3. Connect/go to Rstudio. File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
-```
-dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
-d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
-cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
-.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8895)
+
+```r
+library(puzzleapp)
+run_app(port = 8895)
 ```
 
-#### (Optional) Connect without RStudio 
-3. Get the compute node number (e.g. gadi-cpu-bdw-0123)
-4. Run the following in the local command line (change N(=0123) and PORT(=8895) as needed)
-```
-N="0123";PORT=8895;ssh -L ${PORT}:localhost:${PORT} gadi -t ssh -L ${PORT}:localhost:${PORT} gadi-cpu-bdw-${N}
+Launch it from the R console rather than the RStudio terminal — RStudio Server
+proxies console-launched Shiny apps into the Viewer automatically.
+
+## As a batch job
+
+`tests/qsub_launch.sh` starts the app on a compute node and writes the exact
+SSH tunnel command to `ssh_connect_<jobid>.txt`. Edit the `#PBS -P` and
+`-l storage=` lines for your project, then:
+
+``` bash
+qsub -v PORT=8895 tests/qsub_launch.sh
 ```
 
-5. Connect on a separate terminal
-```
-ssh gadi
-ssh gadi-cpu-bdw-${N}
-module load intel-compiler-llvm/2025.2.0
-module load intel-mkl/2025.2.0
-module load R/4.5.0
-R
+## Via SSH, without RStudio
 
-dirs <- basename(list.dirs(base <- "/g/data/if89/testdir/puzzleapp/app", FALSE, FALSE))
-d <- dirs[order(as.Date(dirs, "%d%m%Y"), decreasing = TRUE)][1]
-cat("Using library path:", lib <- file.path(base, d, "Rlib"), "\n")
-.libPaths(c(lib, .libPaths())); library(puzzleapp); run_app(port = 8895)
+Forward the port and run the app in the same session:
+
+``` bash
+# from your laptop
+ssh -L 8895:localhost:8895 gadi
+
+# in that session
+module use /g/data/if89/apps/modulefiles
+module load puzzleapp/0.2.1
+puzzleapp --port 8895 --host 127.0.0.1
 ```
+
+Then open `http://localhost:8895`.
+
+This runs on a *login* node, so it suits a quick look only — use a batch job or
+ARE for real work. Bind to `127.0.0.1` there so the app is not reachable by
+everyone else on that node.
+
+## Notes on the R version
+
+The module pins **R/4.4.2**, and pulls in `Rlib/4.4.2` and
+`intel-compiler/2021.10.0` automatically. Do not load another R version
+alongside it — in the ARE form, that means leaving an `R/x.y.z` out of the
+Modules field.
+
+If you keep a personal R library, make sure it is not built against a different
+R. An unconditional `.libPaths()` call in `~/.Rprofile` puts your packages
+ahead of the module's, and if they were compiled under another R version, R
+fails to load them with an "undefined symbol" error. Use a per-version
+directory instead:
+
+``` r
+local({
+  p <- file.path("/path/to/your/Rlibs", as.character(getRversion()))
+  if (dir.exists(p)) .libPaths(c(p, .libPaths()))
+})
+```
+
+`puzzleapp --version` reports the module version, the package version R
+actually loaded, the R version and the library path. If the first two disagree,
+something else on your library path is shadowing the module.
 
 ## Launching the app
 
@@ -115,8 +169,14 @@ by default. When it is on, the app reads two files:
 | HPO phenotypes | `phenotype_to_genes.txt` | `~/.puzzleapp/phenotype` |
 | VEP consequences | `vep_consequences_*.tsv` | bundled in the package |
 
-Neither of the first two is bundled — the app starts without them, but panel
-and phenotype filtering is unavailable until they are in place.
+Neither of the first two is bundled with the R package — the app starts without
+them, but panel and phenotype filtering is unavailable until they are in place.
+
+The `if89` module supplies both, so it works with no setup. That snapshot is
+fixed at the version the module was built with, and PanelApp in particular is
+updated often — **download a current copy and point at it** whenever the panel
+data matters to your results. The steps below apply equally to setting up your
+own copy from scratch and to superseding the module's.
 
 A directory may either hold the file directly, or hold `<Month>_<Year>`
 subdirectories (for example `March_2026/all_panels.tsv`), in which case the
@@ -171,7 +231,16 @@ export PUZZLEAPP_PHENOTYPE_DB_DIR=/g/data/if89/.../db/phenotype
 ```
 
 Whichever source is used is written to the session log, so it is always clear
-where a database was read from.
+where a database was read from — check it after overriding to confirm you got
+the snapshot you meant.
+
+On the `if89` module the environment variables are already set, so use the R
+option to override: it takes precedence, and needs no change to the module.
+
+``` r
+# ~/.Rprofile, or run before run_app()
+options(puzzleapp.panelapp_db_dir = "~/.puzzleapp/panelapp")
+```
 
 ## Working directory (shared-safe mode)
 
