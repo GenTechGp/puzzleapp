@@ -56,7 +56,11 @@ puzzleapp --version
 ```
 
 Your project needs `gdata/if89` in its storage flags, or `/g/data/if89` will
-not be mounted and the module will point at paths that do not exist.
+not be mounted and the module will point at paths that do not exist. Add every
+other project holding your data as well — BAM/CRAM files, VCFs, reference
+genomes and annotations — since anything not listed in `storage` is invisible
+to the job. For example,
+`storage=gdata/if89+gdata/project1+scratch/project1+gdata/project2`.
 
 ## Via the OnDemand RStudio dashboard
 
