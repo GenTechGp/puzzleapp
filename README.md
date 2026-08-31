@@ -79,6 +79,9 @@ to the job. For example,
       Modules:             puzzleapp/0.2.1
 ```
 
+![RStudio session settings on the NCI OnDemand
+dashboard](man/figures/nciondemanR.png)
+
 3. Connect/go to Rstudio. File -\> Quit Session -\> Start New Session
 4.  Run the following code in the R console
 
