@@ -388,6 +388,8 @@ samples:
     kinship: mother
 ```
 
+`snvs_tsv`/`svs_tsv` may end in `.tsv` or `.tsv.gz` — `run_preprocess()` writes a gzip-compressed file automatically when the path ends in `.gz`, and puzzleapp reads either transparently, so compressing the output TSVs is a safe way to save disk space.
+
 ### VCF field mapping
 
 The pipeline maps VCF field names to canonical output column names using bundled TSV mapping files. Different VCF callers and reference genomes can use different field names for the same data — this is handled through **user override mapping files** specified in the YAML:

@@ -19,6 +19,7 @@ Imports:
     shinybusy,
     DT,
     data.table,
+    R.utils,
     lgr,
     jsonlite,
     yaml,

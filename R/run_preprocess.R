@@ -17,6 +17,9 @@
 #'   svs_tsv:  /abs/path/to/output_sv.tsv                # required if svs_vcf given
 #'   svlog_static: /abs/path/to/svlog_static.tsv         # optional (SVlog static)
 #'   svlog_db:     /abs/path/to/svlog_db.tsv             # optional (SVlog database)
+#'
+#' snvs_tsv and svs_tsv may instead end in .tsv.gz; fwrite() will compress the
+#' output and fread() will decompress it transparently on read, saving disk space.
 #' samples:
 #'   - sample_id: SAMPLE1
 #'     kinship: proband

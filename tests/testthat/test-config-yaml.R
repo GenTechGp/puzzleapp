@@ -113,11 +113,11 @@ test_that("paths values are non-empty strings", {
   }
 })
 
-test_that("snvs_tsv and svs_tsv end with .tsv", {
+test_that("snvs_tsv and svs_tsv end with .tsv or .tsv.gz", {
   skip_if_not(file.exists(sample_yaml_path()), "sample.yaml not found")
   cfg <- yaml::read_yaml(sample_yaml_path())
-  expect_true(grepl("\\.tsv$", cfg$paths$snvs_tsv))
-  expect_true(grepl("\\.tsv$", cfg$paths$svs_tsv))
+  expect_true(grepl("\\.tsv(\\.gz)?$", cfg$paths$snvs_tsv))
+  expect_true(grepl("\\.tsv(\\.gz)?$", cfg$paths$svs_tsv))
 })
 
 test_that("snvs_vcf and svs_vcf end with .vcf.gz", {
