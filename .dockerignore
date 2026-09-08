@@ -1,0 +1,11 @@
+.git
+.github
+.vscode
+.claude
+tests
+man
+*.Rproj
+*.Rproj.user
+NEWS.md
+README.md
+LICENSE.md

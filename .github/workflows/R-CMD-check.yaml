@@ -104,3 +104,19 @@ jobs:
             --title "puzzleapp-$GITHUB_REF_NAME" \
             --generate-notes \
             puzzleapp_*.tar.gz
+
+      # Consumed by the docker job below, which builds the image from this
+      # same tarball rather than a source checkout.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: puzzleapp-tarball
+          path: puzzleapp_*.tar.gz
+          retention-days: 1
+
+  docker:
+    needs: release
+    if: startsWith(github.ref, 'refs/tags/v')
+    uses: ./.github/workflows/docker-publish.yaml
+    with:
+      git_ref: ${{ github.ref_name }}
+    secrets: inherit
