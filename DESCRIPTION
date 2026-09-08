@@ -1,6 +1,6 @@
 Package: puzzleapp
 Title: Visualise and analyse variants
-Version: 0.2.2
+Version: 0.2.3
 Authors@R:
     c(
         person("Andre Martins", "Reis", , "a.martinsreis@garvan.org.au", role = c("aut")),
