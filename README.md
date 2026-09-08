@@ -41,6 +41,66 @@ library(puzzleapp)
 run_app()
 ```
 
+## Docker
+
+A prebuilt image is published to [GHCR](https://github.com/GenTechGp/puzzleapp/pkgs/container/puzzleapp)
+on every tagged release — no R or Bioconductor installation needed:
+
+``` bash
+docker pull ghcr.io/gentechgp/puzzleapp:latest
+```
+
+Pin a specific released version instead of `latest` by tag, e.g.
+`ghcr.io/gentechgp/puzzleapp:0.2.3`.
+
+The image dispatches on the first argument to one of three subcommands, each
+wrapping the R function of the same shape documented elsewhere in this
+README. Mount your data directory (and use the same path inside the
+container as on the host) so paths inside your YAML configs resolve.
+
+### Web app
+
+``` bash
+docker run --rm -p 8888:8888 -v /path/to/data:/path/to/data \
+  ghcr.io/gentechgp/puzzleapp:latest webapp
+```
+
+Open `http://localhost:8888` — takes roughly 20s to start listening
+(Bioconductor package loading). See [Launching the app](#launching-the-app)
+for the underlying `port`/`host` semantics.
+
+For panel/phenotype filtering (see [Local databases](#local-databases-panelapp-and-hpo)),
+also mount your `~/.puzzleapp` directory, since the container runs as `root`:
+
+``` bash
+docker run --rm -p 8888:8888 \
+  -v /path/to/data:/path/to/data \
+  -v ~/.puzzleapp:/root/.puzzleapp \
+  ghcr.io/gentechgp/puzzleapp:latest webapp
+```
+
+### Preprocessing
+
+Wraps [`run_preprocess()`](#preprocessing):
+
+``` bash
+docker run --rm -v /path/to/data:/path/to/data \
+  ghcr.io/gentechgp/puzzleapp:latest preprocess /path/to/data/config.yaml
+```
+
+### Command-line pipeline
+
+Wraps [`run_pipeline()`](#command-line-based-pipeline):
+
+``` bash
+docker run --rm -v /path/to/data:/path/to/data \
+  ghcr.io/gentechgp/puzzleapp:latest pipeline \
+  /path/to/data/config.yaml /path/to/data/filters.tsv /path/to/data/output_dir
+```
+
+`output_dir` is optional (defaults to `pipeline_output`) — pass an absolute
+path under your mount so the output lands somewhere visible on the host.
+
 # For NCI Gadi if89 users
 
 Nothing to install — puzzleapp is available as an `if89` module, which supplies
