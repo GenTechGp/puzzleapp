@@ -79,7 +79,7 @@ docker run --rm -p 8888:8888 \
   ghcr.io/gentechgp/puzzleapp:latest webapp
 ```
 
-### Preprocessing
+### Preprocess
 
 Wraps [`run_preprocess()`](#preprocessing):
 
