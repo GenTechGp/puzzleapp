@@ -116,6 +116,12 @@ jobs:
   docker:
     needs: release
     if: startsWith(github.ref, 'refs/tags/v')
+    # A called reusable workflow can only narrow the permissions granted
+    # here, never widen them, so packages: write must be declared on this
+    # job too, not just inside docker-publish.yaml.
+    permissions:
+      contents: read
+      packages: write
     uses: ./.github/workflows/docker-publish.yaml
     with:
       git_ref: ${{ github.ref_name }}
