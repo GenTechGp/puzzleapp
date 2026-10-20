@@ -131,6 +131,15 @@ run_pipeline <- function(
   )
   result_snv <- filtered_data$snv
   result_sv <- filtered_data$sv
+
+  # Log typed genes that match no variant; must never stop the pipeline
+  tryCatch(
+    check_typed_genes(
+      filters_snv$custom_genes, filters_snv$substract_panelapp_genes_filter, filters_snv$panelapp_filter,
+      snv_data, sv_data, panel_app_genes, phenotype_data
+    ),
+    error = function(e) log_warn(sprintf("[pipeline] typed gene check failed: %s", conditionMessage(e)))
+  )
   if (verbose && !is.null(snv_data) && !is.null(result_snv)) message(sprintf("[pipeline] SNV filtered rows: %s/%s", nrow(result_snv), nrow(snv_data)))
   if (verbose && !is.null(sv_data) && !is.null(result_sv)) message(sprintf("[pipeline] SV filtered rows: %s/%s", nrow(result_sv), nrow(sv_data)))
   # cat("colnames SNV:", paste(colnames(result_snv), collapse = ", "), "\n")

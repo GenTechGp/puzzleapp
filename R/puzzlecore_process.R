@@ -303,7 +303,9 @@ puzzlecore_load_panel_app_data <- function(file) {
 # phenotype genes (C). Matching is case-insensitive; each symbol is reported as
 # spelled in the first of A, B, C that contains it. Returns a named list of the
 # seven Venn regions, each a sorted character vector.
-gene_symbol_overlap <- function(data_symbols, panelapp_symbols, phenotype_symbols) {
+# If `query` is given (e.g. user-typed genes), all sets are restricted to it and
+# an eighth region "none" holds query symbols found in none of A, B, C.
+gene_symbol_overlap <- function(data_symbols, panelapp_symbols, phenotype_symbols, query = NULL) {
   clean <- function(s) {
     s <- unique(as.character(s))
     s[!is.na(s) & nzchar(s)]
@@ -311,14 +313,21 @@ gene_symbol_overlap <- function(data_symbols, panelapp_symbols, phenotype_symbol
   a <- clean(data_symbols)
   b <- clean(panelapp_symbols)
   c <- clean(phenotype_symbols)
-  all <- c(a, b, c)
+  q <- character(0)
+  if (!is.null(query)) {
+    q <- clean(query)
+    a <- a[toupper(a) %in% toupper(q)]
+    b <- b[toupper(b) %in% toupper(q)]
+    c <- c[toupper(c) %in% toupper(q)]
+  }
+  all <- c(a, b, c, q)
   all <- all[!duplicated(toupper(all))]
   key <- toupper(all)
   in_a <- key %in% toupper(a)
   in_b <- key %in% toupper(b)
   in_c <- key %in% toupper(c)
   region <- function(sel) sort(all[sel])
-  list(
+  regions <- list(
     "data+PanelApp+phenotype" = region(in_a & in_b & in_c),
     "data+PanelApp only"      = region(in_a & in_b & !in_c),
     "data+phenotype only"     = region(in_a & !in_b & in_c),
@@ -327,11 +336,12 @@ gene_symbol_overlap <- function(data_symbols, panelapp_symbols, phenotype_symbol
     "PanelApp only"           = region(!in_a & in_b & !in_c),
     "phenotype only"          = region(!in_a & !in_b & in_c)
   )
+  if (!is.null(query)) regions[["none"]] <- region(!in_a & !in_b & !in_c)
+  regions
 }
 
-# Log gene_symbol_overlap() counts and lists, separately for SNV and SV data.
-# Informational only: nothing is changed in the data or the reference tables.
-log_gene_symbol_overlap <- function(snv_data, sv_data, panel_app_genes, phenotype_data) {
+# Gene symbols of the reference tables used by the overlap reports.
+reference_gene_symbols <- function(panel_app_genes, phenotype_data) {
   panelapp_symbols <- character(0)
   if (!is.null(panel_app_genes) && "Entity_Name" %in% names(panel_app_genes)) {
     # STR/region entities are named e.g. ATXN1_SCA1_CAG, not by gene symbol
@@ -342,6 +352,92 @@ log_gene_symbol_overlap <- function(snv_data, sv_data, panel_app_genes, phenotyp
     }
   }
   phenotype_symbols <- if (!is.null(phenotype_data) && "gene_symbol" %in% names(phenotype_data)) phenotype_data$gene_symbol else character(0)
+  list(panelapp = panelapp_symbols, phenotype = phenotype_symbols)
+}
+
+# Check the user-typed gene boxes and log the outcome. Matching is case-insensitive;
+# a name counts as recognised if it is in the SNV/SV data, PanelApp or phenotype genes.
+# - Custom genes are matched against the variant data, so report those without
+#   variants. One found only in PanelApp is flagged as possibly an outdated name
+#   (neither the data nor the phenotype table uses it).
+# - Subtract genes only remove genes from the selected PanelApp panels, so report
+#   those not in the selected panels (no effect).
+# Returns list(custom = list(no_variant, possibly_outdated, unknown),
+#              subtract = list(no_panel, no_effect, unknown)); an entry is NULL
+# when its box is empty.
+check_typed_genes <- function(custom_genes, subtract_genes, selected_panels,
+                              snv_data, sv_data, panel_app_genes, phenotype_data) {
+  dedupe <- function(g) {
+    g <- as.character(g)
+    g <- g[!is.na(g) & nzchar(g)]
+    g[!duplicated(toupper(g))]
+  }
+  custom_genes <- dedupe(custom_genes)
+  subtract_genes <- dedupe(subtract_genes)
+  out <- list(custom = NULL, subtract = NULL)
+  if (length(custom_genes) == 0 && length(subtract_genes) == 0) return(out)
+
+  ref <- reference_gene_symbols(panel_app_genes, phenotype_data)
+  data_symbols <- function(d) {
+    if (is.null(d) || nrow(d) == 0 || !"GENE_SYMBOL" %in% names(d)) return(character(0))
+    unique(d$GENE_SYMBOL)
+  }
+  snv_symbols <- data_symbols(snv_data)
+  sv_symbols <- data_symbols(sv_data)
+  overlap <- function(genes) gene_symbol_overlap(c(snv_symbols, sv_symbols), ref$panelapp, ref$phenotype, query = genes)
+  log_report <- function(label, report) {
+    for (k in names(report)) {
+      if (length(report[[k]]) == 0) next
+      log_info(sprintf("[typed_genes][%s] %s (%d): %s", label, k, length(report[[k]]),
+                       paste(report[[k]], collapse = ";")))
+    }
+  }
+
+  if (length(custom_genes) > 0) {
+    r <- overlap(custom_genes)
+    key <- toupper(custom_genes)
+    out$custom <- list(
+      no_variant        = sort(c(r[["PanelApp+phenotype only"]], r[["phenotype only"]])),
+      possibly_outdated = r[["PanelApp only"]],
+      unknown           = r[["none"]]
+    )
+    log_report("Custom genes", list(
+      "in SNV data" = sort(custom_genes[key %in% toupper(snv_symbols)]),
+      "in SV data"  = sort(custom_genes[key %in% toupper(sv_symbols)]),
+      "no variants" = out$custom$no_variant,
+      "no variants, found only in PanelApp (possibly an outdated name?)" = out$custom$possibly_outdated,
+      "not recognised (typo or outdated name?)" = out$custom$unknown
+    ))
+  }
+
+  if (length(subtract_genes) > 0) {
+    panel_entities <- character(0)
+    if (length(selected_panels) > 0 && !is.null(panel_app_genes)) {
+      panel_entities <- panel_app_genes[Level4 %in% selected_panels, Entity_Name]
+    }
+    in_panels <- toupper(subtract_genes) %in% toupper(panel_entities)
+    unknown <- overlap(subtract_genes[!in_panels])[["none"]]
+    out$subtract <- list(
+      no_panel  = length(selected_panels) == 0,
+      no_effect = sort(setdiff(subtract_genes[!in_panels], unknown)),
+      unknown   = unknown
+    )
+    if (out$subtract$no_panel) log_info("[typed_genes][Subtract genes] no PanelApp panel selected; subtract genes have no effect")
+    log_report("Subtract genes", list(
+      "in selected PanelApp panels" = sort(subtract_genes[in_panels]),
+      "not in selected PanelApp panels (no effect)" = out$subtract$no_effect,
+      "not recognised (typo or outdated name?)" = out$subtract$unknown
+    ))
+  }
+  out
+}
+
+# Log gene_symbol_overlap() counts and lists, separately for SNV and SV data.
+# Informational only: nothing is changed in the data or the reference tables.
+log_gene_symbol_overlap <- function(snv_data, sv_data, panel_app_genes, phenotype_data) {
+  ref <- reference_gene_symbols(panel_app_genes, phenotype_data)
+  panelapp_symbols <- ref$panelapp
+  phenotype_symbols <- ref$phenotype
 
   # info shows the first n_show symbols per region; the full lists go to debug
   n_show <- 10L

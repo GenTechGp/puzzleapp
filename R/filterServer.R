@@ -208,6 +208,26 @@ selectFiltersServer <- function(id, shared_store, shared_rx) {
       showNotification(snv_status, type = "message")
       showNotification(sv_status, type = "message")
 
+      # Report typed genes that match no variant; must never block filtering
+      tryCatch({
+        chk <- check_typed_genes(
+          snv_filters$custom_genes, snv_filters$substract_panelapp_genes_filter, snv_filters$panelapp_filter,
+          snvs_data, svs_data, panel_app_genes, phenotype_data
+        )
+        notify <- function(text, genes, type = "warning", duration = NULL) {
+          if (length(genes) > 0) showNotification(paste0(text, ": ", paste(genes, collapse = "; ")), type = type, duration = duration)
+        }
+        notify("Custom genes not recognised (typo or outdated name?)", chk$custom$unknown)
+        notify("Custom genes with no variants, found only in PanelApp (possibly an outdated name?)", chk$custom$possibly_outdated)
+        notify("Custom genes with no variants in SNV/SV data", chk$custom$no_variant, type = "message", duration = 20)
+        if (isTRUE(chk$subtract$no_panel)) {
+          showNotification("Subtract genes have no effect: no PanelApp panel selected", type = "warning", duration = NULL)
+        } else {
+          notify("Subtract genes not in the selected PanelApp panels (no effect)", chk$subtract$no_effect)
+        }
+        notify("Subtract genes not recognised (typo or outdated name?)", chk$subtract$unknown)
+      }, error = function(e) log_warn(sprintf("[filtServer] typed gene check failed: %s", conditionMessage(e))))
+
       # show snv_status and sv_status
       output$num_variants_after_filtering <- renderText({
         paste(snv_status, sv_status, sep = "; ")

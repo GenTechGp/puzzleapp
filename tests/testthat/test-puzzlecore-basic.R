@@ -252,3 +252,51 @@ test_that("gene_symbol_overlap splits symbols into the seven regions, case-insen
   expect_identical(r[["PanelApp only"]], "PAONLY")
   expect_identical(r[["phenotype only"]], "PHONLY")
 })
+
+test_that("gene_symbol_overlap with query restricts to the query and reports 'none'", {
+  r <- puzzleapp:::gene_symbol_overlap(
+    data_symbols      = c("ABC", "C19orf12", "OTHER"),
+    panelapp_symbols  = c("ABC", "PAONLY"),
+    phenotype_symbols = c("ABC", "PAONLY"),
+    query             = c("abc", "c19orf12", "PAONLY", "BRAC1")
+  )
+  expect_identical(r[["data+PanelApp+phenotype"]], "ABC")
+  expect_identical(r[["data only"]], "C19orf12")             # OTHER is not in the query
+  expect_identical(r[["PanelApp+phenotype only"]], "PAONLY")
+  expect_identical(r[["none"]], "BRAC1")
+})
+
+test_that("check_typed_genes: custom genes are checked against the data", {
+  snv <- data.table(GENE_SYMBOL = c("BRCA1", "C19orf12", NA))
+  sv  <- data.table(GENE_SYMBOL = c("DMD"))
+  pa  <- data.table(Entity_Name = c("BRCA1", "TTN", "SEPT9", "ATXN1_SCA1_CAG"), Entity_type = c("gene", "gene", "gene", "str"),
+                    Level4 = "Panel A")
+  ph  <- data.table(gene_symbol = c("BRCA1", "TTN", "MECP2"))
+  out <- puzzleapp:::check_typed_genes(
+    custom_genes = c("brca1", "c19orf12", "DMD", "TTN", "MECP2", "SEPT9", "BRAC1", "BRCA1"),
+    subtract_genes = character(0), selected_panels = character(0),
+    snv_data = snv, sv_data = sv, panel_app_genes = pa, phenotype_data = ph
+  )
+  expect_null(out$subtract)                                    # empty box is skipped
+  expect_identical(out$custom$no_variant, c("MECP2", "TTN"))
+  expect_identical(out$custom$possibly_outdated, "SEPT9")      # only PanelApp uses the name
+  expect_identical(out$custom$unknown, "BRAC1")
+})
+
+test_that("check_typed_genes: subtract genes are checked against the selected panels", {
+  snv <- data.table(GENE_SYMBOL = c("BRCA1", "DMD"))
+  pa  <- data.table(Entity_Name = c("BRCA1", "TTN", "DMD"), Entity_type = "gene",
+                    Level4 = c("Panel A", "Panel A", "Panel B"))
+  ph  <- data.table(gene_symbol = "MECP2")
+  out <- puzzleapp:::check_typed_genes(
+    custom_genes = character(0), subtract_genes = c("ttn", "DMD", "MECP2", "TITIN"), selected_panels = "Panel A",
+    snv_data = snv, sv_data = NULL, panel_app_genes = pa, phenotype_data = ph
+  )
+  expect_null(out$custom)
+  expect_false(out$subtract$no_panel)
+  expect_identical(out$subtract$no_effect, c("DMD", "MECP2"))  # real genes, not in Panel A
+  expect_identical(out$subtract$unknown, "TITIN")
+
+  none <- puzzleapp:::check_typed_genes(character(0), "TTN", character(0), snv, NULL, pa, ph)
+  expect_true(none$subtract$no_panel)
+})
