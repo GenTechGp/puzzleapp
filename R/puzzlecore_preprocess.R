@@ -42,38 +42,132 @@ load_field_mapping <- function(variant_type, user_mapping_path = NULL) {
 }
 
 # -------------------------------------------------------------------------
-# CSQ extraction helper
+# Annotation (CSQ / INFO_SUB) extraction helper
 # -------------------------------------------------------------------------
 
-#' Extract CSQ-mapped columns from a data.table, with graceful NA fill.
+#' Extract CSQ- and INFO_SUB-mapped columns from a data.table, with graceful NA fill.
 #'
-#' @param dt        data.table containing all CSQ subfields as columns.
-#' @param mapping   Mapping data.table (from load_field_mapping), CSQ rows only.
-#' @return Named list: list(cols = named character vector of old->new name pairs,
-#'                          missing = character vector of output columns filled with NA)
+#' An output column may be mapped from more than one source. Sources are tried
+#' by field_type, INFO_SUB before CSQ (mapping row order breaks ties within a
+#' type), and the first one declared in the VCF header is used for every
+#' record; a source the header does not declare never overwrites one it does.
+#' The column is filled with NA only when none of its sources is declared.
+#'
+#' @param dt        data.table containing all CSQ subfields, and any INFO_SUB
+#'                  subfields added by add_info_sub_columns(), as columns.
+#' @param mapping   Mapping data.table (from load_field_mapping).
+#' @return Character vector of output columns filled with NA (invisibly).
 #' @keywords internal
-extract_csq_columns <- function(dt, mapping) {
-  csq_rows <- mapping[field_type == "CSQ"]
+extract_annotation_columns <- function(dt, mapping) {
+  ann_rows <- mapping[field_type %in% c("INFO_SUB", "CSQ")]
+  ann_rows <- ann_rows[order(field_type != "INFO_SUB")]
   missing_out <- character(0)
 
-  for (i in seq_len(nrow(csq_rows))) {
-    vcf_col  <- csq_rows$vcf_field[i]
-    out_col  <- csq_rows$output_column[i]
-    is_req   <- isTRUE(as.logical(csq_rows$required[i]))
+  for (out_col in unique(ann_rows$output_column)) {
+    rows    <- ann_rows[output_column == out_col]
+    present <- rows$vcf_field[rows$vcf_field %in% names(dt)]
 
-    if (!vcf_col %in% names(dt)) {
-      if (is_req) {
-        stop("Required CSQ field missing from VCF annotation: ", vcf_col)
-      }
-      warning("CSQ field '", vcf_col, "' not found; '", out_col, "' will be NA.")
-      dt[, (out_col) := NA_character_]
-      missing_out <- c(missing_out, out_col)
-    } else if (vcf_col != out_col) {
-      dt[, (out_col) := get(vcf_col)]
+    if (length(present)) {
+      if (present[1] != out_col) dt[, (out_col) := get(present[1])]
+      next
     }
+    if (any(as.logical(rows$required), na.rm = TRUE)) {
+      stop("Required annotation field missing from VCF: ",
+           paste(rows$vcf_field, collapse = " / "))
+    }
+    warning("Annotation field(s) '", paste(rows$vcf_field, collapse = "', '"),
+            "' not found; '", out_col, "' will be NA.")
+    dt[, (out_col) := NA_character_]
+    missing_out <- c(missing_out, out_col)
   }
 
   invisible(missing_out)
+}
+
+# -------------------------------------------------------------------------
+# INFO_SUB extraction helper
+# -------------------------------------------------------------------------
+
+#' Pick one entry from a multi-entry INFO_SUB value.
+#'
+#' A tag such as SpliceAI holds one comma-separated entry per overlapping gene.
+#' When the tag has DS_* subfields the entry with the highest delta score is
+#' kept (ties keep the first); otherwise the first entry is kept. The whole
+#' entry is kept so its subfields all describe the same gene.
+#'
+#' @param value     One INFO value containing comma-separated entries.
+#' @param subfields Subfield names from the tag's header Format.
+#' @return The chosen entry.
+#' @keywords internal
+pick_info_sub_entry <- function(value, subfields) {
+  entries <- strsplit(value, ",", fixed = TRUE)[[1]]
+  ds_idx  <- grep("^DS_", subfields)
+  if (!length(ds_idx) || length(entries) < 2L) return(entries[1])
+
+  scores <- vapply(entries, function(e) {
+    ds <- suppressWarnings(as.numeric(strsplit(e, "|", fixed = TRUE)[[1]][ds_idx]))
+    if (all(is.na(ds))) -Inf else max(ds, na.rm = TRUE)
+  }, numeric(1), USE.NAMES = FALSE)
+  entries[which.max(scores)]
+}
+
+#' Add columns for INFO_SUB mapping rows (subfields of a pipe-delimited INFO tag).
+#'
+#' An INFO_SUB vcf_field is written TAG|SUBFIELD, e.g. SpliceAI|DS_AG, for an
+#' INFO tag whose header declares "Format: A|B|..." (as bcftools annotate does
+#' for INFO/SpliceAI). For each tag declared in the VCF header, one column per
+#' mapped subfield is added, named after the vcf_field. Tags absent from the
+#' header add nothing, so extract_annotation_columns() falls back to the next
+#' source. Records without the tag, or with ".", get NA.
+#'
+#' @param dt         data.table with an INFO column.
+#' @param mapping    Mapping data.table (from load_field_mapping).
+#' @param vcf_header data.table of header lines (column V1).
+#' @return The table, with any INFO_SUB columns added.
+#' @keywords internal
+add_info_sub_columns <- function(dt, mapping, vcf_header) {
+  sub_rows <- mapping[field_type == "INFO_SUB"]
+  if (!nrow(sub_rows)) return(dt)
+
+  bad <- !grepl("^[^|]+\\|[^|]+$", sub_rows$vcf_field)
+  if (any(bad)) {
+    stop("INFO_SUB vcf_field must be written TAG|SUBFIELD: ",
+         paste(sub_rows$vcf_field[bad], collapse = ", "))
+  }
+  tags <- sub("\\|.*", "", sub_rows$vcf_field)
+
+  for (tag in unique(tags)) {
+    hdr <- vcf_header$V1[startsWith(vcf_header$V1, paste0("##INFO=<ID=", tag, ","))]
+    if (!length(hdr)) next
+    if (!grepl("Format:", hdr[1], fixed = TRUE)) {
+      warning("INFO/", tag, " header has no 'Format:'; its INFO_SUB fields are ignored.")
+      next
+    }
+    subfields <- trimws(strsplit(sub('.*Format: *([^">]*).*', "\\1", hdr[1]),
+                                 "|", fixed = TRUE)[[1]])
+    cat("Reading INFO/", tag, " subfields from INFO (overrides CSQ for mapped columns)\n", sep = "")
+
+    raw <- stringr::str_match(dt$INFO, paste0("(?:^|;)", tag, "=([^;]*)"))[, 2]
+    raw[raw %in% c("", ".")] <- NA_character_
+    multi <- which(grepl(",", raw, fixed = TRUE))
+    if (length(multi)) {
+      raw[multi] <- vapply(raw[multi], pick_info_sub_entry, character(1),
+                           subfields = subfields, USE.NAMES = FALSE)
+    }
+    vals <- data.table::tstrsplit(raw, "|", fixed = TRUE)
+
+    for (vcf_field in unique(sub_rows$vcf_field[tags == tag])) {
+      k <- match(sub("^[^|]+\\|", "", vcf_field), subfields)
+      if (is.na(k)) {
+        warning("Subfield of '", vcf_field, "' not declared in INFO/", tag, " header Format.")
+        next
+      }
+      value <- if (k <= length(vals)) vals[[k]] else rep(NA_character_, nrow(dt))
+      data.table::set(dt, j = vcf_field, value = value)
+    }
+  }
+
+  dt
 }
 
 # -------------------------------------------------------------------------
@@ -109,7 +203,7 @@ sv_format_fields <- function(mapping) {
 #' which case the wide cast never produces its <base>_<code> columns and the
 #' output assembly fails on a name that is not there. Fill them so the output
 #' keeps the same shape whatever the caller emitted, matching the graceful
-#' degradation extract_csq_columns() already applies to CSQ fields. Dropping
+#' degradation extract_annotation_columns() already applies to CSQ fields. Dropping
 #' them instead is not an option: check_data() rejects a table that has no
 #' column at all for a has_suffix base.
 #'
@@ -315,8 +409,9 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   data.table::setnames(csq_split, csq_columns)
   snvs_data_melt <- cbind(snvs_data_melt, csq_split)
 
-  # --- Apply CSQ field mapping (rename + graceful NA fill) -----------------
-  extract_csq_columns(snvs_data_melt, mapping)
+  # --- Apply CSQ / INFO_SUB field mapping (rename + graceful NA fill) ------
+  snvs_data_melt <- add_info_sub_columns(snvs_data_melt, mapping, vcf_header)
+  extract_annotation_columns(snvs_data_melt, mapping)
 
   # --- SpliceAI compound string --------------------------------------------
   sym_col  <- "_spliceai_symbol"
@@ -648,8 +743,9 @@ process_sv_data <- function(svs_vcf, pedigree_data,
   data.table::setnames(csq_split, csq_columns)
   svs_data_melt <- cbind(svs_data_melt, csq_split)
 
-  # --- Apply CSQ field mapping ---------------------------------------------
-  extract_csq_columns(svs_data_melt, mapping)
+  # --- Apply CSQ / INFO_SUB field mapping ----------------------------------
+  svs_data_melt <- add_info_sub_columns(svs_data_melt, mapping, vcf_header)
+  extract_annotation_columns(svs_data_melt, mapping)
 
   # --- INFO field extraction via mapping -----------------------------------
   info_rows <- mapping[field_type == "INFO"]

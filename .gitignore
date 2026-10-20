@@ -23,3 +23,6 @@ install.log
 /puzzleapp_*.tar.gz
 /puzzleapp.Rcheck/
 tests/logs/lighthouse_reports/
+tests/configs/LRS00586_hs1.yaml
+tests/configs/LRS00586_hs1_subset.yaml
+tests/configs/ont_singleton2.yaml

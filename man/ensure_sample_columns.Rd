@@ -21,7 +21,7 @@ A FORMAT field declared required = FALSE may be missing from the VCF, in
 which case the wide cast never produces its \if{html}{\out{<base>}}_\if{html}{\out{<code>}} columns and the
 output assembly fails on a name that is not there. Fill them so the output
 keeps the same shape whatever the caller emitted, matching the graceful
-degradation extract_csq_columns() already applies to CSQ fields. Dropping
+degradation extract_annotation_columns() already applies to CSQ fields. Dropping
 them instead is not an option: check_data() rejects a table that has no
 column at all for a has_suffix base.
 }

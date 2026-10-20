@@ -35,3 +35,12 @@ SpliceAI_pred_DP_AG	_spliceai_dp_ag	CSQ	FALSE	Helper: acceptor gain position for
 SpliceAI_pred_DP_AL	_spliceai_dp_al	CSQ	FALSE	Helper: acceptor loss position for SpliceAI_pred compound string
 SpliceAI_pred_DP_DG	_spliceai_dp_dg	CSQ	FALSE	Helper: donor gain position for SpliceAI_pred compound string
 SpliceAI_pred_DP_DL	_spliceai_dp_dl	CSQ	FALSE	Helper: donor loss position for SpliceAI_pred compound string
+SpliceAI|DS_DL	Donor_Loss	INFO_SUB	FALSE	SpliceAI donor loss delta score from bcftools annotate INFO/SpliceAI; takes precedence over the CSQ row when the INFO header is present
+SpliceAI|DS_DG	Donor_Gain	INFO_SUB	FALSE	SpliceAI donor gain delta score from bcftools annotate INFO/SpliceAI; takes precedence over the CSQ row when the INFO header is present
+SpliceAI|DS_AL	Acceptor_Loss	INFO_SUB	FALSE	SpliceAI acceptor loss delta score from bcftools annotate INFO/SpliceAI; takes precedence over the CSQ row when the INFO header is present
+SpliceAI|DS_AG	Acceptor_Gain	INFO_SUB	FALSE	SpliceAI acceptor gain delta score from bcftools annotate INFO/SpliceAI; takes precedence over the CSQ row when the INFO header is present
+SpliceAI|SYMBOL	_spliceai_symbol	INFO_SUB	FALSE	Helper: gene symbol for SpliceAI_pred compound string (bcftools annotate INFO/SpliceAI)
+SpliceAI|DP_AG	_spliceai_dp_ag	INFO_SUB	FALSE	Helper: acceptor gain position for SpliceAI_pred compound string (bcftools annotate INFO/SpliceAI)
+SpliceAI|DP_AL	_spliceai_dp_al	INFO_SUB	FALSE	Helper: acceptor loss position for SpliceAI_pred compound string (bcftools annotate INFO/SpliceAI)
+SpliceAI|DP_DG	_spliceai_dp_dg	INFO_SUB	FALSE	Helper: donor gain position for SpliceAI_pred compound string (bcftools annotate INFO/SpliceAI)
+SpliceAI|DP_DL	_spliceai_dp_dl	INFO_SUB	FALSE	Helper: donor loss position for SpliceAI_pred compound string (bcftools annotate INFO/SpliceAI)

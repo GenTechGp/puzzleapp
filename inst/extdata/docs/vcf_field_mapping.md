@@ -22,9 +22,9 @@ A two-tier approach is used:
 
 | Column | Description |
 |---|---|
-| `vcf_field` | VCF field name(s). A single name for direct renames; a **comma-separated list** when the output depends on multiple input fields. Field order matters — the code interprets it positionally (e.g. first field is the numerator, second is the denominator for a VAF). |
-| `output_column` | Column name written to the output TSV |
-| `field_type` | One of `FORMAT`, `FORMAT_SV`, `CSQ`, `INFO` — tells the pipeline where in the VCF to look |
+| `vcf_field` | VCF field name(s). A single name for direct renames; a **comma-separated list** when the output depends on multiple input fields. Field order matters — the code interprets it positionally (e.g. first field is the numerator, second is the denominator for a VAF). For `INFO_SUB` it is written `TAG\|SUBFIELD` (e.g. `SpliceAI\|DS_AG`). |
+| `output_column` | Column name written to the output TSV. May appear on more than one row to declare alternative sources — see [Multiple sources for one output column](#multiple-sources-for-one-output-column). |
+| `field_type` | One of `FORMAT`, `FORMAT_SV`, `CSQ`, `INFO`, `INFO_SUB` — tells the pipeline where in the VCF to look |
 | `required` | `TRUE` / `FALSE` — if `TRUE` and the field is absent, preprocessing stops with an error |
 | `note` | Human-readable description of the field and, for derived outputs, the formula |
 
@@ -34,8 +34,44 @@ A two-tier approach is used:
 |---|---|
 | `FORMAT` | Per-sample FORMAT tags (SNV/indel) |
 | `FORMAT_SV` | Per-sample FORMAT tags (SV) |
-| `CSQ` | VEP `CSQ` INFO subfields (parsed by `extract_csq_columns`) |
-| `INFO` | Top-level INFO keys |
+| `CSQ` | VEP `CSQ` INFO subfields (parsed by `extract_annotation_columns`) |
+| `INFO` | Top-level INFO keys (SV only) |
+| `INFO_SUB` | Subfields of a pipe-delimited INFO tag whose header declares `Format: A\|B\|...`, such as `INFO/SpliceAI` added by `bcftools annotate` (parsed by `add_info_sub_columns`) |
+
+### `INFO_SUB` fields
+
+Some annotations are added outside VEP as a single INFO tag that packs several values into one pipe-delimited string. `bcftools annotate -c INFO/SpliceAI` with the precomputed SpliceAI score files writes:
+
+```
+##INFO=<ID=SpliceAI,...,Description="... Format: ALLELE|SYMBOL|DS_AG|DS_AL|DS_DG|DS_DL|DP_AG|DP_AL|DP_DG|DP_DL">
+... SpliceAI=A|OR4F5|0.00|0.00|0.00|0.00|2|7|-41|-19 ...
+```
+
+An `INFO_SUB` row names the tag and the subfield, e.g. `SpliceAI|DS_DL → Donor_Loss`. Subfields are located by name using the header's `Format:`, so their order in the header does not matter.
+
+- Records without the tag, or with `SpliceAI=.`, give `NA`.
+- A tag can hold several comma-separated entries, e.g. one per overlapping gene (`C|PLEKHN1|...,C|PERM1|...`). One **whole** entry is kept per record so that all its subfields describe the same gene. If the tag has `DS_*` subfields, the entry with the highest delta score is kept (first entry on a tie); otherwise the first entry is kept.
+
+---
+
+## Multiple sources for one output column
+
+An output column may be declared on several rows, one per possible source. The canonical SNV mapping does this for SpliceAI: each SpliceAI column has a `CSQ` row (VEP SpliceAI plugin, `SpliceAI_pred_*`) and an `INFO_SUB` row (`bcftools annotate`, `SpliceAI|*`).
+
+The source is chosen **once per file**, from the VCF header:
+
+1. Sources are tried by `field_type`: `INFO_SUB` before `CSQ`. Mapping row order only breaks ties between rows of the same type. The order of the VCF header lines has no effect.
+2. The first source the header declares is used for every record. A source the header does not declare never overwrites one it does.
+3. If no source is declared, the column is `NA` and a single warning names all of its sources (or preprocessing stops if any row is `required = TRUE`).
+
+For SpliceAI this means:
+
+| VCF annotated with | SpliceAI columns come from |
+|---|---|
+| VEP SpliceAI plugin only | `CSQ` (`SpliceAI_pred_*`) — unchanged behaviour |
+| `bcftools annotate` only | `INFO/SpliceAI` |
+| both | `INFO/SpliceAI`, for every record — a record with `SpliceAI=.` is `NA` even if CSQ has a score |
+| neither | `NA`, with a warning |
 
 ---
 
@@ -68,7 +104,7 @@ Required fields (`required = TRUE`) cause an immediate `stop()`.
 
 ## User override mappings
 
-An override TSV uses the **same schema** as the canonical files. It only needs to include rows for fields that differ from the canonical mapping. Rows are merged on the `output_column` key — a user row with the same `output_column` as a canonical row replaces it entirely.
+An override TSV uses the **same schema** as the canonical files. It only needs to include rows for fields that differ from the canonical mapping. Rows are merged on the `output_column` key — a user row with the same `output_column` as a canonical row replaces it entirely. Where the canonical mapping has several rows (sources) for that `output_column`, all of them are replaced, so list every source you want to keep.
 
 ### Example — CHM13 / hs1 reference genome
 
