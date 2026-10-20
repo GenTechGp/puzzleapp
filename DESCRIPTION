@@ -24,6 +24,7 @@ Imports:
     jsonlite,
     yaml,
     stringr,
+    stringi,
     htmltools,
     htmlwidgets,
     lobstr,

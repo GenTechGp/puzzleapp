@@ -281,6 +281,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   out        <- read_and_normalise_vcf(snvs_vcf)
   snvs_data  <- out$vcf_data
   vcf_header <- out$vcf_header
+  rm(out)  # so unique() below can release the raw table
 
   csq_format <- vcf_header[grepl("##INFO=<ID=CSQ", V1)]
   if (!nrow(csq_format)) stop("CSQ format not found in VCF header.")
@@ -307,60 +308,60 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   snvs_data[, ID := paste0(CHROM, "_", POS, "_", .I)]
 
   # --- melt to long, expand FORMAT fields ----------------------------------
-  id_vars <- setdiff(names(snvs_data), trio)
-  snvs_data_melt <- data.table::melt(
-    snvs_data, id.vars = id_vars, variable.name = "Sample", value.name = "Value"
+  # Only ID, FORMAT and the sample columns go through melt/dcast; the
+  # per-variant columns (INFO in particular) are joined back on ID afterwards
+  if (!"FORMAT" %in% names(snvs_data)) stop("FORMAT column missing.")
+  fmt_long <- data.table::melt(
+    snvs_data[, c("ID", "FORMAT", trio), with = FALSE],
+    id.vars = c("ID", "FORMAT"), variable.name = "Sample", value.name = "Value"
   )
-  if (!"FORMAT" %in% names(snvs_data_melt)) stop("FORMAT column missing.")
 
-  snvs_data_melt[, num_fields := lengths(strsplit(FORMAT, ":"))]
-  max_fields <- max(snvs_data_melt$num_fields)
-  snvs_data_melt[, FORMAT := ifelse(max_fields - num_fields > 0,
-                                    paste0(FORMAT, strrep(":NA", max_fields - num_fields)),
-                                    FORMAT)]
-  snvs_data_melt[, Value := ifelse(max_fields - num_fields > 0,
-                                   paste0(Value, strrep(":NA", max_fields - num_fields)),
-                                   Value)]
+  fmt_long[, num_fields := lengths(strsplit(FORMAT, ":"))]
+  max_fields <- max(fmt_long$num_fields)
+  fmt_long[, FORMAT := ifelse(max_fields - num_fields > 0,
+                              paste0(FORMAT, strrep(":NA", max_fields - num_fields)),
+                              FORMAT)]
+  fmt_long[, Value := ifelse(max_fields - num_fields > 0,
+                             paste0(Value, strrep(":NA", max_fields - num_fields)),
+                             Value)]
 
-  format_split <- snvs_data_melt[, tstrsplit(FORMAT, ":", fixed = TRUE)]
+  # FORMAT and Value split into the same positions, so their melts line up
   format_split <- data.table::melt(
-    cbind(snvs_data_melt[, .(ID, Sample)], format_split),
+    cbind(fmt_long[, .(ID, Sample)], fmt_long[, tstrsplit(FORMAT, ":", fixed = TRUE)]),
     id.vars = c("ID", "Sample")
-  )[, .(ID, Sample, FORMAT = value)]
-  value_split <- snvs_data_melt[, tstrsplit(Value, ":", fixed = TRUE)]
-  value_split <- data.table::melt(
-    cbind(snvs_data_melt[, .(ID, Sample)], value_split),
-    id.vars = c("ID", "Sample")
-  )[, .(ID, Sample, Value = value)]
-
-  snvs_data_melt <- merge(
-    snvs_data_melt[, setdiff(names(snvs_data_melt), c("FORMAT", "Value")), with = FALSE],
-    cbind(format_split, value_split[, .(Value)]),
-    by = c("ID", "Sample")
   )
-  snvs_data_melt <- snvs_data_melt[FORMAT != "NA"]
-  snvs_data_melt[, num_fields := NULL]
-
-  trio_dt <- data.table::data.table(Sample = trio, Code = seq_along(trio))
-  snvs_data_melt <- merge(snvs_data_melt, trio_dt, by = "Sample")
+  value_split <- data.table::melt(
+    cbind(fmt_long[, .(ID, Sample)], fmt_long[, tstrsplit(Value, ":", fixed = TRUE)]),
+    id.vars = c("ID", "Sample")
+  )
+  fmt_long <- format_split[, .(ID, Sample, FORMAT = value, Value = value_split$value)]
+  rm(format_split, value_split)
+  fmt_long <- fmt_long[FORMAT != "NA"]
+  fmt_long[, Code := match(Sample, trio)]
 
   # --- FORMAT field selection driven by mapping ----------------------------
   fmt_direct <- mapping[field_type == "FORMAT" & !grepl(",", vcf_field, fixed = TRUE), vcf_field]
-  snvs_data_melt <- snvs_data_melt[FORMAT %in% fmt_direct]
+  fmt_long <- fmt_long[FORMAT %in% fmt_direct]
 
   # AD: keep only the alt allele count (second element)
   if ("AD" %in% fmt_direct) {
-    snvs_data_melt[FORMAT == "AD", Value := tstrsplit(Value, ",", fixed = TRUE)[2]]
+    fmt_long[FORMAT == "AD", Value := tstrsplit(Value, ",", fixed = TRUE)[2]]
   }
 
-  snvs_data_melt[, FORMAT := paste0(FORMAT, "_", Code)]
+  fmt_long[, FORMAT := paste0(FORMAT, "_", Code)]
+  fmt_wide <- data.table::dcast(fmt_long, ID ~ FORMAT, value.var = "Value")
+  rm(fmt_long)
 
-  wide_formula <- paste(
-    names(snvs_data_melt)[!names(snvs_data_melt) %in% c("FORMAT", "Value", "Sample", "Code")],
-    collapse = " + "
+  # Join the per-variant columns back in fmt_wide's (sorted ID) row order. A
+  # record left with no FORMAT values is not in fmt_wide and drops out.
+  # match() rather than merge() avoids sorting the IDs a second time.
+  variant_cols   <- setdiff(names(snvs_data), c("ID", "FORMAT", trio))
+  snvs_data_melt <- cbind(
+    fmt_wide[, .(ID)],
+    snvs_data[match(fmt_wide$ID, snvs_data$ID), variant_cols, with = FALSE],
+    fmt_wide[, setdiff(names(fmt_wide), "ID"), with = FALSE]
   )
-  wide_formula <- sprintf("%s ~ FORMAT", wide_formula)
-  snvs_data_melt <- data.table::dcast(snvs_data_melt, wide_formula, value.var = "Value")
+  rm(snvs_data, fmt_wide)
 
   # --- VAF computation -----------------------------------------------------
   num_samples <- nrow(pedigree_data)
@@ -391,27 +392,44 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   }
 
   # --- CSQ parsing ---------------------------------------------------------
-  snvs_data_melt[, CSQ := ifelse(
-    grepl("(?:^|;)CSQ=", INFO),
-    sub(".*(?:^|;)CSQ=([^;]+).*", "\\1", INFO),
-    NA_character_
-  )]
-  csq_split <- snvs_data_melt[, tstrsplit(CSQ, "|", fixed = TRUE)]
+  csq <- stringi::stri_match_first_regex(snvs_data_melt$INFO, "(?:^|;)CSQ=([^;]+)")[, 2]
+
+  # A trailing empty field is dropped when splitting (it reads as NA), so a
+  # record can have one piece fewer than the header declares
+  n_seps     <- stringi::stri_count_fixed(csq, "|")
+  trailing   <- endsWith(csq, "|")
+  n_pieces   <- n_seps + 1L - trailing
+  n_actual   <- if (any(!is.na(n_pieces))) max(n_pieces, na.rm = TRUE) else 1L
   n_expected <- length(csq_columns)
-  n_actual   <- if (!is.null(csq_split)) ncol(csq_split) else 0L
-  if (n_actual == n_expected - 1L) {
-    csq_split[, paste0("V", n_actual + 1L) := ""]
-    n_actual <- ncol(csq_split)
-  }
-  if (n_actual != n_expected) {
+  if (n_actual != n_expected && n_actual != n_expected - 1L) {
     stop("CSQ column count mismatch. Expected ", n_expected, ", got ", n_actual, ".")
   }
-  data.table::setnames(csq_split, csq_columns)
-  snvs_data_melt <- cbind(snvs_data_melt, csq_split)
+
+  # Split out only the CSQ fields the mapping uses; a field past the last piece
+  # of every record (the dropped trailing empty field) is filled with ""
+  csq_used  <- intersect(csq_columns, mapping[field_type == "CSQ", vcf_field])
+  csq_idx   <- match(csq_used, csq_columns)
+  split_idx <- csq_idx[csq_idx <= n_actual]
+  csq_split <- list()
+  if (length(split_idx)) {
+    pieces <- stringi::stri_split_fixed(csq, "|", simplify = NA)
+    for (k in split_idx) {
+      value <- pieces[, k]
+      value[which(trailing & n_seps + 1L == k)] <- NA_character_
+      csq_split[[csq_columns[k]]] <- value
+    }
+    rm(pieces)
+  }
+  for (col in csq_columns[setdiff(csq_idx, split_idx)]) {
+    csq_split[[col]] <- rep("", nrow(snvs_data_melt))
+  }
+  rm(csq)
+  if (length(csq_split)) snvs_data_melt <- cbind(snvs_data_melt, data.table::as.data.table(csq_split))
 
   # --- Apply CSQ / INFO_SUB field mapping (rename + graceful NA fill) ------
   snvs_data_melt <- add_info_sub_columns(snvs_data_melt, mapping, vcf_header)
   extract_annotation_columns(snvs_data_melt, mapping)
+  snvs_data_melt[, INFO := NULL]  # parsed; the largest string per record
 
   # --- SpliceAI compound string --------------------------------------------
   sym_col  <- "_spliceai_symbol"
@@ -556,8 +574,9 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
     ]
   }
 
+  # No unique() here: ID carries the row number, so every row is already distinct
   cat("SNV data processed.\n")
-  return(unique(full))
+  return(full)
 }
 
 # -------------------------------------------------------------------------
@@ -853,6 +872,31 @@ process_sv_data <- function(svs_vcf, pedigree_data,
 # VCF reader + CSQ normaliser (shared by SNV and SV paths)
 # -------------------------------------------------------------------------
 
+#' Read the ## meta-information lines of a gzipped VCF.
+#'
+#' Stops at the first line that does not start with "##" (the #CHROM line), so
+#' only the header is decompressed rather than the whole file.
+#'
+#' @param vcf_path Path to gzipped VCF (.vcf.gz)
+#' @return Character vector of ## lines.
+#' @keywords internal
+read_vcf_meta_lines <- function(vcf_path) {
+  con <- gzfile(vcf_path, "r")
+  on.exit(close(con))
+  meta <- character(0)
+  repeat {
+    chunk <- readLines(con, n = 1000L, warn = FALSE)
+    if (!length(chunk)) break
+    is_meta <- startsWith(chunk, "##")
+    if (!all(is_meta)) {
+      meta <- c(meta, chunk[seq_len(which.min(is_meta) - 1L)])
+      break
+    }
+    meta <- c(meta, chunk)
+  }
+  meta
+}
+
 #' Read VCF and normalise functional annotations to CSQ
 #'
 #' Returns data unchanged if CSQ is already present. Otherwise converts ANN
@@ -867,22 +911,17 @@ read_and_normalise_vcf <- function(vcf_path) {
     stop("VCF file not found: ", vcf_path)
   }
 
+  # bgzip decompresses plain gzip as well as BGZF, and multithreaded; several
+  # times faster than gunzip on a whole-genome VCF
+  decompress <- if (nzchar(Sys.which("bgzip"))) "bgzip -dc -@ 4" else "gunzip -c"
   vcf_data <- data.table::fread(
-    cmd    = paste("gunzip -c", vcf_path),
+    cmd    = paste(decompress, shQuote(vcf_path)),
     sep    = "\t",
     skip   = "#CHROM",
     header = TRUE
   )
 
-  vcf_header <- data.table::fread(
-    cmd    = paste("zgrep '^##' ", vcf_path),
-    sep    = "\n",
-    header = FALSE
-  )
-
-  if (!"V1" %in% names(vcf_header)) {
-    data.table::setnames(vcf_header, names(vcf_header), "V1")
-  }
+  vcf_header <- data.table::data.table(V1 = read_vcf_meta_lines(vcf_path))
 
   has_csq  <- any(grepl("^##INFO=<ID=CSQ\\b",  vcf_header$V1))
   has_ann  <- any(grepl("^##INFO=<ID=ANN\\b",  vcf_header$V1))
