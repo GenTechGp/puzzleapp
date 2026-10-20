@@ -206,6 +206,11 @@ home_server <- function(id, shared_store, shared_rx) {
       shared_store$pedigree <- collected$pedigree
       shared_store$panel_app_genes <- collected$panel_app_data
       shared_store$phenotype_data <- collected$phenotype_data
+      # Informational report only; must never block loading
+      tryCatch(
+        log_gene_symbol_overlap(collected$snvs_data, collected$svs_data, collected$panel_app_data, collected$phenotype_data),
+        error = function(e) log_warn(sprintf("[HomeServer] gene symbol overlap report failed: %s", conditionMessage(e)))
+      )
       custom_genome <- NULL
       igv_genome_name <- input$igv_genome
       use_custom_genome <- FALSE

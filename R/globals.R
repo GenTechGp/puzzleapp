@@ -1,7 +1,7 @@
 utils::globalVariables(c(
   # Existing
   ".", ".I", ".N", ".SD", ".row_id",
-  "Entity_Name", "GENE_SYMBOL", "GT_1", "GT_2", "GT_3",
+  "Entity_Name", "Entity_type", "GENE_SYMBOL", "GT_1", "GT_2", "GT_3",
   "HPO_COUNT", "HPO_ID", "ID", "INHERITANCE", "Level4",
   "Model_Of_Inheritance", "NOTES", "PANEL_APP", "PRIORITY",
   "PRIORITYFlag", "Sources", "VAR_COUNT", "VAR_COUNT_1",

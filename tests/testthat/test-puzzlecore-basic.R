@@ -236,3 +236,19 @@ test_that("compare_allele_count: range 0-1", {
   result <- puzzleapp:::compare_allele_count(c(0, 1, 2), "0-1")
   expect_equal(result, c(TRUE, TRUE, FALSE))
 })
+test_that("gene_symbol_overlap splits symbols into the seven regions, case-insensitively", {
+  r <- puzzleapp:::gene_symbol_overlap(
+    data_symbols      = c("ABC", "C19orf12", "DATAONLY", "BOTHAB", NA, ""),
+    panelapp_symbols  = c("ABC", "C19ORF12", "BOTHAB", "PAONLY", "PAPH"),
+    phenotype_symbols = c("ABC", "c19orf12", "PAPH", "PHONLY")
+  )
+  expect_identical(names(r), c("data+PanelApp+phenotype", "data+PanelApp only", "data+phenotype only",
+                               "PanelApp+phenotype only", "data only", "PanelApp only", "phenotype only"))
+  expect_identical(r[["data+PanelApp+phenotype"]], c("ABC", "C19orf12"))  # data's spelling wins
+  expect_identical(r[["data+PanelApp only"]], "BOTHAB")
+  expect_identical(r[["data+phenotype only"]], character(0))
+  expect_identical(r[["PanelApp+phenotype only"]], "PAPH")
+  expect_identical(r[["data only"]], "DATAONLY")
+  expect_identical(r[["PanelApp only"]], "PAONLY")
+  expect_identical(r[["phenotype only"]], "PHONLY")
+})

@@ -299,6 +299,84 @@ puzzlecore_load_panel_app_data <- function(file) {
   panel_app_genes
 }
 
+# Gene symbol overlap between variant data (A), PanelApp genes (B) and
+# phenotype genes (C). Matching is case-insensitive; each symbol is reported as
+# spelled in the first of A, B, C that contains it. Returns a named list of the
+# seven Venn regions, each a sorted character vector.
+gene_symbol_overlap <- function(data_symbols, panelapp_symbols, phenotype_symbols) {
+  clean <- function(s) {
+    s <- unique(as.character(s))
+    s[!is.na(s) & nzchar(s)]
+  }
+  a <- clean(data_symbols)
+  b <- clean(panelapp_symbols)
+  c <- clean(phenotype_symbols)
+  all <- c(a, b, c)
+  all <- all[!duplicated(toupper(all))]
+  key <- toupper(all)
+  in_a <- key %in% toupper(a)
+  in_b <- key %in% toupper(b)
+  in_c <- key %in% toupper(c)
+  region <- function(sel) sort(all[sel])
+  list(
+    "data+PanelApp+phenotype" = region(in_a & in_b & in_c),
+    "data+PanelApp only"      = region(in_a & in_b & !in_c),
+    "data+phenotype only"     = region(in_a & !in_b & in_c),
+    "PanelApp+phenotype only" = region(!in_a & in_b & in_c),
+    "data only"               = region(in_a & !in_b & !in_c),
+    "PanelApp only"           = region(!in_a & in_b & !in_c),
+    "phenotype only"          = region(!in_a & !in_b & in_c)
+  )
+}
+
+# Log gene_symbol_overlap() counts and lists, separately for SNV and SV data.
+# Informational only: nothing is changed in the data or the reference tables.
+log_gene_symbol_overlap <- function(snv_data, sv_data, panel_app_genes, phenotype_data) {
+  panelapp_symbols <- character(0)
+  if (!is.null(panel_app_genes) && "Entity_Name" %in% names(panel_app_genes)) {
+    # STR/region entities are named e.g. ATXN1_SCA1_CAG, not by gene symbol
+    panelapp_symbols <- if ("Entity_type" %in% names(panel_app_genes)) {
+      panel_app_genes[Entity_type == "gene", Entity_Name]
+    } else {
+      panel_app_genes$Entity_Name
+    }
+  }
+  phenotype_symbols <- if (!is.null(phenotype_data) && "gene_symbol" %in% names(phenotype_data)) phenotype_data$gene_symbol else character(0)
+
+  # info shows the first n_show symbols per region; the full lists go to debug
+  n_show <- 10L
+  log_regions <- function(label, regions) {
+    counts <- vapply(regions, length, integer(1))
+    log_info(sprintf("[gene_symbol_overlap][%s] %s", label,
+                     paste(sprintf("%s: %d", names(counts), counts), collapse = "; ")))
+    for (r in names(regions)) {
+      genes <- regions[[r]]
+      if (length(genes) == 0) next
+      more <- if (length(genes) > n_show) sprintf(" ... (+%d more)", length(genes) - n_show) else ""
+      log_info(sprintf("[gene_symbol_overlap][%s] %s (%d): %s%s", label, r, length(genes),
+                       paste(head(genes, n_show), collapse = ";"), more))
+      log_debug(sprintf("[gene_symbol_overlap][%s] %s full list: %s", label, r,
+                        paste(genes, collapse = ";")))
+    }
+  }
+
+  # PanelApp vs phenotype does not depend on the variant data, so report it once.
+  # With no data symbols the overlap reduces to these three regions.
+  ref <- gene_symbol_overlap(character(0), panelapp_symbols, phenotype_symbols)
+  log_regions("PanelApp vs phenotype", list(
+    "PanelApp+phenotype"        = ref[["PanelApp+phenotype only"]],
+    "PanelApp not in phenotype" = ref[["PanelApp only"]],
+    "phenotype not in PanelApp" = ref[["phenotype only"]]
+  ))
+
+  for (label in c("SNV", "SV")) {
+    data <- if (label == "SNV") snv_data else sv_data
+    if (is.null(data) || nrow(data) == 0 || !"GENE_SYMBOL" %in% names(data)) next
+    log_regions(label, gene_symbol_overlap(data$GENE_SYMBOL, panelapp_symbols, phenotype_symbols))
+  }
+  invisible(NULL)
+}
+
 # export the function in roxygen
 #' Load Phenotype Data
 #' This function loads phenotype-to-genes data from a TSV file.

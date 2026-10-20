@@ -111,6 +111,12 @@ run_pipeline <- function(
     sv_data <- puzzlecore_read_variant_tsv(sv_path, nthreads = nthreads, snv=FALSE, add_svlog_columns = add_svlog_columns, svlog_db = svlog_db )
   }
 
+  # Informational report only; must never stop the pipeline
+  tryCatch(
+    log_gene_symbol_overlap(snv_data, sv_data, panel_app_genes, phenotype_data),
+    error = function(e) log_warn(sprintf("[pipeline] gene symbol overlap report failed: %s", conditionMessage(e)))
+  )
+
   filtered_data <- puzzlecore_variant_filter(
     snv_data = snv_data,
     sv_data = sv_data,
