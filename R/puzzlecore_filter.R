@@ -214,6 +214,17 @@ panelapp_filter <- function(filters, panel_app_genes) {
   list(panel_app_condition, genes_search, genes)
 }
 
+# Helper: panelapp_filter() upper-cases symbols, but data$GENE_SYMBOL keeps the
+# annotation's casing (e.g. C19orf12). Rewrite genes$GENE_SYMBOL (by reference)
+# to the data's casing so the exact-match condition and the join hit.
+match_data_gene_case <- function(genes, data_symbols) {
+  data_symbols <- unique(data_symbols)
+  data_symbols <- data_symbols[!is.na(data_symbols)]
+  data_case <- data_symbols[match(genes$GENE_SYMBOL, toupper(data_symbols))]
+  genes[!is.na(data_case), GENE_SYMBOL := data_case[!is.na(data_case)]]
+  genes
+}
+
 # Helper: Apply PanelApp inheritance + allele count gating
 apply_inheritance_panelapp_gene <- function(filters, genes, pedigree) {
   # Bare-minimum logic for Dominant/De Novo
@@ -270,8 +281,8 @@ filter_dataset <- function(data, filters, pedigree, allele_tab, panel_app_genes,
   if (!is.null(panelapp_filter_results)) {
     log_info("[filtServer][filter_dataset] Applying PanelApp filter")
     panelapp_filter_condition <- panelapp_filter_results[[1]]
-    genes_search <- panelapp_filter_results[[2]]
-    genes <- panelapp_filter_results[[3]]
+    genes <- match_data_gene_case(panelapp_filter_results[[3]], data$GENE_SYMBOL)
+    genes_search <- unique(genes$GENE_SYMBOL)
     print(class(genes))
     filter_expression <- add_filter_condition(filter_expression, panelapp_filter_condition)
     global_filters_expression <- add_filter_condition(global_filters_expression, panelapp_filter_condition)
@@ -1178,16 +1189,18 @@ make_svlog_wide_summary <- function(dt, agg) {
 #' @export
 puzzlecore_variant_filter <- function(snv_data, sv_data, snv_filters, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, svlog_db = NULL) {
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SNV"))
+  # gcFirst = FALSE: the default forces a full gc(), which costs seconds when
+  # multi-GB variant tables are in memory and this timing is only for the log.
   filter_time <- system.time({
     snv_filtered_data <- filter_dataset(snv_data, snv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, TRUE)
-  })
+  }, gcFirst = FALSE)
   log_info(sprintf("nrow(filtered_data): %d", nrow(snv_filtered_data)))
   log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
 
   log_info(sprintf("[filtServer][variant_filter] Starting variant filtering for %s", "SV"))
   filter_time <- system.time({
     sv_filtered_data <- filter_dataset(sv_data, sv_filters, pedigree, allele_tab, panel_app_genes, vep_consequences, phenotype_data, FALSE, svlog_db)
-  })
+  }, gcFirst = FALSE)
   log_info(sprintf("nrow(filtered_data): %d", nrow(sv_filtered_data)))
   log_info(sprintf("Total filter_dataset execution time: %s", format_time(filter_time)))
   

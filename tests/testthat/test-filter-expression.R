@@ -135,3 +135,28 @@ test_that("the shiny.error hook never throws, so it cannot mask the real error",
   # called bare, exactly as shiny does, with no error in flight
   expect_no_error(getOption("shiny.error")())
 })
+
+# =============================================================================
+# match_data_gene_case() — PanelApp/custom symbols are upper-cased for
+# matching; they must be mapped back to the data's casing (e.g. C19orf12).
+# =============================================================================
+
+test_that("match_data_gene_case restores the data's casing", {
+  genes <- data.table(GENE_SYMBOL = c("C19ORF12", "BRCA1", "NOTINDATA"), PANEL_APP = "p")
+  out <- puzzleapp:::match_data_gene_case(genes, c("C19orf12", "BRCA1", NA, "C19orf12"))
+  expect_identical(out$GENE_SYMBOL, c("C19orf12", "BRCA1", "NOTINDATA"))
+})
+
+test_that("mixed-case PanelApp and custom genes select their variants", {
+  pa <- data.table(Entity_Name = c("C19orf12", "BRCA1"), Sources = "Green",
+                   Level4 = "Panel A", Model_Of_Inheritance = "")
+  data <- data.table(GENE_SYMBOL = c("C19orf12", "BRCA1", "C17orf80", "TP53"))
+  filters <- list(panelapp_filter = "Panel A", custom_genes = c("c17orf80"))
+  res <- puzzleapp:::panelapp_filter(filters, pa)
+  genes <- puzzleapp:::match_data_gene_case(res[[3]], data$GENE_SYMBOL)
+  genes_search <- unique(genes$GENE_SYMBOL)
+  kept <- data[eval(parse(text = res[[1]]))]
+  expect_setequal(kept$GENE_SYMBOL, c("C19orf12", "BRCA1", "C17orf80"))
+  kept[genes, on = "GENE_SYMBOL", PANEL_APP := i.PANEL_APP]
+  expect_identical(kept[GENE_SYMBOL == "C17orf80", PANEL_APP], "CUSTOM")
+})
