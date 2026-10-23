@@ -1,3 +1,62 @@
+# puzzleapp 0.2.4
+
+## New features
+
+* SNV preprocessing reads SpliceAI scores written by `bcftools annotate` as
+  `INFO/SpliceAI`, as well as those from the VEP SpliceAI plugin in `CSQ`. The
+  mapping gained an `INFO_SUB` field type (`TAG|SUBFIELD`, e.g.
+  `SpliceAI|DS_AG`), and an output column may now list several sources. When
+  the header declares both, `INFO/SpliceAI` is used for every record. When a
+  record carries several entries, one per overlapping gene, the entry with the
+  highest delta score is kept whole. See `vcf_field_mapping.md`.
+* `snvs_tsv` and `svs_tsv` may end in `.tsv.gz`. Preprocessing then writes
+  compressed output and the app reads it back transparently. This adds
+  `R.utils` to Imports.
+* At load time, and in `run_pipeline()`, the session log reports how gene
+  symbols overlap between the variant data, PanelApp and the HPO phenotype
+  table, separately for SNV and SV data.
+* When filters are applied, typed genes that cannot take effect are reported
+  as notifications and in the log:
+  * custom genes with no variants;
+  * custom genes found only in PanelApp, which may be outdated names;
+  * subtract genes outside the selected panels, or with no panel selected;
+  * names that are not recognised at all.
+
+  These checks are informational and never block filtering.
+
+## Fixes
+
+* PanelApp and custom gene filters missed variants in genes whose symbol is
+  not all upper case, such as `C19orf12`. Symbols are now matched to the
+  data's own casing.
+
+## Performance
+
+* SNV preprocessing is about 30% faster. Only the FORMAT and sample columns
+  now go through the long/wide reshape, and only the mapped CSQ fields are
+  split out. Decompression uses multithreaded `bgzip` when it is available,
+  and only the VCF header is read to collect the `##` lines. This adds
+  `stringi` to Imports.
+
+# puzzleapp 0.2.3
+
+## Fixes
+
+* The Docker publish job lacked `packages: write`, so 0.2.2 pushed no image to
+  GHCR. 0.2.3 is the first release with a published image.
+
+# puzzleapp 0.2.2
+
+## New features
+
+* A Docker image, `ghcr.io/gentechgp/puzzleapp`, is built from the release
+  tarball on every tagged release and tagged with the version and `latest`.
+  Its entrypoint takes a subcommand: `preprocess <config.yaml>`,
+  `pipeline <config.yaml> <filter_table.tsv> [output_dir]`, or
+  `webapp [port]`. See the Docker section of the README.
+* The README documents the if89 module on NCI Gadi: OnDemand RStudio, batch
+  job, and SSH use.
+
 # puzzleapp 0.2.1
 
 ## New features

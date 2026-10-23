@@ -22,7 +22,7 @@
 #'
 #' @importFrom lobstr obj_addr
 #'
-#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table read.table
+#' @importFrom utils packageVersion capture.output modifyList read.delim str write.table read.table head
 #'
 #' @importFrom stats setNames density na.omit
 #' 
@@ -55,4 +55,8 @@
 
 ## usethis namespace: start
 ## usethis namespace: end
+NULL
+
+# Never called directly: fread() needs R.utils at run time to read .tsv.gz
+#' @importFrom R.utils gunzip
 NULL
