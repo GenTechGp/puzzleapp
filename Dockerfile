@@ -23,7 +23,10 @@ FROM rocker/r-ver:4.4.2
 # List derived by running `ldd` over every .so under the builder's
 # site-library and resolving each library to its owning package with
 # `dpkg -S`, rather than guessed.
+# tabix provides bgzip, which preprocessing uses for multithreaded VCF
+# decompression; without it read_and_normalise_vcf() falls back to gunzip.
 RUN apt-get update && apt-get install -y --no-install-recommends \
+      tabix \
       libopenblas0-pthread libbrotli1 libbz2-1.0 libcares2 libcom-err2 \
       libssl3t64 libcurl3t64-gnutls libcurl4t64 libdeflate0 libexpat1 libffi8 \
       libfontconfig1 libfreetype6 libfribidi0 libgcc-s1 libgfortran5 \
