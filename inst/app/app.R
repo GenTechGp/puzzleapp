@@ -206,6 +206,9 @@ ui <- fluidPage(
 )
 
 server <- function(input, output, session) {
+  # Refuse sessions without the access token before any app logic runs.
+  if (!puzzleapp:::auth_session_ok(session)) return(invisible(NULL))
+
   # Start per-session file logging
   start_session_logger(session, logs_dir = logs_dir, prefix = "session", console = TRUE)
   log_info(sprintf("Writing session logs to directory: %s", logs_dir))
@@ -276,4 +279,4 @@ server <- function(input, output, session) {
 
 }
 
-shinyApp(ui, server, options = list(launch.browser=TRUE))
+shinyApp(puzzleapp:::auth_ui(ui), server, options = list(launch.browser=TRUE))

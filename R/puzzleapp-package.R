@@ -28,7 +28,7 @@
 #' 
 #' @importFrom bit64 as.integer64
 #' 
-#' @importFrom igvShiny igvShinyOutput renderIgvShiny parseAndValidateGenomeSpec loadVcfTrack loadBamTrackFromLocalData
+#' @importFrom igvShiny igvShinyOutput renderIgvShiny parseAndValidateGenomeSpec
 #' 
 #' @importFrom GenomicRanges GRanges
 #' 

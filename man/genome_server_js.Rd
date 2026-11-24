@@ -2,7 +2,8 @@
 % Please edit documentation in R/genome_server.R
 \name{genome_server_js}
 \alias{genome_server_js}
-\title{Return the tags$script() required by load_annotation_track().}
+\title{Return the tags$script() required by load_annotation_track(),
+load_bam_track() and load_vcf_track().}
 \usage{
 genome_server_js()
 }

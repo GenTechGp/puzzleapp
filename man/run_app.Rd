@@ -4,16 +4,28 @@
 \alias{run_app}
 \title{Launch the Shiny App}
 \usage{
-run_app(port = 8888, host = "0.0.0.0")
+run_app(port = 8888, host = "0.0.0.0", token = TRUE)
 }
 \arguments{
 \item{port}{Integer. Port number on which to run the Shiny app. Default is 8888.}
 
 \item{host}{Character. Host address to bind the app to.
 \itemize{
-\item Use "127.0.0.1" for local testing.
-\item Use "0.0.0.0" for HPC remote access (requires SSH tunnel or OnDemand). Default is "0.0.0.0".
+\item Use "127.0.0.1" for local testing, or on a shared machine behind an SSH tunnel.
+\item Use "0.0.0.0" to accept connections on every interface (needed inside
+Docker). Default is "0.0.0.0".
 }}
+
+\item{token}{Access token required in the URL (\code{?token=...}).
+\itemize{
+\item \code{TRUE} (default): use the \code{PUZZLEAPP_TOKEN} environment variable if set,
+otherwise generate a random token.
+\item A string: use that token.
+\item \code{FALSE}: no access control; anyone who can reach the port can use the app.
+}
+
+The full URL, token included, is printed at startup and opened in the
+browser or RStudio Viewer automatically when R is interactive.}
 }
 \value{
 Invisibly returns the Shiny app object.
@@ -27,7 +39,7 @@ It automatically locates the app directory within the package installation.
   # Run locally
   puzzleapp::run_app(host = "127.0.0.1")
 
-  # Run on HPC / remote server
-  puzzleapp::run_app(port = 9999, host = "0.0.0.0")
+  # Run on HPC behind an SSH tunnel
+  puzzleapp::run_app(port = 9999, host = "127.0.0.1")
 }
 }

@@ -117,19 +117,7 @@ igv_server <- function(id, shared_store, shared_rx) {
       }
       showNotification("Loading IGV...", duration = NULL, id = ns("notify_igv"), type = "message")
 
-      cd       <- session$clientData
-      port     <- cd$url_port
-      use_port <- nchar(port) > 0 &&
-                  !(port == "80"  && cd$url_protocol == "http:")  &&
-                  !(port == "443" && cd$url_protocol == "https:")
-      host     <- if (use_port)
-                    sprintf("%s//%s:%s", cd$url_protocol, cd$url_hostname, port)
-                  else
-                    sprintf("%s//%s",    cd$url_protocol, cd$url_hostname)
-      # Reverse-proxies (e.g. ARE/RStudio) mount Shiny under a path prefix;
-      # url_pathname holds the browser path, e.g. "/rstudio/proxy/5637/".
-      path_prefix <- sub("/+$", "", cd$url_pathname)
-      shiny_base  <- paste0(host, path_prefix)
+      shiny_base <- shiny_base_url(session)
       log_info(sprintf("[igvServer] base_url: %s", shiny_base))
 
       use_custom_genome_flag <- use_custom_genome()
@@ -251,7 +239,7 @@ igv_server <- function(id, shared_store, shared_rx) {
           showNotification(sprintf("Error loading %s: %s", track_name, e$message), type = "error"); NULL
         })
         if (!is.null(vcf)) {
-          loadVcfTrack(session, id = ns("igvShiny_0"), trackName = track_name, vcf)
+          load_vcf_track(session, id = ns("igvShiny_0"), track_name = track_name, data = vcf)
         }
         removeNotification(nid)
       }
@@ -284,7 +272,7 @@ igv_server <- function(id, shared_store, shared_rx) {
           if (!is.null(bam)) {
             withCallingHandlers(
               {
-                loadBamTrackFromLocalData(session, id = ns("igvShiny_0"), trackName = track_label, data = bam, displayMode = "EXPANDED")
+                load_bam_track(session, id = ns("igvShiny_0"), track_name = track_label, data = bam, display_mode = "EXPANDED")
               },
               warning = function(w) {
                 if (grepl("BAM tag export", conditionMessage(w))) {

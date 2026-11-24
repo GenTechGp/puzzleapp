@@ -150,12 +150,127 @@ make_file_map <- function(...) {
   )
 }
 
-#' Return the tags$script() required by load_annotation_track().
+#' Base URL of the app as the browser sees it.
+#'
+#' Built from the browser-reported host and port, so it is right behind an SSH
+#' tunnel. Reverse proxies (e.g. ARE/RStudio) mount Shiny under a path prefix,
+#' which `url_pathname` carries (e.g. "/rstudio/proxy/5637/"). The query string
+#' (where the access token lives) is deliberately left out.
+#'
+#' @param session The Shiny session.
+#' @return A URL without a trailing slash, e.g. "http://localhost:8898".
+shiny_base_url <- function(session) {
+  cd <- session$clientData
+  shiny::isolate({
+    protocol <- cd$url_protocol
+    hostname <- cd$url_hostname
+    port     <- cd$url_port %||% ""
+    pathname <- cd$url_pathname %||% ""
+  })
+  use_port <- nchar(port) > 0 &&
+              !(port == "80"  && protocol == "http:")  &&
+              !(port == "443" && protocol == "https:")
+  host <- if (use_port)
+            sprintf("%s//%s:%s", protocol, hostname, port)
+          else
+            sprintf("%s//%s",    protocol, hostname)
+  paste0(host, sub("/+$", "", pathname))
+}
+
+# Path for a track file in a per-process scratch directory under tempdir().
+.igv_track_file <- function(ext) {
+  dir <- file.path(tempdir(), "igv_tracks")
+  dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+  tempfile(tmpdir = dir, fileext = ext)
+}
+
+#' Load alignments into the IGV browser as a BAM track.
+#'
+#' Replaces igvShiny::loadBamTrackFromLocalData(), whose JavaScript builds the
+#' file URL as `window.location.href + path`. That breaks whenever the page
+#' URL has a query string (the access token, or ?newSession=), and it serves
+#' the file from the app-wide "tracks" path, which needs no session. Here the
+#' BAM and its index are served through the session (register_genome_files)
+#' with absolute URLs.
+#'
+#' @param session      Shiny session object.
+#' @param id           Namespaced output ID of the igvShiny widget.
+#' @param track_name   Display name for the track.
+#' @param data         A GAlignments object.
+#' @param display_mode "EXPANDED", "SQUISHED", or "COLLAPSED".
+load_bam_track <- function(session, id, track_name, data, display_mode = "EXPANDED") {
+  igvShiny::removeTracksByName(session, id, track_name)
+  bam <- .igv_track_file(".bam")
+  rtracklayer::export(data, bam, format = "BAM")   # also writes <bam>.bai
+  bai <- paste0(bam, ".bai")
+  has_index <- file.exists(bai)
+  files <- if (has_index) make_file_map(bam, bai) else make_file_map(bam)
+  urls <- register_genome_files(session, files, shiny_base_url(session))
+  session$sendCustomMessage("puzzleapp_loadBamTrack", list(
+    elementID   = id,
+    trackName   = track_name,
+    url         = urls[[basename(bam)]],
+    indexURL    = if (has_index) urls[[basename(bai)]] else NULL,
+    displayMode = display_mode
+  ))
+}
+
+#' Load variants into the IGV browser as a VCF track.
+#'
+#' Replaces igvShiny::loadVcfTrack() for the same reason as load_bam_track().
+#'
+#' @param session    Shiny session object.
+#' @param id         Namespaced output ID of the igvShiny widget.
+#' @param track_name Display name for the track.
+#' @param data       A VCF object (VariantAnnotation).
+load_vcf_track <- function(session, id, track_name, data) {
+  igvShiny::removeTracksByName(session, id, track_name)
+  vcf <- .igv_track_file(".vcf")
+  VariantAnnotation::writeVcf(data, vcf)
+  urls <- register_genome_files(session, make_file_map(vcf), shiny_base_url(session))
+  session$sendCustomMessage("puzzleapp_loadVcfTrack", list(
+    elementID = id,
+    trackName = track_name,
+    url       = urls[[basename(vcf)]]
+  ))
+}
+
+#' Return the tags$script() required by load_annotation_track(),
+#' load_bam_track() and load_vcf_track().
 #'
 #' Include this once in your Shiny UI, e.g. inside tags$head():
 #'   tags$head(genome_server_js())
 genome_server_js <- function() {
   shiny::tags$script(shiny::HTML('
+Shiny.addCustomMessageHandler("puzzleapp_loadBamTrack", function(msg) {
+  var browser = document.getElementById(msg.elementID).igvBrowser;
+  if (!browser) { console.warn("puzzleapp_loadBamTrack: browser not ready"); return; }
+  var config = {
+    type:        "alignment",
+    format:      "bam",
+    name:        msg.trackName,
+    url:         msg.url,
+    displayMode: msg.displayMode || "EXPANDED",
+    order:       Number.MAX_VALUE
+  };
+  if (msg.indexURL) { config.indexURL = msg.indexURL; } else { config.indexed = false; }
+  browser.loadTrack(config);
+});
+Shiny.addCustomMessageHandler("puzzleapp_loadVcfTrack", function(msg) {
+  var browser = document.getElementById(msg.elementID).igvBrowser;
+  if (!browser) { console.warn("puzzleapp_loadVcfTrack: browser not ready"); return; }
+  browser.loadTrack({
+    type:             "variant",
+    format:           "vcf",
+    name:             msg.trackName,
+    url:              msg.url,
+    indexed:          false,
+    displayMode:      "EXPANDED",
+    height:           100,
+    visibilityWindow: 1000000,
+    order:            Number.MAX_VALUE
+  });
+});
 Shiny.addCustomMessageHandler("igvshiny_loadAnnotationTrack", function(msg) {
   var browser = document.getElementById(msg.elementID).igvBrowser;
   if (!browser) { console.warn("igvshiny_loadAnnotationTrack: browser not ready"); return; }

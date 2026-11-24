@@ -75,7 +75,8 @@ qcPlotsServer <- function(id, shared_store, shared_rx) {
           "updateIframe",
           list(
             id     = session$ns("coverage_iframe"),
-            src    = paste0(shared_store$html$coverage_path, "?v=", ts_coverage),
+            # registerDataObj() URLs already carry a query string
+            src    = paste0(shared_store$html$coverage_path, "&v=", ts_coverage),
             height = "1500px"
           )
         )
@@ -110,7 +111,7 @@ qcPlotsServer <- function(id, shared_store, shared_rx) {
           "updateIframe",
           list(
             id     = session$ns("somalier_iframe"),
-            src    = paste0(shared_store$html$somalier_path, "?v=", ts_somalier),
+            src    = paste0(shared_store$html$somalier_path, "&v=", ts_somalier),
             height = "1000px"
           )
         )

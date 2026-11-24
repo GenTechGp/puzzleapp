@@ -278,8 +278,7 @@ home_server <- function(id, shared_store, shared_rx) {
           coverage_html_name <- basename(coverage_vaf_html_path)
           coverage_html_safe_path <- file.path(coverage_html_safe_dir, coverage_html_name)
           file.copy(coverage_vaf_html_path, coverage_html_safe_path, overwrite = TRUE)
-          addResourcePath("coverage_html", coverage_html_safe_dir)
-          shared_store$html$coverage_path <- file.path("coverage_html", coverage_html_name)
+          shared_store$html$coverage_path <- register_html_file(session, "coverage_html", coverage_html_safe_path)
           shared_store$html$coverage_path_original <- coverage_html_safe_path
         }
       }
@@ -294,8 +293,7 @@ home_server <- function(id, shared_store, shared_rx) {
           somalier_html_name <- basename(somalier_html_path)
           somalier_html_safe_path <- file.path(somalier_html_safe_dir, somalier_html_name)
           file.copy(somalier_html_path, somalier_html_safe_path, overwrite = TRUE)
-          addResourcePath("somalier_html", somalier_html_safe_dir)
-          shared_store$html$somalier_path <- file.path("somalier_html", somalier_html_name)
+          shared_store$html$somalier_path <- register_html_file(session, "somalier_html", somalier_html_safe_path)
           shared_store$html$somalier_path_original <- somalier_html_safe_path
         }
       }
