@@ -1,3 +1,25 @@
+# puzzleapp 0.2.5
+
+## Breaking changes
+
+* The web app requires an access token: open the `?token=...` link printed at
+  startup. `run_app()` gains `token` (`TRUE` uses `PUZZLEAPP_TOKEN` or a random
+  token; `FALSE` disables the check).
+
+## New features
+
+* Docker/Singularity `webapp [port] [host]`; pass `127.0.0.1` on shared machines.
+* The image includes `bgzip`, which speeds up VCF decompression in preprocessing.
+* On NCI Gadi, puzzleapp is now the if89 Singularity module
+  `ghcr.io/gentechgp/puzzleapp/0.2.5`. `tests/qsub_launch.sh` binds to
+  loopback, generates the token and prints the `ssh -J` tunnel.
+
+## Fixes
+
+* IGV BAM and VCF tracks load when the page URL has a query string (the token,
+  or "Open new session in new tab"). They and the coverage/somalier reports
+  are now served only within an authorised session, not from fixed public URLs.
+
 # puzzleapp 0.2.4
 
 ## New features

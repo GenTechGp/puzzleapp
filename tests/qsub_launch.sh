@@ -31,7 +31,7 @@ umask 0077
 # Compute nodes are shared, so pick a random port unless one is given.
 PORT="${PORT:-$(shuf -i 20000-40000 -n 1)}"
 NODE="$(hostname -s)"
-PUZZLEAPP_MODULE="${PUZZLEAPP_MODULE:-ghcr.io/gentechgp/puzzleapp/0.2.4}"
+PUZZLEAPP_MODULE="${PUZZLEAPP_MODULE:-ghcr.io/gentechgp/puzzleapp/0.2.5}"
 
 # Access token. Passed in the environment, which other users cannot read
 # (unlike command-line arguments, which any user on the node can list).

@@ -65,9 +65,9 @@ docker run --rm -p 8888:8888 -v /path/to/data:/path/to/data \
   ghcr.io/gentechgp/puzzleapp:latest webapp
 ```
 
-Open `http://localhost:8888` — takes roughly 20s to start listening
-(Bioconductor package loading). See [Launching the app](#launching-the-app)
-for the underlying `port`/`host` semantics.
+Open the `http://localhost:8888/?token=...` link printed in the log, about 20s
+after start. Add `-e PUZZLEAPP_TOKEN=<secret>` to choose the token. See
+[Launching the app](#launching-the-app).
 
 For panel/phenotype filtering (see [Local databases](#local-databases-panelapp-and-hpo)),
 also mount your `~/.puzzleapp` directory, since the container runs as `root`:
@@ -103,127 +103,50 @@ path under your mount so the output lands somewhere visible on the host.
 
 # For NCI Gadi if89 users
 
-Nothing to install — puzzleapp is available as an `if89` module, which supplies
-the R library, a `puzzleapp` launcher, and shared PanelApp and HPO database
-snapshots so it works out of the box. Those snapshots are pinned at the time
-the module was built; see [Local databases](#local-databases-panelapp-and-hpo)
-for how to point at a newer one.
+From v0.2.5, puzzleapp is an `if89` Singularity module. Load `singularity`
+first; the module does not load it:
 
 ``` bash
-module use /g/data/if89/apps/modulefiles
-module load puzzleapp/0.2.1
-puzzleapp --version
+module load singularity
+module use -a /g/data/if89/shpcroot/modules
+module load ghcr.io/gentechgp/puzzleapp/0.2.5
+puzzleapp <preprocess|pipeline|webapp> ...   # same subcommands as Docker
 ```
 
-Your project needs `gdata/if89` in its storage flags, or `/g/data/if89` will
-not be mounted and the module will point at paths that do not exist. Add every
-other project holding your data as well — BAM/CRAM files, VCFs, reference
-genomes and annotations — since anything not listed in `storage` is invisible
-to the job. For example,
-`storage=gdata/if89+gdata/project1+scratch/project1+gdata/project2`.
+Jobs need `gdata/if89` in `-l storage`, plus every project holding your data,
+e.g. `storage=gdata/if89+gdata/project1+scratch/project1`.
 
-## Via the OnDemand RStudio dashboard
+## Web app (batch job + SSH tunnel)
 
-1.  Visit [NCI Batch Connect
-    Dashboard](https://are.nci.org.au/pun/sys/dashboard/batch_connect/sessions)
-2.  Launch an RStudio job. Add `gdata/if89` to the storage parameter, and set
-    the two module fields under **Show advanced settings**:
-
-```
-      mem=64GB
-      ncpus=4
-      jobfs=10GB
-      storage=gdata/if89+gdata/project1+gdata/project2
-
-      Module directories:  /g/data/if89/apps/modulefiles
-      Modules:             puzzleapp/0.2.1
-```
-
-![RStudio session settings on the NCI OnDemand
-dashboard](man/figures/nciondemanR.png)
-
-3. Connect/go to Rstudio. File -\> Quit Session -\> Start New Session
-4.  Run the following code in the R console
-
-```r
-library(puzzleapp)
-run_app(port = 8895)
-```
-
-Launch it from the R console rather than the RStudio terminal — RStudio Server
-proxies console-launched Shiny apps into the Viewer automatically.
-
-## As a batch job
-
-`tests/qsub_launch.sh` starts the app on a compute node and writes the exact
-SSH tunnel command to `ssh_connect_<jobid>.txt`. Edit the `#PBS -P` and
-`-l storage=` lines for your project, then:
+Edit the `#PBS -P` and `-l storage` lines of `tests/qsub_launch.sh`, then:
 
 ``` bash
-qsub -v PORT=8895 tests/qsub_launch.sh
+qsub tests/qsub_launch.sh
+cat ssh_connect_<jobid>.txt      # once the job is running
 ```
 
-## Via SSH, without RStudio
+That file has two lines to use: an `ssh -N -L 8898:localhost:<port> -J ...`
+command to run on your laptop, which may ask for your credentials twice, and a
+`http://localhost:8898/?token=...` link to open. The app listens only on the
+compute node's loopback and requires the token, so other Gadi users cannot use
+it. Treat the link as a password. Stop the app with `qdel <jobid>`.
 
-Forward the port and run the app in the same session:
-
-``` bash
-# from your laptop
-ssh -L 8895:localhost:8895 gadi
-
-# in that session
-module use /g/data/if89/apps/modulefiles
-module load puzzleapp/0.2.1
-puzzleapp --port 8895 --host 127.0.0.1
-```
-
-Then open `http://localhost:8895`.
-
-This runs on a *login* node, so it suits a quick look only — use a batch job or
-ARE for real work. Bind to `127.0.0.1` there so the app is not reachable by
-everyone else on that node.
-
-## Notes on the R version
-
-The module pins **R/4.4.2**, and pulls in `Rlib/4.4.2` and
-`intel-compiler/2021.10.0` automatically. Do not load another R version
-alongside it — in the ARE form, that means leaving an `R/x.y.z` out of the
-Modules field.
-
-If you keep a personal R library, make sure it is not built against a different
-R. An unconditional `.libPaths()` call in `~/.Rprofile` puts your packages
-ahead of the module's, and if they were compiled under another R version, R
-fails to load them with an "undefined symbol" error. Use a per-version
-directory instead:
-
-``` r
-local({
-  p <- file.path("/path/to/your/Rlibs", as.character(getRversion()))
-  if (dir.exists(p)) .libPaths(c(p, .libPaths()))
-})
-```
-
-`puzzleapp --version` reports the module version, the package version R
-actually loaded, the R version and the library path. If the first two disagree,
-something else on your library path is shadowing the module.
+ARE Virtual Desktop and RStudio sessions run inside a container that cannot
+start Singularity, so use the batch job above.
 
 ## Launching the app
 
 ``` r
-run_app(port = 8888, host = "0.0.0.0")
+run_app(port = 8888, host = "0.0.0.0", token = TRUE)
 ```
 
 * `port` — port to listen on. Default `8888`.
-* `host` — interface to bind to. Default `"0.0.0.0"`, which binds **all**
-  interfaces so the app is reachable from other machines that can route to the
-  host. That is what you want behind an SSH tunnel or NCI OnDemand. On a
-  multi-user or internet-facing machine, prefer `host = "127.0.0.1"` and reach
-  it through a tunnel — the app has no authentication of its own.
-
-`tests/qsub_launch.sh` is a PBS script that starts the app on a Gadi compute
-node and writes the exact SSH tunnel command to `ssh_connect_<jobid>.txt`. Edit
-the `#PBS -P` and `-l storage=` lines for your project, then
-`qsub -v PORT=8895 tests/qsub_launch.sh`.
+* `host` — `"0.0.0.0"` (default) listens on every interface, as Docker needs.
+  On a shared machine use `"127.0.0.1"` and an SSH tunnel.
+* `token` — the app only answers URLs carrying `?token=<token>`. `TRUE` uses
+  the `PUZZLEAPP_TOKEN` environment variable, else a random token; a string sets
+  it; `FALSE` disables the check. The full link is printed at startup and opened
+  automatically in an interactive session or RStudio.
 
 ## Local databases (PanelApp and HPO)
 
