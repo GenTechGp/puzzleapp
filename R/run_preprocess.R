@@ -5,14 +5,15 @@
 #'   1. Reads a pipeline YAML file.
 #'   2. If paths$snvs_vcf and paths$snvs_tsv are present, runs SNV preprocessing and writes to paths$snvs_tsv.
 #'   3. If paths$svs_vcf and paths$svs_tsv are present, runs SV preprocessing and writes to paths$svs_tsv.
-#'   4. Optionally uses paths$snvs_vcf_cohort for cohort carrier counts (passed to process_snv_data).
+#'   4. Optionally adds N_Cohort from paths$snvs_cohort_counts, a precomputed
+#'      cohort carrier-count table (passed to process_snv_data).
 #'   5. Does NOT modify or rewrite the YAML file.
 #'
 #' Expected YAML structure (minimum):
 #' paths:
 #'   snvs_vcf: /abs/path/to/input.snvs.vcf.gz            # optional (for SNV)
 #'   snvs_tsv: /abs/path/to/output_snv.tsv               # required if snvs_vcf given
-#'   snvs_vcf_cohort: /abs/path/to/cohort.snvs.vcf.gz    # optional (enables N_Cohort)
+#'   snvs_cohort_counts: /abs/path/to/cohort_counts.tsv.gz  # optional (enables N_Cohort)
 #'   svs_vcf:  /abs/path/to/input.svs.vcf.gz             # optional (for SV)
 #'   svs_tsv:  /abs/path/to/output_sv.tsv                # required if svs_vcf given
 #'   svlog_static: /abs/path/to/svlog_static.tsv         # optional (SVlog static)
@@ -20,6 +21,13 @@
 #'
 #' snvs_tsv and svs_tsv may instead end in .tsv.gz; fwrite() will compress the
 #' output and fread() will decompress it transparently on read, saving disk space.
+#'
+#' snvs_cohort_counts is a tab-separated table (.tsv or .tsv.gz) with a header
+#' holding CHROM, POS, REF, ALT and N_Cohort, one row per allele. Build it from a
+#' cohort VCF with the script at
+#' system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp").
+#' The former key snvs_vcf_cohort is no longer supported and stops with an error.
+#'
 #' samples:
 #'   - sample_id: SAMPLE1
 #'     kinship: proband
@@ -34,7 +42,7 @@
 #'   $sv_path (written SV TSV or NULL),
 #'   $snv_dt (data.table or NULL),
 #'   $sv_dt (data.table or NULL),
-#'   $snvs_vcf_cohort (cohort VCF path or NA)
+#'   $snvs_cohort_counts (cohort carrier-count table path or NA)
 #' @export
 run_preprocess <- function(config_yaml,
                        validate = TRUE,
@@ -73,8 +81,8 @@ run_preprocess <- function(config_yaml,
   # Extract paths (scalar expected)
   snvs_vcf          <- paths$snvs_vcf          %||% NULL
   snvs_tsv          <- paths$snvs_tsv          %||% NULL
-  snvs_vcf_cohort   <- paths$snvs_vcf_cohort   %||% NA
-  svs_vcf           <- paths$svs_vcf           %||% NULL
+  snvs_cohort_counts <- paths$snvs_cohort_counts %||% NA
+  svs_vcf         <- paths$svs_vcf           %||% NULL
   svs_tsv           <- paths$svs_tsv           %||% NULL
   svlog_static      <- paths$svlog_static      %||% NULL
   svlog_db          <- paths$svlog_db          %||% NULL
@@ -96,8 +104,17 @@ run_preprocess <- function(config_yaml,
   if (is.null(snvs_vcf) && is.null(svs_vcf)) {
     stop("At least one of paths$snvs_vcf or paths$svs_vcf must be defined.")
   }
-  if (!is.na(snvs_vcf_cohort) && !file.exists(snvs_vcf_cohort)) {
-    stop("snvs_vcf_cohort specified but file not found: ", snvs_vcf_cohort)
+  # Counting carriers from a cohort VCF in R does not scale (a 326-sample
+  # cohort ran out of memory), so only a precomputed count table is accepted.
+  # An empty value is unset and passes, as for every other key.
+  if (!is.null(paths$snvs_vcf_cohort %||% NULL)) {
+    stop("paths$snvs_vcf_cohort is no longer supported. Build a cohort carrier-count ",
+         "table with the script at\n  ",
+         system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp"),
+         "\nand set paths$snvs_cohort_counts to it instead.", call. = FALSE)
+  }
+  if (!is.na(snvs_cohort_counts) && !file.exists(snvs_cohort_counts)) {
+    stop("snvs_cohort_counts specified but file not found: ", snvs_cohort_counts)
   }
 
   result <- list(
@@ -105,7 +122,7 @@ run_preprocess <- function(config_yaml,
     sv_path = NULL,
     snv_dt = NULL,
     sv_dt = NULL,
-    snvs_vcf_cohort = snvs_vcf_cohort,
+    snvs_cohort_counts = snvs_cohort_counts,
     svlog_static = svlog_static,
     svlog_db = svlog_db
   )
@@ -124,15 +141,15 @@ run_preprocess <- function(config_yaml,
       stop("SNV VCF not found: ", snvs_vcf)
     }
     if (verbose) message("[preprocess] SNV: ", snvs_vcf, " -> ", snvs_tsv)
-    if (verbose && !is.na(snvs_vcf_cohort)) {
-      message("[preprocess] SNV cohort VCF: ", snvs_vcf_cohort)
+    if (verbose && !is.na(snvs_cohort_counts)) {
+      message("[preprocess] SNV cohort counts: ", snvs_cohort_counts)
     }
     ensure_parent_dir(snvs_tsv)
     snv_dt <- process_snv_data(
-      snvs_vcf          = snvs_vcf,
-      pedigree_data     = pedigree_data,
-      snvs_vcf_cohort   = snvs_vcf_cohort,
-      snv_field_mapping = snv_field_mapping
+      snvs_vcf           = snvs_vcf,
+      pedigree_data      = pedigree_data,
+      snvs_cohort_counts = snvs_cohort_counts,
+      snv_field_mapping  = snv_field_mapping
     )
 
     # snv_dt <- snv_dt[1:10000, ]

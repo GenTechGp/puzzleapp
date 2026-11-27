@@ -45,7 +45,7 @@ INHERITANCE	Inheritance mode(s) recorded for the gene in PanelApp (e.g. monoalle
 PANEL_APP	PanelApp gene panels selected by the user that include the gene. If the gene appears in multiple panels, all are listed.	PanelApp gene lists	PanelApp colour codes	PuzzleApp		string	string (comma-separated)	yes	0	1
 HPO_COUNT	Number of user-provided HPO terms that are associated with the gene.	3	≥0	PuzzleApp		integer	integer	no	0	1
 HPO_ID	List of user-provided HPO terms that are associated with the gene.	HP:0001250,HP:0004322	HPO IDs	PuzzleApp		string	string (comma-separated)	no	0	1
-N_Cohort	Cohort size/denominator used for a cohort-derived frequency (if available).	NA	integer ≥ 0	PuzzleApp		integer	integer or NA		0	0
+N_Cohort	Number of cohort samples carrying the allele (at least one non-reference allele in GT), from paths.snvs_cohort_counts. NA when no table is given or the allele is not in it.	3	integer ≥ 0	PuzzleApp		integer	integer or NA		0	0
 N_HOM_ALT	Count of homozygous-alt individuals in gnomAD v4.	9824	integer ≥ 0	VEP		integer	integer		0	0
 genomes_N_HOM_ALT	Count of homozygous-alt individuals in the gnomAD v4 genomes callset.	9824	integer ≥ 0	VEP		integer	integer		0	0
 exomes_N_HOM_ALT	Count of homozygous-alt individuals in the gnomAD v4 exomes callset.	9824	integer ≥ 0	VEP	Counts a largely different cohort from genomes, so the two are not interchangeable and should not be summed blindly.	integer	integer		0	0

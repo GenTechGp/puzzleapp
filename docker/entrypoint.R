@@ -3,7 +3,7 @@ suppressPackageStartupMessages(library(puzzleapp))
 
 args <- commandArgs(trailingOnly = TRUE)
 if (length(args) < 1) {
-  stop("Usage: <preprocess|pipeline|webapp> [args...]   (webapp [port] [host])")
+  stop("Usage: <preprocess|pipeline|webapp|cohort-counts> [args...]   (webapp [port] [host])")
 }
 subcommand <- args[1]
 rest <- args[-1]
@@ -28,5 +28,14 @@ switch(subcommand,
     host <- if (length(rest) >= 2) rest[2] else "0.0.0.0"
     run_app(port = port, host = host)
   },
-  stop("Unknown subcommand: ", subcommand, ". Expected one of: preprocess, pipeline, webapp")
+  "cohort-counts" = {
+    # Builds the paths$snvs_cohort_counts table from a cohort VCF with bcftools
+    if (length(rest) < 2 || length(rest) > 3) {
+      stop("Usage: cohort-counts <cohort.vcf.gz> <out.tsv.gz> [threads]")
+    }
+    script <- system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp")
+    quit(status = system2("bash", shQuote(c(script, rest))), save = "no")
+  },
+  stop("Unknown subcommand: ", subcommand,
+       ". Expected one of: preprocess, pipeline, webapp, cohort-counts")
 )

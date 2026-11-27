@@ -19,7 +19,7 @@ $snv_path (written SNV TSV or NULL),
 $sv_path (written SV TSV or NULL),
 $snv_dt (data.table or NULL),
 $sv_dt (data.table or NULL),
-$snvs_vcf_cohort (cohort VCF path or NA)
+$snvs_cohort_counts (cohort carrier-count table path or NA)
 }
 \description{
 This function:
@@ -27,7 +27,8 @@ This function:
 \item Reads a pipeline YAML file.
 \item If paths$snvs_vcf and paths$snvs_tsv are present, runs SNV preprocessing and writes to paths$snvs_tsv.
 \item If paths$svs_vcf and paths$svs_tsv are present, runs SV preprocessing and writes to paths$svs_tsv.
-\item Optionally uses paths$snvs_vcf_cohort for cohort carrier counts (passed to process_snv_data).
+\item Optionally adds N_Cohort from paths$snvs_cohort_counts, a precomputed
+cohort carrier-count table (passed to process_snv_data).
 \item Does NOT modify or rewrite the YAML file.
 }
 }
@@ -36,7 +37,7 @@ Expected YAML structure (minimum):
 paths:
 snvs_vcf: /abs/path/to/input.snvs.vcf.gz            # optional (for SNV)
 snvs_tsv: /abs/path/to/output_snv.tsv               # required if snvs_vcf given
-snvs_vcf_cohort: /abs/path/to/cohort.snvs.vcf.gz    # optional (enables N_Cohort)
+snvs_cohort_counts: /abs/path/to/cohort_counts.tsv.gz  # optional (enables N_Cohort)
 svs_vcf:  /abs/path/to/input.svs.vcf.gz             # optional (for SV)
 svs_tsv:  /abs/path/to/output_sv.tsv                # required if svs_vcf given
 svlog_static: /abs/path/to/svlog_static.tsv         # optional (SVlog static)
@@ -44,6 +45,13 @@ svlog_db:     /abs/path/to/svlog_db.tsv             # optional (SVlog database)
 
 snvs_tsv and svs_tsv may instead end in .tsv.gz; fwrite() will compress the
 output and fread() will decompress it transparently on read, saving disk space.
+
+snvs_cohort_counts is a tab-separated table (.tsv or .tsv.gz) with a header
+holding CHROM, POS, REF, ALT and N_Cohort, one row per allele. Build it from a
+cohort VCF with the script at
+system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp").
+The former key snvs_vcf_cohort is no longer supported and stops with an error.
+
 samples:
 \itemize{
 \item sample_id: SAMPLE1

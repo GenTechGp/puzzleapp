@@ -53,9 +53,8 @@ docker pull ghcr.io/gentechgp/puzzleapp:latest
 Pin a specific released version instead of `latest` by tag, e.g.
 `ghcr.io/gentechgp/puzzleapp:0.2.3`.
 
-The image dispatches on the first argument to one of three subcommands, each
-wrapping the R function of the same shape documented elsewhere in this
-README. Mount your data directory (and use the same path inside the
+The image dispatches on the first argument to one of four subcommands, each
+wrapping a step documented elsewhere in this README. Mount your data directory (and use the same path inside the
 container as on the host) so paths inside your YAML configs resolve.
 
 ### Web app
@@ -100,6 +99,17 @@ docker run --rm -v /path/to/data:/path/to/data \
 
 `output_dir` is optional (defaults to `pipeline_output`) — pass an absolute
 path under your mount so the output lands somewhere visible on the host.
+
+### Cohort counts
+
+Builds the [cohort carrier-count table](#cohort-carrier-counts-n_cohort) for
+`paths.snvs_cohort_counts` from a cohort VCF, with the bcftools in the image:
+
+``` bash
+docker run --rm -v /path/to/data:/path/to/data \
+  ghcr.io/gentechgp/puzzleapp:latest cohort-counts \
+  /path/to/data/cohort.vcf.gz /path/to/data/cohort_counts.tsv.gz 4
+```
 
 # For NCI Gadi if89 users
 
@@ -312,6 +322,42 @@ samples:
 ```
 
 `snvs_tsv`/`svs_tsv` may end in `.tsv` or `.tsv.gz` — `run_preprocess()` writes a gzip-compressed file automatically when the path ends in `.gz`, and puzzleapp reads either transparently, so compressing the output TSVs is a safe way to save disk space.
+
+### Cohort carrier counts (`N_Cohort`)
+
+The SNV table's `N_Cohort` column is the number of samples in a cohort that carry each allele. To fill it, build a carrier-count table from the cohort VCF once, then point every sample's config at it:
+
+```yaml
+paths:
+  snvs_cohort_counts: /path/to/cohort_counts.tsv.gz   # optional
+```
+
+Without it, `N_Cohort` is `NA`. The table is tab-separated, plain or gzip/bgzip-compressed, with a header and one row per allele:
+
+| Column | Content |
+|---|---|
+| `CHROM`, `POS`, `REF`, `ALT` | the allele, matched exactly against the sample's SNV records |
+| `N_Cohort` | samples with at least one copy of the allele in `GT` (het, hom-alt, haploid, or a half-call such as `./1`) |
+
+Other columns are ignored. Preprocessing stops if a column is missing, a count is not a whole number, or an allele appears twice. Sample records with no row in the table get `N_Cohort = NA`, and the log reports how many matched.
+
+Build the table with bcftools, using the script shipped with puzzleapp. It splits multi-allelic sites and keeps only `GT`, so it streams in constant memory at any cohort size (a 326-sample, 50M-record cohort took 15 minutes on 4 CPUs). If the same allele appears in more than one record, as can happen in a merged cohort VCF where left-alignment moves one record onto another's allele, the script writes it once and counts each sample once across those records. The earlier (until v0.2.5) `snvs_vcf_cohort` method added those records' counts together, so a sample carrying the allele in two records was counted twice.
+
+```bash
+# Gadi module (bcftools is included; for Docker see "Cohort counts" under Docker)
+puzzleapp cohort-counts /path/to/cohort.vcf.gz /path/to/cohort_counts.tsv.gz 4
+
+# or with your own bcftools and bgzip on PATH (tested with bcftools 1.19-1.25)
+bash $(Rscript -e 'cat(system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp"))') \
+  /path/to/cohort.vcf.gz /path/to/cohort_counts.tsv.gz 4
+```
+
+The last argument is the number of threads (default 4). The counts only match records that were split and normalised the same way, so:
+
+- split the sample VCF too (`bcftools norm -m -any`); otherwise its multi-allelic records get `N_Cohort = NA`
+- use the same reference and chromosome naming (`chr1` vs `1`) for both VCFs; if nothing matches, preprocessing warns
+
+`paths.snvs_vcf_cohort` (counting directly from a cohort VCF) is no longer supported, because it ran out of memory on large cohorts. Preprocessing stops if it is set; build a counts table instead.
 
 ### VCF field mapping
 

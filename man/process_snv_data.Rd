@@ -7,7 +7,7 @@
 process_snv_data(
   snvs_vcf,
   pedigree_data,
-  snvs_vcf_cohort = NA,
+  snvs_cohort_counts = NA,
   snv_field_mapping = NULL
 )
 }
@@ -16,7 +16,8 @@ process_snv_data(
 
 \item{pedigree_data}{data.table with columns sample_id, kinship}
 
-\item{snvs_vcf_cohort}{Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)}
+\item{snvs_cohort_counts}{Optional cohort carrier-count table (.tsv or
+.tsv.gz) for N_Cohort (default NA); see \code{read_cohort_counts()}}
 
 \item{snv_field_mapping}{Optional path to user SNV field-mapping override TSV}
 }

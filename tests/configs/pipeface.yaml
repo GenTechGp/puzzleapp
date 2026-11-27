@@ -30,7 +30,7 @@ samples:
 paths:
   snvs_vcf: "tests/preprocess/pipeface.vcf.gz"
   snvs_tsv: "tests/preprocess/pipeface.snvs.tsv"
-  snvs_vcf_cohort: ""
+  snvs_cohort_counts: ""
   svs_vcf: ""
   svs_tsv: ""
 

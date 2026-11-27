@@ -18,12 +18,12 @@ utils::globalVariables(c(
   "SpliceAI_pred_DS_DG", "SpliceAI_pred_DS_AL", "SpliceAI_pred_DS_AG",
   "SpliceAI_pred_DP_AG", "SpliceAI_pred_DP_AL", "SpliceAI_pred_DP_DG",
   "SpliceAI_pred_DP_DL", "GNOMADv4", "AF", "gnomAD_AF_joint",
-  "gnomAD_ID", "ClinVar", "CLINVAR_ID", "N_Cohort", "fam", "QUAL",
+  "gnomAD_ID", "ClinVar", "CLINVAR_ID", "N_Cohort", "i.N_Cohort", "fam", "QUAL",
   "FILTER", "Gene", "SYMBOL", "Feature", "HGVSg", "HGVSc", "HGVSp",
   "Consequence", "CLIN_SIG", "gnomAD_nhomalt_joint", "SIFT",
   "PolyPhen", "REVEL", "am_class", "am_pathogenicity", "CADD_PHRED",
-  "CADD_RAW", "CLINVAR", "Genotype", "VariantIndex", "GT",
-  "AlleleCount", "SVTYPE", "SVLEN", "gnomAD_sv_AF", "gnomAD_sv",
+  "CADD_RAW", "CLINVAR", "GT",
+  "SVTYPE", "SVLEN", "gnomAD_sv_AF", "gnomAD_sv",
   "gnomAD_sv_N_HOMALT", "IDLIST", "IDLIST_VEC", "VEP_CONSEQUENCE", "VAR_TYPE", "CATEGORY",
 
 

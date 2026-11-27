@@ -227,35 +227,86 @@ ensure_sample_columns <- function(dt, cols, value) {
 }
 
 # -------------------------------------------------------------------------
-# Internal helpers shared with v1 (re-exported here so v2 is self-contained)
+# Cohort carrier counts
 # -------------------------------------------------------------------------
 
-read_vcf_long <- function(vcf_path) {
-  vcf <- data.table::fread(cmd = paste("zcat", vcf_path),
-                           sep = "\t", skip = "#CHROM", header = TRUE)
-  header <- data.table::fread(cmd = paste("zgrep ^#CHROM", vcf_path),
-                              sep = "\t", header = FALSE)
-  data.table::setnames(vcf, sub("^#", "", unlist(header[1, ])))
+#' Read a cohort carrier-count table
+#'
+#' Reads the table given as \code{paths$snvs_cohort_counts}: tab-separated, with
+#' a header holding at least CHROM, POS, REF, ALT and N_Cohort (other columns
+#' are ignored). Plain or gzip/bgzip-compressed. N_Cohort is the number of
+#' cohort samples carrying the allele. Build it with
+#' \code{system.file("scripts", "make_cohort_counts.sh", package = "puzzleapp")}.
+#'
+#' @param path Path to the table (.tsv or .tsv.gz)
+#' @return data.table with columns CHROM, POS, REF, ALT, N_Cohort (integer)
+#' @keywords internal
+read_cohort_counts <- function(path) {
+  if (!file.exists(path)) stop("snvs_cohort_counts file not found: ", path)
 
-  fixed_cols <- c("CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT")
-  sample_cols <- setdiff(names(vcf), fixed_cols)
+  required <- c("CHROM", "POS", "REF", "ALT", "N_Cohort")
+  src <- if (grepl("\\.gz$", path)) list(cmd = decompress_cmd(path)) else list(file = path)
+  read <- function(...) do.call(data.table::fread, c(src, list(sep = "\t", header = TRUE, ...)))
 
-  data.table::melt(vcf, id.vars = fixed_cols, measure.vars = sample_cols,
-                   variable.name = "Sample", value.name = "Genotype")
+  missing_cols <- setdiff(required, names(read(nrows = 0)))
+  if (length(missing_cols)) {
+    stop("snvs_cohort_counts is missing column(s) ", paste(missing_cols, collapse = ", "),
+         ": ", path, ". Expected a tab-separated header with ",
+         paste(required, collapse = ", "), ".")
+  }
+
+  counts <- read(select = required,
+                 colClasses = list(character = c("CHROM", "REF", "ALT")))
+
+  for (col in c("POS", "N_Cohort")) {
+    v <- counts[[col]]
+    bad <- if (is.numeric(v)) is.na(v) | v < 0 | v != round(v) else rep(TRUE, length(v))
+    if (any(bad)) {
+      stop("snvs_cohort_counts column ", col, " must hold whole numbers >= 0 (",
+           sum(bad), " row(s) do not, first: ", v[which(bad)[1]], "): ", path)
+    }
+    data.table::set(counts, j = col, value = as.integer(v))
+  }
+
+  # A repeated allele would duplicate the sample's rows in the join
+  dup <- anyDuplicated(counts, by = c("CHROM", "POS", "REF", "ALT"))
+  if (dup) {
+    stop("snvs_cohort_counts has more than one row for ",
+         paste(counts[dup, c(CHROM, POS, REF, ALT)], collapse = " "),
+         ": ", path, ". Expected one row per allele: rebuild the table with ",
+         "make_cohort_counts.sh (see paths$snvs_cohort_counts in ?run_preprocess), ",
+         "which merges alleles found in more than one record.")
+  }
+  counts
 }
 
-process_snv_vcf <- function(vcf_long) {
-  vcf_long <- vcf_long[!grepl("^\\./\\.", Genotype)]
-  vcf_long[, VariantID := paste(CHROM, POS, REF, ALT, sep = "_")]
-  vcf_long[, VariantIndex := seq_len(.N), by = VariantID]
-  vcf_long[, Sample := sub("^[0-9]+_", "", Sample)]
-  vcf_long[, GT := tstrsplit(Genotype, ":", fixed = TRUE)[[1]]]
-  vcf_long[, AlleleCount := vapply(strsplit(GT, "[/|]"),
-                                   function(x) sum(x != "." & x != "0"),
-                                   integer(1))]
-  final <- vcf_long[AlleleCount > 0,
-                    .(CHROM, POS, VariantID, Sample, Genotype, GT, AlleleCount, VariantIndex)]
-  merge(final, final[, .(N_Cohort = .N), by = VariantID], by = "VariantID", all.x = TRUE)
+#' Add N_Cohort to SNV records from a cohort carrier-count table
+#'
+#' Joins on exact CHROM, POS, REF and ALT, so both the sample VCF and the
+#' cohort table must be split per allele and normalised the same way. A
+#' record with no row in the table gets N_Cohort = NA.
+#'
+#' @param dt    SNV data.table with CHROM, POS, REF, ALT; modified in place
+#' @param path  Path to the carrier-count table, or NA for none
+#' @return dt, invisibly
+#' @keywords internal
+add_cohort_counts <- function(dt, path) {
+  dt[, N_Cohort := NA_integer_]
+  if (is.na(path)) return(invisible(dt))
+
+  cat("Reading cohort carrier counts:", path, "\n")
+  counts <- read_cohort_counts(path)
+  dt[counts, on = c("CHROM", "POS", "REF", "ALT"), N_Cohort := i.N_Cohort]
+
+  n_hit <- sum(!is.na(dt$N_Cohort))
+  cat(sprintf("N_Cohort matched for %d/%d records (%.1f%%)\n",
+              n_hit, nrow(dt), 100 * n_hit / max(nrow(dt), 1)))
+  if (!n_hit && nrow(dt)) {
+    warning("No SNV records matched snvs_cohort_counts (", path, "). Check that CHROM ",
+            "names match (chr1 vs 1) and that both were split and normalised the same way.",
+            call. = FALSE)
+  }
+  invisible(dt)
 }
 
 # -------------------------------------------------------------------------
@@ -266,13 +317,14 @@ process_snv_vcf <- function(vcf_long) {
 #'
 #' @param snvs_vcf          Path to gzipped SNV/indel VCF (.vcf.gz)
 #' @param pedigree_data     data.table with columns sample_id, kinship
-#' @param snvs_vcf_cohort   Optional cohort VCF (.vcf.gz) for N_Cohort (default NA)
+#' @param snvs_cohort_counts Optional cohort carrier-count table (.tsv or
+#'   .tsv.gz) for N_Cohort (default NA); see \code{read_cohort_counts()}
 #' @param snv_field_mapping Optional path to user SNV field-mapping override TSV
 #' @return data.table
 #' @export
 process_snv_data <- function(snvs_vcf, pedigree_data,
-                                 snvs_vcf_cohort   = NA,
-                                 snv_field_mapping = NULL) {
+                                 snvs_cohort_counts = NA,
+                                 snv_field_mapping  = NULL) {
   cat("Processing SNV VCF:", snvs_vcf, "\n")
   if (!file.exists(snvs_vcf)) stop("SNV VCF file not found: ", snvs_vcf)
 
@@ -505,14 +557,7 @@ process_snv_data <- function(snvs_vcf, pedigree_data,
   }
 
   # --- Cohort counts -------------------------------------------------------
-  if (is.na(snvs_vcf_cohort)) {
-    snvs_data_melt[, N_Cohort := NA_integer_]
-  } else {
-    snv_vcf_long <- read_vcf_long(snvs_vcf_cohort)
-    final_snv    <- process_snv_vcf(snv_vcf_long)
-    cohort_counts <- unique(final_snv[, .(VariantID, N_Cohort)])
-    snvs_data_melt <- merge(snvs_data_melt, cohort_counts, by = "VariantID", all.x = TRUE)
-  }
+  add_cohort_counts(snvs_data_melt, snvs_cohort_counts)
 
   # --- Ensure all expected output columns exist ----------------------------
   required_csq_out <- c("GENE_ID", "GENE_SYMBOL", "TRANSCRIPT", "HGVSg", "HGVSc", "HGVSp",
@@ -872,6 +917,19 @@ process_sv_data <- function(svs_vcf, pedigree_data,
 # VCF reader + CSQ normaliser (shared by SNV and SV paths)
 # -------------------------------------------------------------------------
 
+#' Shell command that decompresses a gzipped file to stdout
+#'
+#' bgzip decompresses plain gzip as well as BGZF, and multithreaded; several
+#' times faster than gunzip on a whole-genome VCF. Falls back to gunzip.
+#'
+#' @param path Path to a .gz file
+#' @return Command string for \code{data.table::fread(cmd = )}
+#' @keywords internal
+decompress_cmd <- function(path) {
+  tool <- if (nzchar(Sys.which("bgzip"))) "bgzip -dc -@ 4" else "gunzip -c"
+  paste(tool, shQuote(path))
+}
+
 #' Read the ## meta-information lines of a gzipped VCF.
 #'
 #' Stops at the first line that does not start with "##" (the #CHROM line), so
@@ -911,11 +969,8 @@ read_and_normalise_vcf <- function(vcf_path) {
     stop("VCF file not found: ", vcf_path)
   }
 
-  # bgzip decompresses plain gzip as well as BGZF, and multithreaded; several
-  # times faster than gunzip on a whole-genome VCF
-  decompress <- if (nzchar(Sys.which("bgzip"))) "bgzip -dc -@ 4" else "gunzip -c"
   vcf_data <- data.table::fread(
-    cmd    = paste(decompress, shQuote(vcf_path)),
+    cmd    = decompress_cmd(vcf_path),
     sep    = "\t",
     skip   = "#CHROM",
     header = TRUE

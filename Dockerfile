@@ -13,6 +13,28 @@ RUN mkdir /tmp/src \
     && R CMD INSTALL /tmp/puzzleapp_*.tar.gz \
     && rm -rf /tmp/src /tmp/puzzleapp_*.tar.gz
 
+# htslib (bgzip, tabix) and bcftools from source: Ubuntu 24.04 packages 1.19.
+# Built on the runtime base so the shared libraries they link against match.
+# Installed under /usr/local, where bcftools looks for its plugins by default.
+FROM rocker/r-ver:4.4.2 AS htstools
+ARG HTS_VERSION=1.25
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential ca-certificates curl bzip2 \
+      zlib1g-dev libbz2-dev liblzma-dev libcurl4-openssl-dev libssl-dev libdeflate-dev \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /tmp/build
+RUN for tool in htslib bcftools; do \
+      curl -fsSL "https://github.com/samtools/${tool}/releases/download/${HTS_VERSION}/${tool}-${HTS_VERSION}.tar.bz2" \
+        | tar -xj \
+      && (cd "${tool}-${HTS_VERSION}" \
+          && ./configure --prefix=/usr/local \
+               $( [ "$tool" = bcftools ] && echo "--with-htslib=/tmp/build/htslib-${HTS_VERSION}" ) \
+          && make -j"$(nproc)" && make install) \
+      || exit 1; \
+    done \
+    && bcftools --version | head -2 \
+    && bcftools plugin -l | grep -qx fill-tags
+
 # Same Ubuntu 24.04 / R 4.4.2 lineage as the builder (bioconductor_docker is
 # itself built on rocker/rstudio, which derives from rocker/r-ver), without
 # the compiler/TeX/build toolchain baked into the builder image.
@@ -23,10 +45,7 @@ FROM rocker/r-ver:4.4.2
 # List derived by running `ldd` over every .so under the builder's
 # site-library and resolving each library to its owning package with
 # `dpkg -S`, rather than guessed.
-# tabix provides bgzip, which preprocessing uses for multithreaded VCF
-# decompression; without it read_and_normalise_vcf() falls back to gunzip.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      tabix \
       libopenblas0-pthread libbrotli1 libbz2-1.0 libcares2 libcom-err2 \
       libssl3t64 libcurl3t64-gnutls libcurl4t64 libdeflate0 libexpat1 libffi8 \
       libfontconfig1 libfreetype6 libfribidi0 libgcc-s1 libgfortran5 \
@@ -38,6 +57,15 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libsasl2-2 libsharpyuv0 libssh-4 libstdc++6 libtasn1-6 libtiff6 \
       libunistring5 libuv1t64 libwebp7 libxml2 zlib1g libzstd1 \
     && rm -rf /var/lib/apt/lists/*
+
+# bgzip: multithreaded VCF decompression in preprocessing (without it
+# read_and_normalise_vcf() falls back to gunzip). bcftools + plugins: the
+# cohort-counts subcommand (inst/scripts/make_cohort_counts.sh), which builds
+# the paths$snvs_cohort_counts table. Only these paths are copied: R itself
+# lives under /usr/local/lib.
+COPY --from=htstools /usr/local/bin/bgzip /usr/local/bin/tabix /usr/local/bin/htsfile \
+                     /usr/local/bin/bcftools /usr/local/bin/
+COPY --from=htstools /usr/local/libexec/bcftools /usr/local/libexec/bcftools
 
 COPY --from=builder /usr/local/lib/R/site-library /usr/local/lib/R/site-library
 COPY docker/entrypoint.R /usr/local/bin/puzzleapp-entrypoint.R
